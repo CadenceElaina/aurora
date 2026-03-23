@@ -127,7 +127,17 @@ export function ProblemsTable({
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Title</th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Difficulty</th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Category</th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  Status
+                  <span
+                    className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full border border-muted-foreground/40 text-[9px] text-muted-foreground cursor-default"
+                    title="Retention (R) = how well you remember this problem based on time elapsed since your last review and your stability score. Strong ≥ 80% · Good ≥ 60% · Fading ≥ 40% · Weak ≥ 20% · Critical &lt; 20%"
+                  >
+                    i
+                  </span>
+                </span>
+              </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Last</th>
             </tr>
           </thead>

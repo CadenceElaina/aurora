@@ -182,6 +182,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [listMode, setListMode] = useState<ListMode>("review");
   const [reviewSort, setReviewSort] = useState<ReviewSort>("overdue");
   const [newSort, setNewSort] = useState<NewSort>("curriculum");
+  const [queueSearch, setQueueSearch] = useState("");
 
   // Load saved settings from localStorage
   useEffect(() => {
@@ -250,6 +251,22 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     return q;
   }, [data.newProblems, newSort]);
 
+  const filteredReviewQueue = useMemo(() => {
+    if (!queueSearch.trim()) return sortedReviewQueue;
+    const s = queueSearch.toLowerCase();
+    return sortedReviewQueue.filter(
+      (item) => item.title.toLowerCase().includes(s) || String(item.leetcodeNumber ?? "").includes(s),
+    );
+  }, [sortedReviewQueue, queueSearch]);
+
+  const filteredNewProblems = useMemo(() => {
+    if (!queueSearch.trim()) return sortedNewProblems;
+    const s = queueSearch.toLowerCase();
+    return sortedNewProblems.filter(
+      (p) => p.title.toLowerCase().includes(s) || String(p.leetcodeNumber ?? "").includes(s),
+    );
+  }, [sortedNewProblems, queueSearch]);
+
   return (
     <div className="flex flex-col gap-4 h-[calc(100dvh-120px)]">
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 flex-1 min-h-0 lg:grid-rows-1">
@@ -260,7 +277,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           <div className="flex items-center justify-between mb-3 shrink-0">
             <div className="flex gap-0.5 rounded-md border border-border p-0.5">
               <button
-                onClick={() => setListMode("review")}
+                onClick={() => { setListMode("review"); setQueueSearch(""); }}
                 className={`text-sm px-3 py-1 rounded transition-colors ${listMode === "review" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
               >
                 Due for Review
@@ -271,7 +288,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                 )}
               </button>
               <button
-                onClick={() => setListMode("new")}
+                onClick={() => { setListMode("new"); setQueueSearch(""); }}
                 className={`text-sm px-3 py-1 rounded transition-colors ${listMode === "new" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
               >
                 New Problems
@@ -282,7 +299,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                 )}
               </button>
               <button
-                onClick={() => setListMode("import")}
+                onClick={() => { setListMode("import"); setQueueSearch(""); }}
                 className={`text-sm px-3 py-1 rounded transition-colors ${listMode === "import" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
               >
                 Import
@@ -291,7 +308,15 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
             {/* Sort controls — context-sensitive */}
             {listMode === "review" && data.reviewQueue.length > 0 && (
-              <div className="flex gap-1 rounded-md border border-border p-0.5">
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={queueSearch}
+                  onChange={(e) => setQueueSearch(e.target.value)}
+                  placeholder="Filter…"
+                  className="h-7 w-28 rounded border border-border bg-background px-2 text-xs placeholder:text-muted-foreground focus:outline-none"
+                />
+                <div className="flex gap-1 rounded-md border border-border p-0.5">
                 {(["overdue", "difficulty", "category"] as ReviewSort[]).map((s) => (
                   <button
                     key={s}
@@ -301,10 +326,18 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                     {s === "overdue" ? "Oldest" : s === "difficulty" ? "Hardest" : "Category"}
                   </button>
                 ))}
+                </div>
               </div>
             )}
             {listMode === "new" && data.newProblems.length > 0 && (
               <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={queueSearch}
+                  onChange={(e) => setQueueSearch(e.target.value)}
+                  placeholder="Filter…"
+                  className="h-7 w-28 rounded border border-border bg-background px-2 text-xs placeholder:text-muted-foreground focus:outline-none"
+                />
                 <Link href="/problems" className="text-xs text-accent hover:underline shrink-0">
                   Browse all →
                 </Link>
@@ -335,7 +368,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             ) : (
               <div className="rounded-lg border border-border overflow-hidden flex-1 flex flex-col min-h-0">
                 <div className="overflow-y-auto flex-1 min-h-0">
-                  {sortedReviewQueue.map((item) => {
+                  {filteredReviewQueue.map((item) => {
                     const prio = priorityLevel(item);
                     return (
                       <div
@@ -381,7 +414,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             ) : (
               <div className="rounded-lg border border-border overflow-hidden flex-1 flex flex-col min-h-0">
                 <div className="overflow-y-auto flex-1 min-h-0">
-                  {sortedNewProblems.map((p) => (
+                  {filteredNewProblems.map((p) => (
                     <div
                       key={p.id}
                       className="flex items-center gap-3 px-3 py-2.5 border-b border-border last:border-b-0 hover:bg-muted transition-colors duration-150"

@@ -16,7 +16,7 @@ type DbProblem = {
 };
 
 type Outcome = "SOLVED" | "PARTIAL" | "NO_SOLUTION";
-type Quality = "OPTIMAL" | "SUBOPTIMAL" | "BRUTE_FORCE";
+type Quality = "OPTIMAL" | "BRUTE_FORCE";
 
 type ImportAttempt = {
   id: string;
@@ -325,19 +325,16 @@ export function ImportClient({ allProblems, attemptedIds, onDone, embedded }: Pr
 
     setSubmittedCount((c) => c + count);
     // Transition to done if no errors remain
-    setAttempts((prev) => {
-      const hasErrors = prev
-        .filter((a) => !a.deleted)
-        .some((a) => a.submitStatus === "error");
-      if (!hasErrors) {
-        if (onDone) {
-          onDone();
-        } else {
-          setStep("done");
-        }
+    const stillHasErrors = attempts
+      .filter((a) => !a.deleted && a.submitStatus !== "done")
+      .some((a) => a.submitStatus === "error");
+    if (!stillHasErrors && count > 0) {
+      if (onDone) {
+        onDone();
+      } else {
+        setStep("done");
       }
-      return prev;
-    });
+    }
   }
 
   /* ── Paste step ── */
@@ -630,7 +627,7 @@ function AttemptCard({ attempt, onUpdate, onDelete }: CardProps) {
           {showComplexity && (
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-muted-foreground w-16 shrink-0">Quality:</span>
-              {(["OPTIMAL", "SUBOPTIMAL", "BRUTE_FORCE"] as Quality[]).map(
+              {(["OPTIMAL", "BRUTE_FORCE"] as Quality[]).map(
                 (q) => (
                   <button
                     key={q}
@@ -641,11 +638,7 @@ function AttemptCard({ attempt, onUpdate, onDelete }: CardProps) {
                         : "border-border text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    {q === "OPTIMAL"
-                      ? "Optimal"
-                      : q === "SUBOPTIMAL"
-                        ? "Suboptimal"
-                        : "Brute Force"}
+                    {q === "OPTIMAL" ? "Optimal" : "Not Optimal"}
                   </button>
                 ),
               )}
