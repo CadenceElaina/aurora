@@ -263,10 +263,10 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   }, [sortedNewProblems, queueSearch]);
 
   return (
-    <div className="flex flex-col gap-4 h-[calc(100dvh-120px)]">
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 flex-1 min-h-0 lg:grid-rows-1">
+    <div className="h-[calc(100dvh-120px)]">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 h-full min-h-0 lg:grid-rows-1">
       {/* ── Combined Problem Queue ── */}
-      <div className="flex flex-col min-h-0 lg:col-span-5">
+      <div className="flex flex-col min-h-0 lg:col-span-6">
         <section className="flex flex-col flex-1 min-h-0">
           {/* Tab header — row 1: tabs + search/browse always visible */}
           <div className="flex flex-col gap-1.5 mb-2 shrink-0">
@@ -458,7 +458,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       </div>
 
       {/* ── Right Column ── */}
-      <div className="space-y-4 lg:col-span-7 overflow-y-auto min-h-0">
+      <div className="space-y-4 lg:col-span-6 overflow-y-auto min-h-0">
         {/* Countdown */}
         <section className="rounded-lg border border-border bg-muted p-4">
           <div className="flex items-center justify-between mb-2">
@@ -501,6 +501,33 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             )}
           </div>
 
+          {/* Readiness / Streak / Avg stats */}
+          <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-border/50">
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1 mb-0.5">
+                <span className={`inline-flex h-6 w-6 items-center justify-center rounded text-[11px] font-bold ${TIER_COLORS[data.readiness.tier]}`}>
+                  {data.readiness.tier}
+                </span>
+              </div>
+              <p className="text-sm font-semibold tabular-nums">{data.readiness.score}</p>
+              <p className="text-[11px] text-muted-foreground">Readiness</p>
+            </div>
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1 mb-0.5">
+                <span className="text-sm leading-none">🔥</span>
+                <p className="text-sm font-semibold tabular-nums">{data.currentStreak}</p>
+              </div>
+              {data.bestStreak > data.currentStreak && (
+                <p className="text-[11px] text-muted-foreground">Best: {data.bestStreak}</p>
+              )}
+              <p className="text-[11px] text-muted-foreground">Day Streak</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-semibold tabular-nums">{data.avgPerDay.toFixed(1)}</p>
+              <p className="text-[11px] text-muted-foreground">Avg / Day</p>
+            </div>
+          </div>
+
           {/* Settings */}
           {showSettings && (
             <SettingsPanel
@@ -512,47 +539,10 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           )}
         </section>
 
-        {/* Quick Stats Row */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-lg border border-border bg-muted p-3 text-center">
-            <div className="flex items-center justify-center gap-1">
-              <span className={`inline-flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold ${TIER_COLORS[data.readiness.tier]}`}>
-                {data.readiness.tier}
-              </span>
-            </div>
-            <p className="mt-1 text-lg font-semibold tabular-nums">{data.readiness.score}</p>
-            <p className="text-xs text-muted-foreground">Readiness</p>
-          </div>
-          <div className="rounded-lg border border-border bg-muted p-3 text-center">
-            <div className="flex items-center justify-center gap-1">
-              <span className="text-base leading-none">🔥</span>
-              <p className="text-lg font-semibold tabular-nums">{data.currentStreak}</p>
-            </div>
-            <p className="text-xs text-muted-foreground">Day Streak</p>
-            {data.bestStreak > data.currentStreak && (
-              <p className="text-xs text-muted-foreground">Best: {data.bestStreak}</p>
-            )}
-          </div>
-          <div className="rounded-lg border border-border bg-muted p-3 text-center">
-            <p className="text-lg font-semibold tabular-nums">{data.avgPerDay.toFixed(1)}</p>
-            <p className="text-xs text-muted-foreground">Avg / Day</p>
-          </div>
-        </div>
 
-        {/* Stats row: Coverage + Retained + Solve Time */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-lg border border-border bg-muted p-3">
-            <p className="text-xs text-muted-foreground">Coverage</p>
-            <p className="text-base font-semibold tabular-nums">
-              {data.attemptedCount}<span className="text-xs text-muted-foreground"> / {data.totalProblems}</span>
-            </p>
-            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-background">
-              <div
-                className="h-full rounded-full bg-accent"
-                style={{ width: `${Math.round((data.attemptedCount / data.totalProblems) * 100)}%` }}
-              />
-            </div>
-          </div>
+
+        {/* Stats row: Retained + Solve Time */}
+        <div className="grid grid-cols-2 gap-3">
           <div className="rounded-lg border border-border bg-muted p-3">
             <p className="text-xs text-muted-foreground">Retained</p>
             <p className="text-base font-semibold tabular-nums">
@@ -613,38 +603,32 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           </div>
         </section>
 
-      </div>
-    </div>
+        {/* Activity Chart */}
+        <section className="rounded-lg border border-border bg-muted p-4 shrink-0">
+          <p className="text-xs font-medium text-muted-foreground mb-3">Activity (14 days)</p>
+          <ActivityChart history={data.attemptHistory} />
+        </section>
 
-    {/* ── Bottom Analytics Row ── */}
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 shrink-0">
-
-      {/* Activity Chart */}
-      <section className="rounded-lg border border-border bg-muted p-4">
-        <p className="text-xs font-medium text-muted-foreground mb-3">Activity (14 days)</p>
-        <ActivityChart history={data.attemptHistory} />
-      </section>
-
-      {/* Difficulty Progress */}
-      <section className="rounded-lg border border-border bg-muted p-4">
-        <p className="text-xs font-medium text-muted-foreground mb-3">Difficulty</p>
-        <div className="space-y-3">
-          {data.difficultyBreakdown.map((d) => {
-            const pct = d.count > 0 ? Math.round((d.attempted / d.count) * 100) : 0;
-            return (
-              <div key={d.difficulty} className="flex items-center gap-3">
-                <span className="text-xs w-14 shrink-0">{d.difficulty}</span>
-                <div className="flex-1 h-2 overflow-hidden rounded-full bg-background">
-                  <div className={`h-full rounded-full ${DIFF_COLORS[d.difficulty]}`} style={{ width: `${pct}%` }} />
+        {/* Difficulty Progress */}
+        <section className="rounded-lg border border-border bg-muted p-4 shrink-0">
+          <p className="text-xs font-medium text-muted-foreground mb-3">Difficulty</p>
+          <div className="space-y-3">
+            {data.difficultyBreakdown.map((d) => {
+              const pct = d.count > 0 ? Math.round((d.attempted / d.count) * 100) : 0;
+              return (
+                <div key={d.difficulty} className="flex items-center gap-3">
+                  <span className="text-xs w-14 shrink-0">{d.difficulty}</span>
+                  <div className="flex-1 h-2 overflow-hidden rounded-full bg-background">
+                    <div className={`h-full rounded-full ${DIFF_COLORS[d.difficulty]}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-xs text-muted-foreground w-12 text-right">{d.attempted}/{d.count}</span>
                 </div>
-                <span className="text-xs text-muted-foreground w-12 text-right">{d.attempted}/{d.count}</span>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+              );
+            })}
+          </div>
+        </section>
 
-
+      </div>
     </div>
     </div>
   );
