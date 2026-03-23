@@ -238,6 +238,16 @@ export default async function DashboardPage() {
         totalStudyMinutes: Number(timeRows[0]?.totalStudy ?? 0),
         avgSolveMinutes: Number(timeRows[0]?.avgSolve ?? 0),
         avgConfidence: Number(timeRows[0]?.avgConfidence ?? 0),
+        importProblems: allProblems.map((p) => ({
+          id: p.id,
+          title: p.title,
+          leetcodeNumber: p.leetcodeNumber,
+          difficulty: p.difficulty as "Easy" | "Medium" | "Hard",
+          category: p.category,
+          optimalTimeComplexity: p.optimalTimeComplexity,
+          optimalSpaceComplexity: p.optimalSpaceComplexity,
+        })),
+        importAttemptedIds: [...attemptedIds],
       }}
     />
   );

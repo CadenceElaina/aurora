@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { DifficultyBadge } from "@/components/difficulty-badge";
+import { ImportClient } from "@/app/import/import-client";
 
 /* ── Types ── */
 
@@ -19,7 +20,7 @@ type ReviewItem = {
   lastReviewedAt: string | null;
 };
 
-type ListMode = "review" | "new";
+type ListMode = "review" | "new" | "import";
 type ReviewSort = "overdue" | "difficulty" | "category";
 type NewSort = "curriculum" | "b75" | "hardest";
 
@@ -74,6 +75,16 @@ type DashboardData = {
   totalStudyMinutes: number;
   avgSolveMinutes: number;
   avgConfidence: number;
+  importProblems: {
+    id: number;
+    title: string;
+    leetcodeNumber: number | null;
+    difficulty: "Easy" | "Medium" | "Hard";
+    category: string;
+    optimalTimeComplexity: string | null;
+    optimalSpaceComplexity: string | null;
+  }[];
+  importAttemptedIds: number[];
 };
 
 const TIER_COLORS: Record<string, string> = {
@@ -270,6 +281,12 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   </span>
                 )}
               </button>
+              <button
+                onClick={() => setListMode("import")}
+                className={`text-sm px-3 py-1 rounded transition-colors ${listMode === "import" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Import
+              </button>
             </div>
 
             {/* Sort controls — context-sensitive */}
@@ -393,6 +410,16 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                 </div>
               </div>
             )
+          )}
+
+          {/* Import tab */}
+          {listMode === "import" && (
+            <ImportClient
+              embedded
+              onDone={() => setListMode("review")}
+              allProblems={data.importProblems}
+              attemptedIds={data.importAttemptedIds}
+            />
           )}
         </section>
       </div>

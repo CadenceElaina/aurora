@@ -62,18 +62,45 @@ function parseTimeStr(timeStr: string, dateStr: string): Date | null {
 
 type RawRow = { title: string; status: string; timeStr: string };
 
+// Column header cells to skip when NeetCode copies one cell per line
+const TABLE_HEADER_COLS = new Set(["difficulty", "status", "language", "runtime", "memory", "time"]);
+const DIFFICULTIES = new Set(["easy", "medium", "hard"]);
+
 function parseActivityText(text: string): RawRow[] {
+  // Strategy 1: tab-separated — each row on one line
+  const singleLines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  const tabRows: RawRow[] = [];
+  for (const line of singleLines) {
+    const parts = line.split("\t").filter((p) => p.trim());
+    if (parts.length >= 7) {
+      const title = parts[0].trim();
+      if (!title || normalizeName(title) === "problem") continue;
+      tabRows.push({ title, status: parts[2].trim(), timeStr: parts[6].trim() });
+    }
+  }
+  if (tabRows.length > 0) return tabRows;
+
+  // Strategy 2: NeetCode actual copy — one table cell per line
+  const contentLines = text
+    .split("\n")
+    .map((l) => l.replace(/\t/g, "").trim())
+    .filter((l) => l && !TABLE_HEADER_COLS.has(l.toLowerCase()));
+
+  // Skip stats section above the "Problem" header row
+  const problemIdx = contentLines.findIndex((l) => l.toLowerCase() === "problem");
+  const dataLines = problemIdx >= 0 ? contentLines.slice(problemIdx + 1) : contentLines;
+
+  // Sliding window: every 7 lines = [title, difficulty, status, language, runtime, memory, time]
   const rows: RawRow[] = [];
-  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
-  for (const line of lines) {
-    const parts = line.split("\t").map((p) => p.trim()).filter(Boolean);
-    if (parts.length < 3) continue;
-    if (normalizeName(parts[0]) === "problem") continue; // skip header
-    const title = parts[0];
-    const status = parts[2];
-    // Time is the last field (col 6, index 6) or last available
-    const timeStr = parts.length >= 7 ? parts[6] : parts[parts.length - 1];
-    rows.push({ title, status, timeStr });
+  let i = 0;
+  while (i + 6 < dataLines.length) {
+    const [title, diff, status, , , , timeStr] = dataLines.slice(i, i + 7);
+    if (DIFFICULTIES.has(diff?.toLowerCase() ?? "")) {
+      rows.push({ title: title.trim(), status: status.trim(), timeStr: timeStr.trim() });
+      i += 7;
+    } else {
+      i += 1;
+    }
   }
   return rows;
 }
@@ -198,9 +225,13 @@ type Step = "paste" | "confirm" | "done";
 type Props = {
   allProblems: DbProblem[];
   attemptedIds: number[];
+  /** Called instead of showing the done screen — use when embedded in another page */
+  onDone?: () => void;
+  /** Removes outer max-w / heading, uses flex-fill layout for inline use */
+  embedded?: boolean;
 };
 
-export function ImportClient({ allProblems, attemptedIds }: Props) {
+export function ImportClient({ allProblems, attemptedIds, onDone, embedded }: Props) {
   const attemptedSet = useMemo(() => new Set(attemptedIds), [attemptedIds]);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -298,7 +329,13 @@ export function ImportClient({ allProblems, attemptedIds }: Props) {
       const hasErrors = prev
         .filter((a) => !a.deleted)
         .some((a) => a.submitStatus === "error");
-      if (!hasErrors) setStep("done");
+      if (!hasErrors) {
+        if (onDone) {
+          onDone();
+        } else {
+          setStep("done");
+        }
+      }
       return prev;
     });
   }
@@ -307,49 +344,56 @@ export function ImportClient({ allProblems, attemptedIds }: Props) {
 
   if (step === "paste") {
     return (
-      <div className="max-w-2xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold">Import NeetCode Activity</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Go to{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs">
-              neetcode.io/activity/YYYY-MM-DD
-            </code>
-            , select all rows in the table, copy (Ctrl+C), then paste below.
-          </p>
-        </div>
-
-        <div className="space-y-4">
+      <div className={embedded ? "flex flex-col gap-3 flex-1 min-h-0" : "max-w-2xl mx-auto space-y-6"}>
+        {!embedded && (
           <div>
-            <label className="text-sm font-medium">Date</label>
-            <input
-              type="date"
-              value={dateStr}
-              max={today}
-              onChange={(e) => setDateStr(e.target.value)}
-              className="mt-1 block rounded-md border border-border bg-muted px-3 py-2 text-sm"
-            />
+            <h1 className="text-xl font-semibold">Import NeetCode Activity</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Go to{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                neetcode.io/activity/YYYY-MM-DD
+              </code>
+              , select all rows in the table, copy (Ctrl+C), then paste below.
+            </p>
+          </div>
+        )}
+
+        <div className={embedded ? "flex flex-col gap-3 flex-1 min-h-0" : "space-y-4"}>
+          <div className="flex items-end gap-3 shrink-0">
+            <div>
+              <label className="text-xs text-muted-foreground">Date</label>
+              <input
+                type="date"
+                value={dateStr}
+                max={today}
+                onChange={(e) => setDateStr(e.target.value)}
+                className="mt-1 block rounded-md border border-border bg-muted px-3 py-2 text-sm"
+              />
+            </div>
+            {embedded && (
+              <p className="text-xs text-muted-foreground pb-2">
+                Copy table from{" "}
+                <code className="rounded bg-muted px-1 text-xs">neetcode.io/activity/YYYY-MM-DD</code>
+              </p>
+            )}
           </div>
 
-          <div>
-            <label className="text-sm font-medium">Activity Table</label>
-            <textarea
-              value={rawText}
-              onChange={(e) => setRawText(e.target.value)}
-              placeholder={
-                "Problem\tDifficulty\tStatus\tLanguage\tRuntime\tMemory\tTime\nTwo Sum\tEasy\tAccepted\tPython\t27ms\t7.7 MB\t7:08 AM"
-              }
-              rows={12}
-              className="mt-1 block w-full resize-y rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm"
-            />
-          </div>
+          <textarea
+            value={rawText}
+            onChange={(e) => setRawText(e.target.value)}
+            placeholder="Paste NeetCode activity table here…"
+            rows={embedded ? 8 : 12}
+            className={`block w-full rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm ${
+              embedded ? "flex-1 min-h-0 resize-none" : "resize-y"
+            }`}
+          />
 
-          {parseError && <p className="text-sm text-red-500">{parseError}</p>}
+          {parseError && <p className="text-xs text-red-500 shrink-0">{parseError}</p>}
 
           <button
             onClick={handleParse}
             disabled={!rawText.trim() || !dateStr}
-            className="inline-flex h-9 items-center rounded-md bg-accent px-4 text-sm text-accent-foreground transition-colors hover:opacity-90 disabled:opacity-50"
+            className="inline-flex h-9 shrink-0 items-center rounded-md bg-accent px-4 text-sm text-accent-foreground transition-colors hover:opacity-90 disabled:opacity-50"
           >
             Parse Activity →
           </button>
@@ -390,9 +434,9 @@ export function ImportClient({ allProblems, attemptedIds }: Props) {
   ).length;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
+    <div className={embedded ? "flex flex-col flex-1 min-h-0 gap-3" : "max-w-2xl mx-auto space-y-4"}>
       {/* Header */}
-      <div className="flex items-start justify-between gap-3">
+      <div className={`flex items-start justify-between gap-3 ${embedded ? "shrink-0" : ""}`}>
         <div>
           <h1 className="text-xl font-semibold">Confirm Attempts</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
@@ -430,7 +474,7 @@ export function ImportClient({ allProblems, attemptedIds }: Props) {
       </div>
 
       {/* Attempt cards */}
-      <div className="space-y-3">
+      <div className={embedded ? "space-y-3 overflow-y-auto flex-1 min-h-0 pr-0.5" : "space-y-3"}>
         {attempts
           .filter((a) => !a.deleted)
           .map((attempt) => (
