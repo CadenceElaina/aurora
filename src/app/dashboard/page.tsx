@@ -127,7 +127,7 @@ export default async function DashboardPage() {
       };
     });
 
-  const retainedCount = retentions.filter((r) => r.r > 0.7).length;
+  const retainedCount = retentions.filter((r) => r.r > 0.5).length;
 
   // Category stats
   const categoryMap = new Map<string, { total: number; attempted: number; retentions: number[] }>();

@@ -19,7 +19,9 @@ type ReviewItem = {
   lastReviewedAt: string | null;
 };
 
-type SortMode = "overdue" | "priority";
+type ListMode = "review" | "new";
+type ReviewSort = "overdue" | "difficulty" | "category";
+type NewSort = "curriculum" | "b75" | "hardest";
 
 type NewProblem = {
   id: number;
@@ -150,6 +152,8 @@ const PRIORITY_DOT: Record<string, string> = {
   due: "bg-sky-400",
 };
 
+const DIFF_ORDER: Record<string, number> = { Hard: 0, Medium: 1, Easy: 2 };
+
 /* ── Default target: September 1 of current year (or next year if past) ── */
 function getDefaultTargetDate(): string {
   const now = new Date();
@@ -164,7 +168,9 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [targetCount, setTargetCount] = useState(150);
   const [showSettings, setShowSettings] = useState(false);
   const [categoryView, setCategoryView] = useState<"weak" | "all">("weak");
-  const [sortMode, setSortMode] = useState<SortMode>("overdue");
+  const [listMode, setListMode] = useState<ListMode>("review");
+  const [reviewSort, setReviewSort] = useState<ReviewSort>("overdue");
+  const [newSort, setNewSort] = useState<NewSort>("curriculum");
 
   // Load saved settings from localStorage
   useEffect(() => {
@@ -207,143 +213,186 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
   const displayCategories = categoryView === "weak" ? weakCategories : data.categoryStats;
 
-  const sortedQueue = useMemo(() => {
+  const sortedReviewQueue = useMemo(() => {
     const q = [...data.reviewQueue];
-    if (sortMode === "overdue") {
-      q.sort((a, b) => b.daysOverdue - a.daysOverdue);
+    if (reviewSort === "overdue") {
+      q.sort((a, b) => b.daysOverdue - a.daysOverdue || DIFF_ORDER[a.difficulty] - DIFF_ORDER[b.difficulty]);
+    } else if (reviewSort === "difficulty") {
+      q.sort((a, b) => DIFF_ORDER[a.difficulty] - DIFF_ORDER[b.difficulty] || b.daysOverdue - a.daysOverdue);
     } else {
-      // "priority": combine days overdue with forgetting rate
-      q.sort((a, b) => {
-        const scoreA = (1 - a.retrievability) * Math.log(1 + a.daysOverdue + 1);
-        const scoreB = (1 - b.retrievability) * Math.log(1 + b.daysOverdue + 1);
-        return scoreB - scoreA;
-      });
+      q.sort((a, b) => a.category.localeCompare(b.category) || b.daysOverdue - a.daysOverdue);
     }
     return q;
-  }, [data.reviewQueue, sortMode]);
+  }, [data.reviewQueue, reviewSort]);
+
+  const sortedNewProblems = useMemo(() => {
+    const q = [...data.newProblems];
+    if (newSort === "b75") {
+      q.sort((a, b) => {
+        if (a.blind75 !== b.blind75) return a.blind75 ? -1 : 1;
+        return (a.leetcodeNumber ?? 0) - (b.leetcodeNumber ?? 0);
+      });
+    } else if (newSort === "hardest") {
+      q.sort((a, b) => DIFF_ORDER[a.difficulty] - DIFF_ORDER[b.difficulty]);
+    }
+    // "curriculum" = default order from server (already sorted by id)
+    return q;
+  }, [data.newProblems, newSort]);
 
   return (
     <div className="space-y-6">
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-      {/* ── Left Column ── */}
+      {/* ── Combined Problem Queue ── */}
       <div className="space-y-6 lg:col-span-7">
-        {/* Review Queue */}
         <section>
+          {/* Tab header */}
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg font-semibold">Review Queue</h2>
-              <span className="text-xs text-muted-foreground">{data.reviewQueue.length} due</span>
+            <div className="flex gap-0.5 rounded-md border border-border p-0.5">
+              <button
+                onClick={() => setListMode("review")}
+                className={`text-sm px-3 py-1 rounded transition-colors ${listMode === "review" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Due for Review
+                {data.reviewQueue.length > 0 && (
+                  <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${listMode === "review" ? "bg-accent-foreground/20" : "bg-muted"}`}>
+                    {data.reviewQueue.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setListMode("new")}
+                className={`text-sm px-3 py-1 rounded transition-colors ${listMode === "new" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                New Problems
+                {data.newProblems.length > 0 && (
+                  <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${listMode === "new" ? "bg-accent-foreground/20" : "bg-muted"}`}>
+                    {data.newProblems.length}
+                  </span>
+                )}
+              </button>
             </div>
-            {data.reviewQueue.length > 0 && (
+
+            {/* Sort controls — context-sensitive */}
+            {listMode === "review" && data.reviewQueue.length > 0 && (
               <div className="flex gap-1 rounded-md border border-border p-0.5">
-                <button
-                  onClick={() => setSortMode("overdue")}
-                  className={`text-xs px-2 py-0.5 rounded transition-colors ${sortMode === "overdue" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  Most Overdue
-                </button>
-                <button
-                  onClick={() => setSortMode("priority")}
-                  className={`text-xs px-2 py-0.5 rounded transition-colors ${sortMode === "priority" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  Recommended
-                </button>
+                {(["overdue", "difficulty", "category"] as ReviewSort[]).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setReviewSort(s)}
+                    className={`text-xs px-2 py-0.5 rounded transition-colors ${reviewSort === s ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    {s === "overdue" ? "Oldest" : s === "difficulty" ? "Hardest" : "Category"}
+                  </button>
+                ))}
+              </div>
+            )}
+            {listMode === "new" && data.newProblems.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Link href="/problems" className="text-xs text-accent hover:underline shrink-0">
+                  Browse all →
+                </Link>
+                <div className="flex gap-1 rounded-md border border-border p-0.5">
+                  {(["curriculum", "b75", "hardest"] as NewSort[]).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setNewSort(s)}
+                      className={`text-xs px-2 py-0.5 rounded transition-colors ${newSort === s ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      {s === "curriculum" ? "Order" : s === "b75" ? "B75 first" : "Hardest"}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
-          {data.reviewQueue.length === 0 ? (
-            <div className="rounded-lg border border-border bg-muted p-6 text-center">
-              <p className="text-sm text-muted-foreground">All caught up! No reviews due.</p>
-            </div>
-          ) : (
-            <div className="rounded-lg border border-border overflow-hidden">
-              <div className="max-h-[480px] overflow-y-auto">
-                {sortedQueue.map((item) => {
-                  const prio = priorityLevel(item);
-                  return (
+
+          {/* Review list */}
+          {listMode === "review" && (
+            data.reviewQueue.length === 0 ? (
+              <div className="rounded-lg border border-border bg-muted p-6 text-center">
+                <p className="text-sm text-muted-foreground">All caught up! No reviews due.</p>
+                <button onClick={() => setListMode("new")} className="mt-2 text-xs text-accent hover:underline">
+                  Start a new problem →
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-border overflow-hidden">
+                <div className="max-h-[580px] overflow-y-auto">
+                  {sortedReviewQueue.map((item) => {
+                    const prio = priorityLevel(item);
+                    return (
+                      <div
+                        key={item.stateId}
+                        className="flex items-center gap-3 px-3 py-2.5 border-b border-border last:border-b-0 hover:bg-muted transition-colors duration-150"
+                      >
+                        <div className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[prio]}`} title={prio} />
+                        <span className="text-xs text-muted-foreground w-8 shrink-0 tabular-nums">{item.leetcodeNumber}</span>
+                        <div className="min-w-0 flex-1">
+                          <Link href={`/problems/${item.problemId}`} className="text-sm font-medium text-foreground hover:text-accent truncate block">
+                            {item.title}
+                          </Link>
+                          <span className="text-xs text-muted-foreground">
+                            {item.category} · {item.totalAttempts} attempt{item.totalAttempts !== 1 ? "s" : ""} · Last: {daysAgoLabel(item.lastReviewedAt)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none ${PRIORITY_BG[prio]}`}>
+                            {item.daysOverdue > 0 ? `${item.daysOverdue}d overdue` : "Due today"}
+                          </span>
+                          <DifficultyBadge difficulty={item.difficulty} />
+                          <Link
+                            href={`/problems/${item.problemId}/attempt`}
+                            className="inline-flex h-7 items-center rounded-md bg-accent px-3 text-xs text-accent-foreground transition-colors hover:opacity-90"
+                          >
+                            Review
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )
+          )}
+
+          {/* New problems list */}
+          {listMode === "new" && (
+            data.newProblems.length === 0 ? (
+              <div className="rounded-lg border border-border bg-muted p-6 text-center">
+                <p className="text-sm text-muted-foreground">You&apos;ve attempted every problem!</p>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-border overflow-hidden">
+                <div className="max-h-[580px] overflow-y-auto">
+                  {sortedNewProblems.map((p) => (
                     <div
-                      key={item.stateId}
+                      key={p.id}
                       className="flex items-center gap-3 px-3 py-2.5 border-b border-border last:border-b-0 hover:bg-muted transition-colors duration-150"
                     >
-                      {/* Priority dot */}
-                      <div className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[prio]}`} title={prio} />
-                      {/* LC number */}
-                      <span className="text-xs text-muted-foreground w-8 shrink-0 tabular-nums">{item.leetcodeNumber}</span>
-                      {/* Title + meta */}
+                      <span className="text-xs text-muted-foreground w-8 shrink-0 tabular-nums">{p.leetcodeNumber}</span>
                       <div className="min-w-0 flex-1">
-                        <Link href={`/problems/${item.problemId}`} className="text-sm font-medium text-foreground hover:text-accent truncate block">
-                          {item.title}
+                        <Link href={`/problems/${p.id}`} className="text-sm font-medium text-foreground hover:text-accent truncate block">
+                          {p.title}
                         </Link>
-                        <span className="text-xs text-muted-foreground">
-                          {item.category} · {item.totalAttempts} attempt{item.totalAttempts !== 1 ? "s" : ""} · Last: {daysAgoLabel(item.lastReviewedAt)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">{p.category}</span>
+                          {p.blind75 && <span className="text-xs font-medium text-violet-500">B75</span>}
+                        </div>
                       </div>
-                      {/* Right: overdue badge + difficulty + button */}
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none ${PRIORITY_BG[prio]}`}>
-                          {item.daysOverdue > 0 ? `${item.daysOverdue}d overdue` : "Due today"}
-                        </span>
-                        <DifficultyBadge difficulty={item.difficulty} />
+                        <DifficultyBadge difficulty={p.difficulty} />
                         <Link
-                          href={`/problems/${item.problemId}/attempt`}
-                          className="inline-flex h-7 items-center rounded-md bg-accent px-3 text-xs text-accent-foreground transition-colors hover:opacity-90"
+                          href={`/problems/${p.id}/attempt`}
+                          className="inline-flex h-7 items-center rounded-md border border-border px-3 text-xs text-foreground transition-colors hover:bg-muted"
                         >
-                          Review
+                          Start
                         </Link>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* New Problems */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">New Problems</h2>
-            <Link href="/problems" className="text-xs text-accent hover:underline">
-              Browse all →
-            </Link>
-          </div>
-          {data.newProblems.length === 0 ? (
-            <div className="rounded-lg border border-border bg-muted p-6 text-center">
-              <p className="text-sm text-muted-foreground">You&apos;ve attempted every problem!</p>
-            </div>
-          ) : (
-            <div className="space-y-2 max-h-[400px] overflow-y-auto rounded-lg border border-border">
-              {data.newProblems.slice(0, 15).map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between px-4 py-3 border-b border-border last:border-b-0 hover:bg-muted transition-colors duration-150"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-xs text-muted-foreground w-8 shrink-0">{p.leetcodeNumber}</span>
-                    <div className="min-w-0">
-                      <Link href={`/problems/${p.id}`} className="text-sm font-medium text-foreground hover:text-accent truncate block">
-                        {p.title}
-                      </Link>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">{p.category}</span>
-                        {p.blind75 && (
-                          <span className="text-xs text-violet-500">B75</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0 ml-2">
-                    <DifficultyBadge difficulty={p.difficulty} />
-                    <Link
-                      href={`/problems/${p.id}/attempt`}
-                      className="inline-flex h-8 items-center rounded-md border border-border px-3 text-xs text-foreground transition-colors duration-150 hover:bg-muted"
-                    >
-                      Start
-                    </Link>
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            )
           )}
         </section>
       </div>
@@ -445,7 +494,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             </div>
           </div>
           <div className="rounded-lg border border-border bg-muted p-3">
-            <p className="text-xs text-muted-foreground">Retained (R &gt; 70%)</p>
+            <p className="text-xs text-muted-foreground">Retained (R &gt; 50%)</p>
             <p className="text-lg font-semibold tabular-nums">
               {data.retainedCount}<span className="text-xs text-muted-foreground"> / {data.attemptedCount || 1}</span>
             </p>
