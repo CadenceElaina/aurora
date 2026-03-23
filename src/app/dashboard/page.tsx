@@ -66,6 +66,13 @@ export default async function DashboardPage() {
     .map((s) => {
       const p = allProblems.find((prob) => prob.id === s.problemId);
       if (!p) return null;
+      const daysSince = s.lastReviewedAt
+        ? (now.getTime() - s.lastReviewedAt.getTime()) / (1000 * 60 * 60 * 24)
+        : 999;
+      const daysOverdue = Math.floor(
+        (now.getTime() - s.nextReviewAt!.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      const retrievability = computeRetrievability(s.stability, daysSince);
       return {
         stateId: s.id,
         problemId: s.problemId,
@@ -74,6 +81,9 @@ export default async function DashboardPage() {
         difficulty: p.difficulty as "Easy" | "Medium" | "Hard",
         category: p.category,
         totalAttempts: s.totalAttempts,
+        daysOverdue,
+        retrievability,
+        lastReviewedAt: s.lastReviewedAt ? s.lastReviewedAt.toISOString().slice(0, 10) : null,
       };
     })
     .filter(Boolean) as {
@@ -84,6 +94,9 @@ export default async function DashboardPage() {
       difficulty: "Easy" | "Medium" | "Hard";
       category: string;
       totalAttempts: number;
+      daysOverdue: number;
+      retrievability: number;
+      lastReviewedAt: string | null;
     }[];
 
   // New (unattempted) problems in curriculum order

@@ -14,7 +14,12 @@ type ReviewItem = {
   difficulty: "Easy" | "Medium" | "Hard";
   category: string;
   totalAttempts: number;
+  daysOverdue: number;
+  retrievability: number;
+  lastReviewedAt: string | null;
 };
+
+type SortMode = "overdue" | "priority";
 
 type NewProblem = {
   id: number;
@@ -115,6 +120,36 @@ function formatMinutes(mins: number): string {
   return `${hours}h ${remaining}m`;
 }
 
+function daysAgoLabel(date: string | null): string {
+  if (!date) return "Never";
+  const d = new Date(date + "T12:00:00");
+  const days = Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
+  if (days === 0) return "Today";
+  if (days === 1) return "Yesterday";
+  return `${days}d ago`;
+}
+
+function priorityLevel(item: ReviewItem): "critical" | "high" | "medium" | "due" {
+  if (item.daysOverdue > 5 || item.retrievability < 0.25) return "critical";
+  if (item.daysOverdue > 1 || item.retrievability < 0.45) return "high";
+  if (item.daysOverdue > 0) return "medium";
+  return "due";
+}
+
+const PRIORITY_BG: Record<string, string> = {
+  critical: "bg-red-500 text-white",
+  high: "bg-orange-500 text-white",
+  medium: "bg-amber-400 text-black",
+  due: "bg-sky-500 text-white",
+};
+
+const PRIORITY_DOT: Record<string, string> = {
+  critical: "bg-red-500",
+  high: "bg-orange-500",
+  medium: "bg-amber-400",
+  due: "bg-sky-400",
+};
+
 /* ── Default target: September 1 of current year (or next year if past) ── */
 function getDefaultTargetDate(): string {
   const now = new Date();
@@ -129,6 +164,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [targetCount, setTargetCount] = useState(150);
   const [showSettings, setShowSettings] = useState(false);
   const [categoryView, setCategoryView] = useState<"weak" | "all">("weak");
+  const [sortMode, setSortMode] = useState<SortMode>("overdue");
 
   // Load saved settings from localStorage
   useEffect(() => {
@@ -171,47 +207,94 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
   const displayCategories = categoryView === "weak" ? weakCategories : data.categoryStats;
 
+  const sortedQueue = useMemo(() => {
+    const q = [...data.reviewQueue];
+    if (sortMode === "overdue") {
+      q.sort((a, b) => b.daysOverdue - a.daysOverdue);
+    } else {
+      // "priority": combine days overdue with forgetting rate
+      q.sort((a, b) => {
+        const scoreA = (1 - a.retrievability) * Math.log(1 + a.daysOverdue + 1);
+        const scoreB = (1 - b.retrievability) * Math.log(1 + b.daysOverdue + 1);
+        return scoreB - scoreA;
+      });
+    }
+    return q;
+  }, [data.reviewQueue, sortMode]);
+
   return (
+    <div className="space-y-6">
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
       {/* ── Left Column ── */}
       <div className="space-y-6 lg:col-span-7">
         {/* Review Queue */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">Review Queue</h2>
-            <span className="text-xs text-muted-foreground">{data.reviewQueue.length} due</span>
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-semibold">Review Queue</h2>
+              <span className="text-xs text-muted-foreground">{data.reviewQueue.length} due</span>
+            </div>
+            {data.reviewQueue.length > 0 && (
+              <div className="flex gap-1 rounded-md border border-border p-0.5">
+                <button
+                  onClick={() => setSortMode("overdue")}
+                  className={`text-xs px-2 py-0.5 rounded transition-colors ${sortMode === "overdue" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Most Overdue
+                </button>
+                <button
+                  onClick={() => setSortMode("priority")}
+                  className={`text-xs px-2 py-0.5 rounded transition-colors ${sortMode === "priority" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Recommended
+                </button>
+              </div>
+            )}
           </div>
           {data.reviewQueue.length === 0 ? (
             <div className="rounded-lg border border-border bg-muted p-6 text-center">
               <p className="text-sm text-muted-foreground">All caught up! No reviews due.</p>
             </div>
           ) : (
-            <div className="space-y-2 max-h-[440px] overflow-y-auto rounded-lg border border-border">
-              {data.reviewQueue.map((item) => (
-                <div
-                  key={item.stateId}
-                  className="flex items-center justify-between px-4 py-3 border-b border-border last:border-b-0 hover:bg-muted transition-colors duration-150"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-xs text-muted-foreground w-8 shrink-0">{item.leetcodeNumber}</span>
-                    <div className="min-w-0">
-                      <Link href={`/problems/${item.problemId}`} className="text-sm font-medium text-foreground hover:text-accent truncate block">
-                        {item.title}
-                      </Link>
-                      <span className="text-xs text-muted-foreground">{item.category} · {item.totalAttempts} attempt{item.totalAttempts !== 1 ? "s" : ""}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0 ml-2">
-                    <DifficultyBadge difficulty={item.difficulty} />
-                    <Link
-                      href={`/problems/${item.problemId}/attempt`}
-                      className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-xs text-accent-foreground transition-colors duration-150 hover:opacity-90"
+            <div className="rounded-lg border border-border overflow-hidden">
+              <div className="max-h-[480px] overflow-y-auto">
+                {sortedQueue.map((item) => {
+                  const prio = priorityLevel(item);
+                  return (
+                    <div
+                      key={item.stateId}
+                      className="flex items-center gap-3 px-3 py-2.5 border-b border-border last:border-b-0 hover:bg-muted transition-colors duration-150"
                     >
-                      Review
-                    </Link>
-                  </div>
-                </div>
-              ))}
+                      {/* Priority dot */}
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[prio]}`} title={prio} />
+                      {/* LC number */}
+                      <span className="text-xs text-muted-foreground w-8 shrink-0 tabular-nums">{item.leetcodeNumber}</span>
+                      {/* Title + meta */}
+                      <div className="min-w-0 flex-1">
+                        <Link href={`/problems/${item.problemId}`} className="text-sm font-medium text-foreground hover:text-accent truncate block">
+                          {item.title}
+                        </Link>
+                        <span className="text-xs text-muted-foreground">
+                          {item.category} · {item.totalAttempts} attempt{item.totalAttempts !== 1 ? "s" : ""} · Last: {daysAgoLabel(item.lastReviewedAt)}
+                        </span>
+                      </div>
+                      {/* Right: overdue badge + difficulty + button */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none ${PRIORITY_BG[prio]}`}>
+                          {item.daysOverdue > 0 ? `${item.daysOverdue}d overdue` : "Due today"}
+                        </span>
+                        <DifficultyBadge difficulty={item.difficulty} />
+                        <Link
+                          href={`/problems/${item.problemId}/attempt`}
+                          className="inline-flex h-7 items-center rounded-md bg-accent px-3 text-xs text-accent-foreground transition-colors hover:opacity-90"
+                        >
+                          Review
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </section>
@@ -332,7 +415,10 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             <p className="text-xs text-muted-foreground">Readiness</p>
           </div>
           <div className="rounded-lg border border-border bg-muted p-3 text-center">
-            <p className="text-lg font-semibold tabular-nums">{data.currentStreak}</p>
+            <div className="flex items-center justify-center gap-1">
+              <span className="text-base leading-none">🔥</span>
+              <p className="text-lg font-semibold tabular-nums">{data.currentStreak}</p>
+            </div>
             <p className="text-xs text-muted-foreground">Day Streak</p>
             {data.bestStreak > data.currentStreak && (
               <p className="text-xs text-muted-foreground">Best: {data.bestStreak}</p>
@@ -372,30 +458,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           </div>
         </div>
 
-        {/* Activity Chart (14 days) */}
-        <section className="rounded-lg border border-border bg-muted p-4">
-          <p className="text-xs font-medium text-muted-foreground mb-3">Activity (14 days)</p>
-          <ActivityChart history={data.attemptHistory} />
-        </section>
-
-        {/* Difficulty Progress */}
-        <section className="rounded-lg border border-border bg-muted p-4">
-          <p className="text-xs font-medium text-muted-foreground mb-3">Difficulty</p>
-          <div className="space-y-2">
-            {data.difficultyBreakdown.map((d) => {
-              const pct = d.count > 0 ? Math.round((d.attempted / d.count) * 100) : 0;
-              return (
-                <div key={d.difficulty} className="flex items-center gap-3">
-                  <span className="text-xs w-14 shrink-0">{d.difficulty}</span>
-                  <div className="flex-1 h-2 overflow-hidden rounded-full bg-background">
-                    <div className={`h-full rounded-full ${DIFF_COLORS[d.difficulty]}`} style={{ width: `${pct}%` }} />
-                  </div>
-                  <span className="text-xs text-muted-foreground w-12 text-right">{d.attempted}/{d.count}</span>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+        {/* Activity Chart (14 days) — moved to bottom row */}
 
         {/* Category Breakdown */}
         <section className="rounded-lg border border-border bg-muted p-4">
@@ -416,7 +479,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               </button>
             </div>
           </div>
-          <div className="space-y-1.5 max-h-[280px] overflow-y-auto">
+          <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
             {displayCategories.map((cat) => (
               <div key={cat.category} className="flex items-center gap-2">
                 <span className="text-xs w-32 shrink-0 truncate" title={cat.category}>{cat.category}</span>
@@ -434,18 +497,61 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           </div>
         </section>
 
-        {/* Time Stats */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-lg border border-border bg-muted p-3">
-            <p className="text-xs text-muted-foreground">Total Solve</p>
+        {/* Time Stats — moved to bottom row */}
+      </div>
+    </div>
+
+    {/* ── Bottom Analytics Row ── */}
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+
+      {/* Activity Chart */}
+      <section className="rounded-lg border border-border bg-muted p-4">
+        <p className="text-xs font-medium text-muted-foreground mb-3">Activity (14 days)</p>
+        <ActivityChart history={data.attemptHistory} />
+      </section>
+
+      {/* Difficulty Progress */}
+      <section className="rounded-lg border border-border bg-muted p-4">
+        <p className="text-xs font-medium text-muted-foreground mb-3">Difficulty</p>
+        <div className="space-y-3">
+          {data.difficultyBreakdown.map((d) => {
+            const pct = d.count > 0 ? Math.round((d.attempted / d.count) * 100) : 0;
+            return (
+              <div key={d.difficulty} className="flex items-center gap-3">
+                <span className="text-xs w-14 shrink-0">{d.difficulty}</span>
+                <div className="flex-1 h-2 overflow-hidden rounded-full bg-background">
+                  <div className={`h-full rounded-full ${DIFF_COLORS[d.difficulty]}`} style={{ width: `${pct}%` }} />
+                </div>
+                <span className="text-xs text-muted-foreground w-12 text-right">{d.attempted}/{d.count}</span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Solve Stats */}
+      <section className="rounded-lg border border-border bg-muted p-4">
+        <p className="text-xs font-medium text-muted-foreground mb-3">Stats</p>
+        <div className="space-y-3">
+          <div>
+            <p className="text-xs text-muted-foreground">Total Solve Time</p>
             <p className="text-sm font-semibold">{formatMinutes(data.totalSolveMinutes)}</p>
           </div>
-          <div className="rounded-lg border border-border bg-muted p-3">
+          <div>
             <p className="text-xs text-muted-foreground">Avg Confidence</p>
-            <p className="text-sm font-semibold">{data.avgConfidence > 0 ? data.avgConfidence.toFixed(1) : "—"}<span className="text-xs text-muted-foreground"> / 5</span></p>
+            <p className="text-sm font-semibold">
+              {data.avgConfidence > 0 ? data.avgConfidence.toFixed(1) : "—"}
+              <span className="text-xs text-muted-foreground"> / 5</span>
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Avg / Day (30d)</p>
+            <p className="text-sm font-semibold">{data.avgPerDay.toFixed(1)}</p>
           </div>
         </div>
-      </div>
+      </section>
+
+    </div>
     </div>
   );
 }
@@ -454,22 +560,29 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
 function ActivityChart({ history }: { history: AttemptDay[] }) {
   const max = Math.max(...history.map((d) => d.count), 1);
+  const MAX_BAR_PX = 48;
 
   return (
-    <div className="flex items-end gap-1" style={{ height: 64 }}>
+    <div className="flex items-end gap-1" style={{ height: MAX_BAR_PX + 20 }}>
       {history.map((day) => {
-        const pct = (day.count / max) * 100;
-        const d = new Date(day.date);
-        const label = `${d.getMonth() + 1}/${d.getDate()}`;
+        const barPx = day.count > 0
+          ? Math.max(Math.round((day.count / max) * MAX_BAR_PX), 4)
+          : 3;
+        // Parse as local date to avoid UTC offset shifting the displayed day
+        const [, m, dd] = day.date.split("-");
+        const label = `${parseInt(m)}/${parseInt(dd)}`;
         return (
-          <div key={day.date} className="flex flex-1 flex-col items-center gap-0.5">
+          <div
+            key={day.date}
+            className="flex flex-1 flex-col items-center justify-end h-full gap-1"
+            title={`${label}: ${day.count}`}
+          >
             {day.count > 0 && (
-              <span className="text-xs text-muted-foreground leading-none">{day.count}</span>
+              <span className="text-[10px] text-muted-foreground leading-none">{day.count}</span>
             )}
             <div
-              className={`w-full rounded-t-sm ${day.count > 0 ? "bg-accent" : "bg-border"}`}
-              style={{ height: `${Math.max(pct, 8)}%` }}
-              title={`${label}: ${day.count}`}
+              className={`w-full rounded-t-sm ${day.count > 0 ? "bg-accent" : "bg-border/40"}`}
+              style={{ height: `${barPx}px` }}
             />
           </div>
         );
