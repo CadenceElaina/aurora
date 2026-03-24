@@ -32,7 +32,6 @@ export function AttemptForm({ problemId, optimalTimeComplexity, optimalSpaceComp
   const [error, setError] = useState<string | null>(null);
 
   const showQuality = outcome === "PARTIAL" || outcome === "SOLVED";
-  const showComplexity = showQuality && quality !== null;
   const defaultSolveTime = isReview ? 15 : 20;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -61,8 +60,8 @@ export function AttemptForm({ problemId, optimalTimeComplexity, optimalSpaceComp
       problemId,
       solvedIndependently,
       solutionQuality,
-      userTimeComplexity: showComplexity ? (form.get("userTimeComplexity") as string) : "N/A",
-      userSpaceComplexity: showComplexity ? (form.get("userSpaceComplexity") as string) : "N/A",
+      userTimeComplexity: quality === "OPTIMAL" ? (optimalTimeComplexity ?? "N/A") : "N/A",
+      userSpaceComplexity: quality === "OPTIMAL" ? (optimalSpaceComplexity ?? "N/A") : "N/A",
       solveTimeMinutes: Number(form.get("solveTimeMinutes")) || null,
       studyTimeMinutes: Number(form.get("studyTimeMinutes")) || null,
       rewroteFromScratch: rewrote ? "YES" : "NO",
@@ -140,23 +139,11 @@ export function AttemptForm({ problemId, optimalTimeComplexity, optimalSpaceComp
         </div>
       )}
 
-      {/* Complexity */}
-      {showComplexity && (
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">
-            Optimal: Time {optimalTimeComplexity ?? "?"} · Space {optimalSpaceComplexity ?? "?"}
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass}>Your Time Complexity</label>
-              <input name="userTimeComplexity" required placeholder="e.g. O(n)" className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Your Space Complexity</label>
-              <input name="userSpaceComplexity" required placeholder="e.g. O(1)" className={inputClass} />
-            </div>
-          </div>
-        </div>
+      {/* Optimal complexity hint */}
+      {showQuality && (optimalTimeComplexity || optimalSpaceComplexity) && (
+        <p className="text-xs text-muted-foreground">
+          Optimal: Time {optimalTimeComplexity ?? "?"} · Space {optimalSpaceComplexity ?? "?"}
+        </p>
       )}
 
       {/* Timing */}
