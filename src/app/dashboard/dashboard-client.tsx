@@ -103,6 +103,7 @@ type DashboardData = {
   masteredCount: number;
   learningCount: number;
   masteryList: MasteryItem[];
+  learningList: MasteryItem[];
   completedProblems: CompletedItem[];
   importProblems: {
     id: number;
@@ -726,6 +727,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             learning={data.learningCount}
             total={data.totalProblems}
             masteryList={data.masteryList}
+            learningList={data.learningList}
           />
         </section>
 
@@ -1051,11 +1053,13 @@ function MasteryProgress({
   learning,
   total,
   masteryList,
+  learningList,
 }: {
   mastered: number;
   learning: number;
   total: number;
   masteryList: MasteryItem[];
+  learningList: MasteryItem[];
 }) {
   const newCount = total - mastered - learning;
   const masteredPct = total > 0 ? (mastered / total) * 100 : 0;
@@ -1102,6 +1106,31 @@ function MasteryProgress({
                 <span className="ml-auto text-muted-foreground text-[10px]">{Math.round(item.stability)}d</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Learning problems — stability progress toward 30d */}
+      {learningList.length > 0 && (
+        <div className="mt-2 pt-2 border-t border-border/50">
+          <p className="text-[10px] text-muted-foreground mb-1">Learning — stability toward 30d</p>
+          <div className="space-y-1 max-h-[200px] overflow-y-auto">
+            {learningList.map((item) => {
+              const pct = Math.min(100, (item.stability / MASTERY_THRESHOLD) * 100);
+              return (
+                <div key={item.leetcodeNumber ?? item.title} className="flex items-center gap-1.5 text-[11px] group/learn">
+                  <span className="text-muted-foreground tabular-nums w-6 shrink-0">{item.leetcodeNumber}</span>
+                  <span className="w-28 shrink-0 truncate group-hover/learn:text-foreground transition-colors" title={item.title}>{item.title}</span>
+                  <div className="flex-1 h-1.5 overflow-hidden rounded-full bg-background group-hover/learn:h-2 transition-all duration-150">
+                    <div
+                      className="h-full rounded-full bg-accent transition-all duration-300"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="text-muted-foreground text-[10px] tabular-nums w-10 text-right shrink-0">{item.stability.toFixed(1)}d</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

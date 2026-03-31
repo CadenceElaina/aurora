@@ -121,9 +121,14 @@ export async function POST(req: NextRequest) {
   const isFailed = solvedIndependently === "NO";
   const isStruggled = solvedIndependently === "PARTIAL" && confidence <= 2;
 
+  let oldStability: number;
+  let newStability: number;
+  let nextReview: Date;
+
   if (existing[0]) {
-    const newStability = computeNewStability(existing[0].stability, signals);
-    const nextReview = isFailed
+    oldStability = existing[0].stability;
+    newStability = computeNewStability(existing[0].stability, signals);
+    nextReview = isFailed
       ? now // immediately
       : isStruggled
         ? new Date(now.getTime() + 24 * 60 * 60 * 1000) // 1 day
@@ -144,8 +149,10 @@ export async function POST(req: NextRequest) {
       })
       .where(eq(userProblemStates.id, existing[0].id));
   } else {
+    oldStability = 0;
     const initialStability = computeInitialStability(signals);
-    const nextReview = isFailed
+    newStability = initialStability;
+    nextReview = isFailed
       ? now
       : isStruggled
         ? new Date(now.getTime() + 24 * 60 * 60 * 1000)
@@ -162,7 +169,16 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({ id: attempt.id }, { status: 201 });
+  const MASTERY_THRESHOLD = 30;
+  return NextResponse.json({
+    id: attempt.id,
+    srs: {
+      oldStability: Math.round(oldStability * 10) / 10,
+      newStability: Math.round(newStability * 10) / 10,
+      nextReviewAt: nextReview.toISOString(),
+      masteryPct: Math.min(100, Math.round((newStability / MASTERY_THRESHOLD) * 100)),
+    },
+  }, { status: 201 });
 }
 
 function normalize(s: string): string {

@@ -275,6 +275,9 @@ export default async function DashboardPage() {
   const masteryList = masteryData
     .filter((m) => m.stability >= MASTERY_THRESHOLD)
     .sort((a, b) => b.stability - a.stability);
+  const learningList = masteryData
+    .filter((m) => m.stability < MASTERY_THRESHOLD)
+    .sort((a, b) => b.stability - a.stability);
 
   return (
     <DashboardClient
@@ -306,6 +309,7 @@ export default async function DashboardPage() {
         masteredCount,
         learningCount,
         masteryList,
+        learningList,
         importProblems: allProblems.map((p) => ({
           id: p.id,
           title: p.title,
