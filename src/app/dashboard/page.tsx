@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { db } from "@/db";
-import { problems, userProblemStates, attempts } from "@/db/schema";
+import { problems, userProblemStates, attempts, pendingSubmissions, users } from "@/db/schema";
 import { auth } from "@/auth";
-import { eq, asc, count, sql, sum, avg } from "drizzle-orm";
+import { eq, and, asc, count, sql, sum, avg } from "drizzle-orm";
 import Link from "next/link";
 import { computeRetrievability, computeReadiness } from "@/lib/srs";
 import { DashboardClient } from "./dashboard-client";
@@ -34,7 +34,7 @@ export default async function DashboardPage() {
   const now = new Date();
 
   // Parallel data fetching
-  const [allProblems, userStates, attemptDateRows, timeRows] = await Promise.all([
+  const [allProblems, userStates, attemptDateRows, timeRows, pendingRows, userRows] = await Promise.all([
     db.select().from(problems).orderBy(asc(problems.id)),
     db.select().from(userProblemStates).where(eq(userProblemStates.userId, userId)),
     db
@@ -55,6 +55,33 @@ export default async function DashboardPage() {
       })
       .from(attempts)
       .where(eq(attempts.userId, userId)),
+    db
+      .select({
+        id: pendingSubmissions.id,
+        problemId: pendingSubmissions.problemId,
+        isReview: pendingSubmissions.isReview,
+        detectedAt: pendingSubmissions.detectedAt,
+        problemTitle: problems.title,
+        leetcodeNumber: problems.leetcodeNumber,
+        difficulty: problems.difficulty,
+        category: problems.category,
+        optimalTimeComplexity: problems.optimalTimeComplexity,
+        optimalSpaceComplexity: problems.optimalSpaceComplexity,
+      })
+      .from(pendingSubmissions)
+      .innerJoin(problems, eq(pendingSubmissions.problemId, problems.id))
+      .where(
+        and(
+          eq(pendingSubmissions.userId, userId),
+          eq(pendingSubmissions.status, "pending"),
+        ),
+      )
+      .orderBy(pendingSubmissions.detectedAt),
+    db
+      .select({ githubRepo: users.githubRepo })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1),
   ]);
 
   const stateMap = new Map(userStates.map((s) => [s.problemId, s]));
@@ -322,6 +349,19 @@ export default async function DashboardPage() {
           optimalSpaceComplexity: p.optimalSpaceComplexity,
         })),
         importAttemptedIds: [...attemptedIds],
+        pendingSubmissions: pendingRows.map((p) => ({
+          id: p.id,
+          problemId: p.problemId,
+          problemTitle: p.problemTitle,
+          leetcodeNumber: p.leetcodeNumber,
+          difficulty: p.difficulty as "Easy" | "Medium" | "Hard",
+          category: p.category,
+          isReview: p.isReview,
+          detectedAt: p.detectedAt.toISOString(),
+          optimalTimeComplexity: p.optimalTimeComplexity,
+          optimalSpaceComplexity: p.optimalSpaceComplexity,
+        })),
+        githubConnected: !!userRows[0]?.githubRepo,
       }}
     />
     </Suspense>

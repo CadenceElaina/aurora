@@ -11,7 +11,8 @@ Built around the NeetCode 150 with a modified [FSRS](https://github.com/open-spa
 ## How It Works
 
 1. **Solve a problem** on LeetCode.
-2. **Log the attempt** — two options:
+2. **Log the attempt** — three options:
+   - **GitHub Sync** (automatic): Connect your NeetCode submissions repo. Solved problems appear as pending on your dashboard for quick confirmation. See [GitHub Sync](#github-sync-optional) below.
    - **Import from NeetCode** (fastest): [neetcode.io/profile](https://neetcode.io/profile) → click a date on the activity calendar (or Roadmap → Calendar → date). On the activity page, select from below the date through the problem list, copy, and paste into the Import tab. Bulk-imports all problems for that day.
    - **Manual**: Click "Review" or "Start" on the dashboard and fill out the attempt form (outcome, complexity, code, notes).
 3. **The algorithm schedules reviews.** Struggled? Back in 1–3 days. Nailed it? Weeks, then months. Intervals grow as you prove retention.
@@ -28,6 +29,7 @@ Built around the NeetCode 150 with a modified [FSRS](https://github.com/open-spa
 - **Mock interviews** — random medium + hard from weak categories, 45-minute timer
 - **Pattern drills** — focused practice on a single category, sorted weakest-first
 - **NeetCode import** — paste activity from neetcode.io to bulk-log problems
+- **GitHub sync** — auto-detect NeetCode submissions via webhook, confirm from dashboard
 
 ---
 
@@ -146,6 +148,32 @@ python scripts/fetch_problems.py
 
 Downloads metadata from [neetcode-gh/leetcode](https://github.com/neetcode-gh/leetcode) (MIT). No scraping, no API keys.
 
+### GitHub Sync (Optional)
+
+Auto-detect when you solve problems on NeetCode and surface them for confirmation on your dashboard.
+
+**Prerequisites:** NeetCode's GitHub integration must be connected. Go to [neetcode.io/profile/github](https://neetcode.io/profile/github) and connect your GitHub account. NeetCode will create a submissions repo (e.g., `your-username/neetcode-submissions-xxxxx`).
+
+**Setup:**
+
+1. Open your NeetcodeSRS dashboard → look for the "Auto-sync from NeetCode" banner in the right column
+2. Click **Set up** and enter your NeetCode submissions repo name (e.g., `your-username/neetcode-submissions-xxxxx`)
+3. Click **Connect** — you'll receive a webhook URL and secret
+4. Go to your GitHub repo → **Settings** → **Webhooks** → **Add webhook**
+   - **Payload URL:** paste the webhook URL from step 3
+   - **Content type:** `application/json`
+   - **Secret:** paste the secret from step 3
+   - **Events:** select "Just the push event"
+5. Click **Add webhook**
+
+From now on, every NeetCode submission will appear as a pending item on your dashboard. You can:
+
+- **Quick confirm** — one click, uses sensible defaults (Solved independently, optimal quality, confidence 3)
+- **Full form** — opens the detailed attempt form for precise logging
+- **Dismiss** — skip without recording
+
+Only submissions **after** connecting are detected. Historical submissions are not imported (by design — see [decision record](docs/decisions/2026-04-02-github-webhook-sync.md)).
+
 ---
 
 ## Project Structure
@@ -170,6 +198,9 @@ src/
     api/attempts/              # Attempt logging + SRS update
     api/notes/                 # Per-user problem notes
     api/review/                # Review queue + skip endpoint
+    api/pending/               # Pending GitHub submissions
+    api/github-sync/           # GitHub repo connection settings
+    api/webhook/github/        # GitHub push webhook receiver
 ```
 
 ---

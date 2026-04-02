@@ -117,6 +117,7 @@ export async function POST(req: NextRequest) {
       confidence,
       code: typeof body.code === "string" ? body.code : null,
       notes: typeof body.notes === "string" ? body.notes : null,
+      source: body.source === "github" ? "github" : body.source === "import" ? "import" : "manual",
     })
     .returning({ id: attempts.id });
 

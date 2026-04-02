@@ -45,6 +45,18 @@ export const rewroteEnum = pgEnum("rewrote_from_scratch", [
   "DID_NOT_ATTEMPT",
 ]);
 
+export const attemptSourceEnum = pgEnum("attempt_source", [
+  "manual",
+  "import",
+  "github",
+]);
+
+export const pendingStatusEnum = pgEnum("pending_status", [
+  "pending",
+  "confirmed",
+  "dismissed",
+]);
+
 /* ── Users (NextAuth compatible) ── */
 
 export const users = pgTable("user", {
@@ -54,6 +66,9 @@ export const users = pgTable("user", {
   emailVerified: timestamp("email_verified", { mode: "date" }),
   image: text("image"),
   targetDate: date("target_date"),
+  githubRepo: varchar("github_repo", { length: 255 }),
+  githubWebhookSecret: varchar("github_webhook_secret", { length: 255 }),
+  githubConnectedAt: timestamp("github_connected_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -132,6 +147,7 @@ export const attempts = pgTable("attempt", {
   confidence: smallint("confidence").notNull(),
   code: text("code"),
   notes: text("notes"),
+  source: attemptSourceEnum("source").notNull().default("manual"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -153,4 +169,22 @@ export const userProblemStates = pgTable("user_problem_state", {
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+/* ── Pending Submissions (from GitHub webhook) ── */
+
+export const pendingSubmissions = pgTable("pending_submission", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  problemId: integer("problem_id")
+    .notNull()
+    .references(() => problems.id, { onDelete: "cascade" }),
+  commitSha: varchar("commit_sha", { length: 40 }).notNull(),
+  code: text("code"),
+  isReview: boolean("is_review").notNull().default(false),
+  status: pendingStatusEnum("status").notNull().default("pending"),
+  detectedAt: timestamp("detected_at").defaultNow().notNull(),
+  resolvedAt: timestamp("resolved_at"),
 });

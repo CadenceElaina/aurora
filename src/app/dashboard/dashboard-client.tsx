@@ -82,6 +82,19 @@ type MasteryItem = {
   category: string;
 };
 
+type PendingItem = {
+  id: string;
+  problemId: number;
+  problemTitle: string;
+  leetcodeNumber: number | null;
+  difficulty: "Easy" | "Medium" | "Hard";
+  category: string;
+  isReview: boolean;
+  detectedAt: string;
+  optimalTimeComplexity: string | null;
+  optimalSpaceComplexity: string | null;
+};
+
 type DashboardData = {
   reviewQueue: ReviewItem[];
   newProblems: NewProblem[];
@@ -116,6 +129,8 @@ type DashboardData = {
     optimalSpaceComplexity: string | null;
   }[];
   importAttemptedIds: number[];
+  pendingSubmissions: PendingItem[];
+  githubConnected: boolean;
 };
 
 const TIER_COLORS: Record<string, string> = {
@@ -223,6 +238,9 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [completedSort, setCompletedSort] = useState<CompletedSort>("retention");
   const [queueSearch, setQueueSearch] = useState("");
   const [showStatsDetail, setShowStatsDetail] = useState(false);
+  const [pendingItems, setPendingItems] = useState<PendingItem[]>(data.pendingSubmissions);
+  const [dismissedSetup, setDismissedSetup] = useState(false);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   // Load saved settings from localStorage
   useEffect(() => {
@@ -415,6 +433,52 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 h-full min-h-0 lg:grid-rows-1">
       {/* ── Combined Problem Queue ── */}
       <div className="flex flex-col min-h-0 lg:col-span-6">
+        {/* Pending GitHub submissions banner */}
+        {pendingItems.length > 0 && (
+          <PendingBanner
+            items={pendingItems}
+            confirmingId={confirmingId}
+            onConfirm={async (item) => {
+              setConfirmingId(item.id);
+              try {
+                // Quick confirm with sensible defaults
+                const res = await fetch("/api/attempts", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    problemId: item.problemId,
+                    solvedIndependently: "YES",
+                    solutionQuality: "OPTIMAL",
+                    userTimeComplexity: item.optimalTimeComplexity ?? "O(n)",
+                    userSpaceComplexity: item.optimalSpaceComplexity ?? "O(n)",
+                    confidence: 3,
+                    solveTimeMinutes: 20,
+                    source: "github",
+                  }),
+                });
+                if (res.ok || res.status === 409) {
+                  // Mark pending as confirmed
+                  await fetch("/api/pending", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: item.id, action: "confirm" }),
+                  });
+                  setPendingItems((prev) => prev.filter((p) => p.id !== item.id));
+                }
+              } finally {
+                setConfirmingId(null);
+              }
+            }}
+            onDismiss={async (item) => {
+              await fetch("/api/pending", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: item.id, action: "dismiss" }),
+              });
+              setPendingItems((prev) => prev.filter((p) => p.id !== item.id));
+            }}
+          />
+        )}
         <section className="flex flex-col flex-1 min-h-0">
           {/* Tab header — row 1: tabs + search/browse always visible */}
           <div className="flex flex-col gap-1.5 mb-2 shrink-0">
@@ -822,6 +886,11 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           </section>
         ) : (
         <>
+        {/* GitHub Sync Setup Banner */}
+        {!data.githubConnected && !dismissedSetup && (
+          <GitHubSetupBanner onDismiss={() => setDismissedSetup(true)} />
+        )}
+
         {/* Countdown */}
         <section className="rounded-lg border border-border bg-muted p-3">
           <div className="flex items-center justify-between mb-2">
@@ -1429,5 +1498,185 @@ function SrsFeedbackBanner({
       <button onClick={onUndo} className="text-orange-500 hover:text-orange-400 text-xs font-medium shrink-0">Undo</button>
       <button onClick={onDismiss} className="text-muted-foreground hover:text-foreground text-xs shrink-0">✕</button>
     </div>
+  );
+}
+
+/* ── Pending Submissions Banner ── */
+
+function PendingBanner({
+  items,
+  confirmingId,
+  onConfirm,
+  onDismiss,
+}: {
+  items: PendingItem[];
+  confirmingId: string | null;
+  onConfirm: (item: PendingItem) => void;
+  onDismiss: (item: PendingItem) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="mb-2 rounded-lg border border-violet-500/30 bg-violet-500/5 overflow-hidden shrink-0">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-violet-500/10 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-violet-500 text-[10px] font-bold text-white px-1.5">
+            {items.length}
+          </span>
+          <span className="text-foreground font-medium">
+            {items.length === 1 ? "New submission detected" : `${items.length} new submissions detected`}
+          </span>
+          <span className="text-xs text-muted-foreground">from GitHub</span>
+        </div>
+        <span className="text-xs text-muted-foreground">{expanded ? "▲" : "▼"}</span>
+      </button>
+      {expanded && (
+        <div className="border-t border-violet-500/20">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center gap-3 px-3 py-2.5 border-b border-border/50 last:border-b-0 hover:bg-muted/50 transition-colors"
+            >
+              <span className="text-xs text-muted-foreground w-8 shrink-0 tabular-nums">{item.leetcodeNumber}</span>
+              <div className="min-w-0 flex-1">
+                <Link href={`/problems/${item.problemId}`} className="text-sm font-medium text-foreground hover:text-accent truncate block">
+                  {item.problemTitle}
+                </Link>
+                <span className="text-xs text-muted-foreground">
+                  {item.category} · {item.isReview ? "Review" : "First attempt"}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <DifficultyBadge difficulty={item.difficulty} />
+                <Link
+                  href={`/problems/${item.problemId}/attempt`}
+                  className="inline-flex h-7 items-center rounded-md border border-border px-2.5 text-xs text-foreground transition-colors hover:bg-muted"
+                >
+                  Full form
+                </Link>
+                <button
+                  onClick={() => onConfirm(item)}
+                  disabled={confirmingId === item.id}
+                  className="inline-flex h-7 items-center rounded-md bg-accent px-2.5 text-xs text-accent-foreground transition-colors hover:opacity-90 disabled:opacity-50"
+                >
+                  {confirmingId === item.id ? "..." : "Quick confirm"}
+                </button>
+                <button
+                  onClick={() => onDismiss(item)}
+                  className="inline-flex h-7 items-center rounded-md px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── GitHub Setup Banner ── */
+
+function GitHubSetupBanner({ onDismiss }: { onDismiss: () => void }) {
+  const [showSteps, setShowSteps] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [repo, setRepo] = useState("");
+  const [result, setResult] = useState<{ secret: string; webhookUrl: string } | null>(null);
+
+  async function handleConnect() {
+    if (!repo.trim()) return;
+    setConnecting(true);
+    try {
+      const res = await fetch("/api/github-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repo: repo.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setResult({ secret: data.secret, webhookUrl: data.webhookUrl });
+      }
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  return (
+    <section className="rounded-lg border border-border bg-muted p-3 mb-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-sm">⚡</span>
+          <p className="text-xs font-medium text-foreground">Auto-sync from NeetCode</p>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowSteps(!showSteps)}
+            className="text-xs text-accent hover:underline"
+          >
+            {showSteps ? "Hide" : "Set up"}
+          </button>
+          <button onClick={onDismiss} className="text-xs text-muted-foreground hover:text-foreground ml-1">✕</button>
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground mt-1">
+        Automatically detect when you solve problems on NeetCode via GitHub webhook.
+      </p>
+
+      {showSteps && !result && (
+        <div className="mt-3 space-y-3">
+          <div className="space-y-2 text-xs text-muted-foreground">
+            <p><span className="font-medium text-foreground">1.</span> Go to <a href="https://neetcode.io/profile/github" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">neetcode.io/profile/github</a> and connect your GitHub account</p>
+            <p><span className="font-medium text-foreground">2.</span> Enter your NeetCode submissions repo below:</p>
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={repo}
+              onChange={(e) => setRepo(e.target.value)}
+              placeholder="owner/repo-name"
+              className="h-8 flex-1 rounded-md border border-border bg-background px-2.5 text-sm placeholder:text-muted-foreground focus:outline-none"
+            />
+            <button
+              onClick={handleConnect}
+              disabled={connecting || !repo.trim()}
+              className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-xs text-accent-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {connecting ? "..." : "Connect"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {result && (
+        <div className="mt-3 space-y-3">
+          <div className="rounded-md bg-green-500/10 p-2 text-xs text-green-500 font-medium">
+            Connected! Now configure the webhook in GitHub.
+          </div>
+          <div className="space-y-2 text-xs text-muted-foreground">
+            <p><span className="font-medium text-foreground">3.</span> Go to your repo → Settings → Webhooks → Add webhook</p>
+            <div>
+              <p className="text-muted-foreground mb-1">Payload URL:</p>
+              <code className="block rounded bg-background px-2 py-1.5 text-[11px] text-foreground select-all break-all">{result.webhookUrl}</code>
+            </div>
+            <div>
+              <p className="text-muted-foreground mb-1">Secret:</p>
+              <code className="block rounded bg-background px-2 py-1.5 text-[11px] text-foreground select-all break-all">{result.secret}</code>
+            </div>
+            <p><span className="font-medium text-foreground">Content type:</span> application/json</p>
+            <p><span className="font-medium text-foreground">Events:</span> Just the push event</p>
+          </div>
+          <button
+            onClick={onDismiss}
+            className="text-xs text-accent hover:underline"
+          >
+            Done
+          </button>
+        </div>
+      )}
+    </section>
   );
 }
