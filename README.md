@@ -161,10 +161,13 @@ Auto-detect when you solve problems on NeetCode and surface them for confirmatio
 3. Click **Connect** — you'll receive a webhook URL and secret
 4. Go to your GitHub repo → **Settings** → **Webhooks** → **Add webhook**
    - **Payload URL:** paste the webhook URL from step 3
-   - **Content type:** `application/json`
+   - **Content type:** ⚠️ **Change this to `application/json`** (GitHub defaults to `x-www-form-urlencoded` — the webhook will not work without changing this)
    - **Secret:** paste the secret from step 3
    - **Events:** select "Just the push event"
+   - Keep SSL verification enabled (default)
 5. Click **Add webhook**
+
+To **disconnect**, click "Disconnect" on the GitHub sync banner in your dashboard.
 
 From now on, every NeetCode submission will appear as a pending item on your dashboard. You can:
 

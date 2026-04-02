@@ -129,6 +129,7 @@ type DashboardData = {
     optimalSpaceComplexity: string | null;
   }[];
   importAttemptedIds: number[];
+  importTodayAttemptedIds: number[];
   pendingSubmissions: PendingItem[];
   githubConnected: boolean;
 };
@@ -241,6 +242,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [pendingItems, setPendingItems] = useState<PendingItem[]>(data.pendingSubmissions);
   const [dismissedSetup, setDismissedSetup] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [githubConnected, setGithubConnected] = useState(data.githubConnected);
 
   // Load saved settings from localStorage
   useEffect(() => {
@@ -744,6 +746,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               onDone={() => setListMode("review")}
               allProblems={data.importProblems}
               attemptedIds={data.importAttemptedIds}
+              todayAttemptedIds={data.importTodayAttemptedIds}
             />
           )}
         </section>
@@ -886,9 +889,12 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           </section>
         ) : (
         <>
-        {/* GitHub Sync Setup Banner */}
-        {!data.githubConnected && !dismissedSetup && (
-          <GitHubSetupBanner onDismiss={() => setDismissedSetup(true)} />
+        {/* GitHub Sync Setup / Status Banner */}
+        {!githubConnected && !dismissedSetup && (
+          <GitHubSetupBanner onDismiss={() => setDismissedSetup(true)} onConnected={() => setGithubConnected(true)} />
+        )}
+        {githubConnected && !dismissedSetup && (
+          <GitHubConnectedBanner onDisconnect={() => { setGithubConnected(false); setDismissedSetup(false); }} />
         )}
 
         {/* Countdown */}
@@ -1581,7 +1587,7 @@ function PendingBanner({
 
 /* ── GitHub Setup Banner ── */
 
-function GitHubSetupBanner({ onDismiss }: { onDismiss: () => void }) {
+function GitHubSetupBanner({ onDismiss, onConnected }: { onDismiss: () => void; onConnected: () => void }) {
   const [showSteps, setShowSteps] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [repo, setRepo] = useState("");
@@ -1662,21 +1668,80 @@ function GitHubSetupBanner({ onDismiss }: { onDismiss: () => void }) {
               <p className="text-muted-foreground mb-1">Payload URL:</p>
               <code className="block rounded bg-background px-2 py-1.5 text-[11px] text-foreground select-all break-all">{result.webhookUrl}</code>
             </div>
+            <p>
+              <span className="font-medium text-foreground">4.</span> <span className="font-medium text-orange-400">Change Content type</span> to <code className="rounded bg-background px-1 py-0.5 text-[11px]">application/json</code> <span className="text-orange-400">(GitHub defaults to form-urlencoded — you must change this)</span>
+            </p>
             <div>
-              <p className="text-muted-foreground mb-1">Secret:</p>
+              <p className="text-muted-foreground mb-1"><span className="font-medium text-foreground">5.</span> Secret:</p>
               <code className="block rounded bg-background px-2 py-1.5 text-[11px] text-foreground select-all break-all">{result.secret}</code>
             </div>
-            <p><span className="font-medium text-foreground">Content type:</span> application/json</p>
-            <p><span className="font-medium text-foreground">Events:</span> Just the push event</p>
+            <p><span className="font-medium text-foreground">6.</span> Under &quot;Which events&quot;, select <span className="font-medium text-foreground">Just the push event</span></p>
+            <p><span className="font-medium text-foreground">7.</span> Keep SSL verification enabled, then click <span className="font-medium text-foreground">Add webhook</span></p>
           </div>
           <button
-            onClick={onDismiss}
+            onClick={() => { onConnected(); onDismiss(); }}
             className="text-xs text-accent hover:underline"
           >
             Done
           </button>
         </div>
       )}
+    </section>
+  );
+}
+
+/* ── GitHub Connected Banner ── */
+
+function GitHubConnectedBanner({ onDisconnect }: { onDisconnect: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  async function handleDisconnect() {
+    setDisconnecting(true);
+    try {
+      const res = await fetch("/api/github-sync", { method: "DELETE" });
+      if (res.ok) {
+        onDisconnect();
+      }
+    } finally {
+      setDisconnecting(false);
+      setConfirming(false);
+    }
+  }
+
+  return (
+    <section className="rounded-lg border border-border bg-muted p-3 mb-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-green-500">●</span>
+          <p className="text-xs font-medium text-foreground">GitHub sync active</p>
+        </div>
+        {!confirming ? (
+          <button
+            onClick={() => setConfirming(true)}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            Disconnect
+          </button>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Disconnect?</span>
+            <button
+              onClick={handleDisconnect}
+              disabled={disconnecting}
+              className="text-xs text-red-400 hover:text-red-300 font-medium disabled:opacity-50"
+            >
+              {disconnecting ? "..." : "Yes"}
+            </button>
+            <button
+              onClick={() => setConfirming(false)}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              No
+            </button>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

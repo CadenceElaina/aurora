@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { db } from "@/db";
 import { problems, userProblemStates, attempts, pendingSubmissions, users } from "@/db/schema";
 import { auth } from "@/auth";
-import { eq, and, asc, count, sql, sum, avg } from "drizzle-orm";
+import { eq, and, asc, count, sql, sum, avg, gte, lt } from "drizzle-orm";
 import Link from "next/link";
 import { computeRetrievability, computeReadiness } from "@/lib/srs";
 import { DashboardClient } from "./dashboard-client";
@@ -32,9 +32,13 @@ export default async function DashboardPage() {
 
   const userId = session.user.id;
   const now = new Date();
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const tomorrowStart = new Date(todayStart);
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
   // Parallel data fetching
-  const [allProblems, userStates, attemptDateRows, timeRows, pendingRows, userRows] = await Promise.all([
+  const [allProblems, userStates, attemptDateRows, timeRows, pendingRows, userRows, todayAttemptRows] = await Promise.all([
     db.select().from(problems).orderBy(asc(problems.id)),
     db.select().from(userProblemStates).where(eq(userProblemStates.userId, userId)),
     db
@@ -82,6 +86,16 @@ export default async function DashboardPage() {
       .from(users)
       .where(eq(users.id, userId))
       .limit(1),
+    db
+      .select({ problemId: attempts.problemId })
+      .from(attempts)
+      .where(
+        and(
+          eq(attempts.userId, userId),
+          gte(attempts.createdAt, todayStart),
+          lt(attempts.createdAt, tomorrowStart),
+        ),
+      ),
   ]);
 
   const stateMap = new Map(userStates.map((s) => [s.problemId, s]));
@@ -349,6 +363,7 @@ export default async function DashboardPage() {
           optimalSpaceComplexity: p.optimalSpaceComplexity,
         })),
         importAttemptedIds: [...attemptedIds],
+        importTodayAttemptedIds: todayAttemptRows.map((a) => a.problemId),
         pendingSubmissions: pendingRows.map((p) => ({
           id: p.id,
           problemId: p.problemId,

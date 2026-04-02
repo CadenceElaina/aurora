@@ -225,14 +225,17 @@ type Step = "paste" | "confirm" | "done";
 type Props = {
   allProblems: DbProblem[];
   attemptedIds: number[];
+  /** Problem IDs already logged today — pre-skipped in confirm step */
+  todayAttemptedIds?: number[];
   /** Called instead of showing the done screen — use when embedded in another page */
   onDone?: () => void;
   /** Removes outer max-w / heading, uses flex-fill layout for inline use */
   embedded?: boolean;
 };
 
-export function ImportClient({ allProblems, attemptedIds, onDone, embedded }: Props) {
+export function ImportClient({ allProblems, attemptedIds, todayAttemptedIds, onDone, embedded }: Props) {
   const attemptedSet = useMemo(() => new Set(attemptedIds), [attemptedIds]);
+  const todaySet = useMemo(() => new Set(todayAttemptedIds ?? []), [todayAttemptedIds]);
   const today = new Date().toISOString().slice(0, 10);
 
   const [step, setStep] = useState<Step>("paste");
@@ -257,6 +260,16 @@ export function ImportClient({ allProblems, attemptedIds, onDone, embedded }: Pr
       return;
     }
     const grouped = groupIntoAttempts(rows, dateStr, allProblems, attemptedSet);
+    // Pre-mark attempts already logged today as skipped
+    const isToday = dateStr === today;
+    if (isToday) {
+      for (const a of grouped) {
+        if (a.matchedProblem && todaySet.has(a.matchedProblem.id)) {
+          a.submitStatus = "skipped";
+          a.submitError = "Already logged today";
+        }
+      }
+    }
     setAttempts(grouped);
     setStep("confirm");
   }
