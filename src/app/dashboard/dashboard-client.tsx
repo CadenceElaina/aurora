@@ -68,6 +68,8 @@ type DifficultyBreakdown = {
 type AttemptDay = {
   date: string;
   count: number;
+  newCount: number;
+  reviewCount: number;
 };
 
 type ReadinessResult = {
@@ -1100,34 +1102,66 @@ function ActivityChart({ history }: { history: AttemptDay[] }) {
   const todayStr = new Date().toISOString().slice(0, 10);
 
   return (
-    <div className="flex items-end gap-0.5">
-      {history.map((day) => {
-        const barPx = day.count > 0
-          ? Math.max(Math.round((day.count / max) * MAX_BAR_PX), 4)
-          : 3;
-        const [, m, dd] = day.date.split("-");
-        const label = `${parseInt(m)}/${parseInt(dd)}`;
-        const isToday = day.date === todayStr;
-        return (
-          <Link
-            key={day.date}
-            href={`/activity?date=${day.date}`}
-            className="flex flex-1 flex-col items-center justify-end gap-0.5 cursor-pointer group"
-            style={{ minHeight: MAX_BAR_PX + 28 }}
-          >
-            {day.count > 0 && (
-              <span className="text-[10px] text-muted-foreground leading-none tabular-nums group-hover:text-foreground transition-colors">{day.count}</span>
-            )}
-            <div
-              className={`w-full rounded-t-sm transition-all duration-150 group-hover:scale-x-110 group-hover:brightness-125 ${day.count > 0 ? "bg-accent" : "bg-border/40 group-hover:bg-border/60"}`}
-              style={{ height: `${barPx}px` }}
-            />
-            <span className={`text-[9px] leading-none tabular-nums transition-colors ${isToday ? "text-accent font-semibold" : "text-muted-foreground group-hover:text-foreground"}`}>
-              {label}
-            </span>
-          </Link>
-        );
-      })}
+    <div>
+      <div className="flex items-end gap-0.5">
+        {history.map((day) => {
+          const barPx = day.count > 0
+            ? Math.max(Math.round((day.count / max) * MAX_BAR_PX), 4)
+            : 3;
+          const reviewPx = day.count > 0
+            ? Math.round((day.reviewCount / day.count) * barPx)
+            : 0;
+          const newPx = barPx - reviewPx;
+          const [, m, dd] = day.date.split("-");
+          const label = `${parseInt(m)}/${parseInt(dd)}`;
+          const isToday = day.date === todayStr;
+          return (
+            <Link
+              key={day.date}
+              href={`/activity?date=${day.date}`}
+              className="flex flex-1 flex-col items-center justify-end gap-0.5 cursor-pointer group"
+              style={{ minHeight: MAX_BAR_PX + 28 }}
+              title={day.count > 0 ? `${day.newCount} new · ${day.reviewCount} review` : undefined}
+            >
+              {day.count > 0 && (
+                <span className="text-[10px] text-muted-foreground leading-none tabular-nums group-hover:text-foreground transition-colors">{day.count}</span>
+              )}
+              {day.count > 0 ? (
+                <div className="w-full flex flex-col transition-all duration-150 group-hover:scale-x-110">
+                  {day.newCount > 0 && (
+                    <div
+                      className="w-full rounded-t-sm bg-green-500 group-hover:brightness-125"
+                      style={{ height: `${newPx}px` }}
+                    />
+                  )}
+                  {day.reviewCount > 0 && (
+                    <div
+                      className={`w-full bg-accent group-hover:brightness-125 ${day.newCount === 0 ? "rounded-t-sm" : ""}`}
+                      style={{ height: `${reviewPx}px` }}
+                    />
+                  )}
+                </div>
+              ) : (
+                <div
+                  className="w-full rounded-t-sm bg-border/40 group-hover:bg-border/60 transition-all duration-150"
+                  style={{ height: `${barPx}px` }}
+                />
+              )}
+              <span className={`text-[9px] leading-none tabular-nums transition-colors ${isToday ? "text-accent font-semibold" : "text-muted-foreground group-hover:text-foreground"}`}>
+                {label}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-3 mt-1.5 justify-end">
+        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+          <span className="inline-block w-2 h-2 rounded-sm bg-green-500" /> New
+        </span>
+        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+          <span className="inline-block w-2 h-2 rounded-sm bg-accent" /> Review
+        </span>
+      </div>
     </div>
   );
 }

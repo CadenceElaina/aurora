@@ -273,13 +273,22 @@ export default async function DashboardPage() {
   ).length;
   const avgNewPerDay = newProbsRecent / 14;
 
-  // Attempt history (last 14 days)
-  const attemptHistory: { date: string; count: number }[] = [];
+  // Attempt history (last 14 days) with new vs review breakdown
+  // A "new" attempt on a given day = a userProblemState was created that day
+  const newByDate = new Map<string, number>();
+  for (const s of userStates) {
+    const d = s.createdAt.toISOString().slice(0, 10);
+    newByDate.set(d, (newByDate.get(d) ?? 0) + 1);
+  }
+
+  const attemptHistory: { date: string; count: number; newCount: number; reviewCount: number }[] = [];
   for (let i = 13; i >= 0; i--) {
     const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
     const key = d.toISOString().slice(0, 10);
     const found = attemptDateRows.find((a) => a.date === key);
-    attemptHistory.push({ date: key, count: found?.count ?? 0 });
+    const total = found?.count ?? 0;
+    const newCount = Math.min(newByDate.get(key) ?? 0, total);
+    attemptHistory.push({ date: key, count: total, newCount, reviewCount: total - newCount });
   }
 
   // Difficulty breakdown
