@@ -222,6 +222,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [newSort, setNewSort] = useState<NewSort>("curriculum");
   const [completedSort, setCompletedSort] = useState<CompletedSort>("retention");
   const [queueSearch, setQueueSearch] = useState("");
+  const [showStatsDetail, setShowStatsDetail] = useState(false);
 
   // Load saved settings from localStorage
   useEffect(() => {
@@ -686,6 +687,141 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
       {/* ── Right Column ── */}
       <div className="space-y-3 lg:col-span-6 overflow-y-auto min-h-0">
+        {/* Flip toggle */}
+        <div className="flex justify-end">
+          <button
+            onClick={() => setShowStatsDetail(!showStatsDetail)}
+            className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {showStatsDetail ? "← Dashboard" : "All Stats →"}
+          </button>
+        </div>
+
+        {showStatsDetail ? (
+          /* ── Stats Detail (back side) ── */
+          <section className="rounded-lg border border-border bg-muted p-4 space-y-4">
+            <p className="text-xs font-medium text-muted-foreground">All Stats</p>
+
+            {/* Pace */}
+            <div>
+              <p className="text-[11px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wide">Pace</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <p className="text-lg font-bold tabular-nums">{data.avgNewPerDay.toFixed(1)}</p>
+                  <p className="text-[11px] text-muted-foreground">new problems/day</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold tabular-nums">{Math.max(0, data.avgPerDay - data.avgNewPerDay).toFixed(1)}</p>
+                  <p className="text-[11px] text-muted-foreground">reviews/day</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold tabular-nums">{data.avgPerDay.toFixed(1)}</p>
+                  <p className="text-[11px] text-muted-foreground">total attempts/day</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Progress */}
+            <div>
+              <p className="text-[11px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wide">Progress</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <p className="text-lg font-bold tabular-nums">{data.attemptedCount}/{data.totalProblems}</p>
+                  <p className="text-[11px] text-muted-foreground">problems attempted</p>
+                </div>
+                <div>
+                  <p className={`text-lg font-bold tabular-nums ${countdown.onTrack ? "text-green-500" : "text-orange-500"}`}>{countdown.projectedRaw}/{targetCount}</p>
+                  <p className="text-[11px] text-muted-foreground">projected by target</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold tabular-nums">{countdown.neededPerDay.toFixed(1)}</p>
+                  <p className="text-[11px] text-muted-foreground">new/day needed</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Retention */}
+            <div>
+              <p className="text-[11px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wide">Retention</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <p className="text-lg font-bold tabular-nums">{data.retainedCount}/{data.attemptedCount}</p>
+                  <p className="text-[11px] text-muted-foreground">retained (R &gt; 70%)</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold tabular-nums text-green-500">{data.masteredCount}</p>
+                  <p className="text-[11px] text-muted-foreground">mastered (S ≥ 30d)</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold tabular-nums text-accent">{data.learningCount}</p>
+                  <p className="text-[11px] text-muted-foreground">learning</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Time */}
+            <div>
+              <p className="text-[11px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wide">Time</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <p className="text-lg font-bold">{formatMinutes(data.totalSolveMinutes)}</p>
+                  <p className="text-[11px] text-muted-foreground">total solve time</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold">{formatMinutes(data.totalStudyMinutes)}</p>
+                  <p className="text-[11px] text-muted-foreground">total study time</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold">{data.avgSolveMinutes > 0 ? `${Math.round(data.avgSolveMinutes)}m` : "—"}</p>
+                  <p className="text-[11px] text-muted-foreground">avg solve time</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Streaks & Confidence */}
+            <div>
+              <p className="text-[11px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wide">Consistency</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <p className="text-lg font-bold tabular-nums">🔥 {data.currentStreak}</p>
+                  <p className="text-[11px] text-muted-foreground">current streak</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold tabular-nums">{data.bestStreak}</p>
+                  <p className="text-[11px] text-muted-foreground">best streak</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold tabular-nums">{data.avgConfidence > 0 ? `${data.avgConfidence.toFixed(1)}/5` : "—"}</p>
+                  <p className="text-[11px] text-muted-foreground">avg confidence</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Readiness Breakdown */}
+            <div>
+              <p className="text-[11px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wide">Readiness ({data.readiness.score}/100 — {data.readiness.tier})</p>
+              <div className="grid grid-cols-4 gap-3">
+                <div>
+                  <p className="text-lg font-bold tabular-nums">{Math.round(data.readinessBreakdown.coverage * 100)}%</p>
+                  <p className="text-[11px] text-muted-foreground">coverage</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold tabular-nums">{Math.round(data.readinessBreakdown.retention * 100)}%</p>
+                  <p className="text-[11px] text-muted-foreground">retention</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold tabular-nums">{Math.round(data.readinessBreakdown.categoryBalance * 100)}%</p>
+                  <p className="text-[11px] text-muted-foreground">category balance</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold tabular-nums">{Math.round(data.readinessBreakdown.consistency * 100)}%</p>
+                  <p className="text-[11px] text-muted-foreground">consistency</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : (
+        <>
         {/* Countdown */}
         <section className="rounded-lg border border-border bg-muted p-3">
           <div className="flex items-center justify-between mb-2">
@@ -757,23 +893,21 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               <span className="text-xs text-muted-foreground">streak</span>
             </div>
             <div className="flex items-center gap-1">
+              <span className="text-xs font-semibold tabular-nums">{Math.max(0, data.avgPerDay - data.avgNewPerDay).toFixed(1)}</span>
+              <span className="text-xs text-muted-foreground">reviews/day</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-xs font-semibold tabular-nums">{data.avgNewPerDay.toFixed(1)}</span>
+              <span className="text-xs text-muted-foreground">new/day</span>
+            </div>
+            <div className="flex items-center gap-1">
               <span className="text-xs font-semibold tabular-nums">{data.avgPerDay.toFixed(1)}</span>
-              <span className="text-xs text-muted-foreground">attempts/day</span>
+              <span className="text-xs text-muted-foreground">total/day</span>
             </div>
             <div className="flex items-center gap-1">
               <span className={`text-xs font-semibold tabular-nums ${countdown.onTrack ? "text-green-500" : "text-orange-500"}`}>{countdown.projectedRaw}/{targetCount}</span>
               <span className="text-xs text-muted-foreground">projected</span>
             </div>
-            <div className="flex items-center gap-1">
-              <span className="text-xs font-semibold">{formatMinutes(data.totalSolveMinutes)}</span>
-              <span className="text-xs text-muted-foreground">solved</span>
-            </div>
-            {data.avgConfidence > 0 && (
-              <div className="flex items-center gap-1">
-                <span className="text-xs font-semibold tabular-nums">{data.avgConfidence.toFixed(1)}/5</span>
-                <span className="text-xs text-muted-foreground">conf</span>
-              </div>
-            )}
           </div>
 
           {/* Settings */}
@@ -882,6 +1016,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           </section>
         </div>
 
+        </>
+        )}
       </div>
     </div>
     </div>
