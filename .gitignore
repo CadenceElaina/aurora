@@ -10,8 +10,8 @@ out/
 .env.local
 .env.*.local
 
-# personal notes (not for public repo)
-docs/context.md
+# hidden docs
+hidden-docs/
 
 # personal data scripts (not for public repo)
 scripts/seed-my-history.ts

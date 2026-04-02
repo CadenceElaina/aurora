@@ -427,8 +427,8 @@ export default function InfoPage() {
           <a href="https://github.com/CadenceElaina/neetcode-spaced-repetition-system/blob/main/src/lib/srs.ts" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
             src/lib/srs.ts
           </a>. Full design rationale is in{" "}
-          <a href="https://github.com/CadenceElaina/neetcode-spaced-repetition-system/blob/main/docs/PLAN.md" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
-            docs/PLAN.md
+          <a href="https://github.com/CadenceElaina/neetcode-spaced-repetition-system/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+            docs/ARCHITECTURE.md
           </a>.
         </p>
       </footer>

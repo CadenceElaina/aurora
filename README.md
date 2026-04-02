@@ -33,7 +33,7 @@ Built around the NeetCode 150 with a modified [FSRS](https://github.com/open-spa
 
 ## Algorithm
 
-The scheduling engine is in [`src/lib/srs.ts`](src/lib/srs.ts). Full design rationale is in [`docs/PLAN.md`](docs/PLAN.md) §6–7.
+The scheduling engine is in [`src/lib/srs.ts`](src/lib/srs.ts). Full design rationale is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ### Retrievability
 
@@ -153,9 +153,9 @@ Downloads metadata from [neetcode-gh/leetcode](https://github.com/neetcode-gh/le
 ```
 problems.json                  # 150 problems with metadata + complexity
 docs/
-  PLAN.md                      # Full design doc (algorithm, architecture, roadmap)
-  STATUS.md                    # Implementation status
-  STYLE_GUIDE.md               # Design system
+  ARCHITECTURE.md              # Data model, algorithm, system design
+  DESIGN_SYSTEM.md             # Colors, typography, spacing, components
+  decisions/                   # Architecture Decision Records (ADRs)
 scripts/
   fetch_problems.py            # Data pipeline
   seed.ts                      # Seeds problem metadata into Postgres
@@ -176,7 +176,7 @@ src/
 
 ## Contributing
 
-Contributions welcome. See [docs/PLAN.md](docs/PLAN.md) for architecture decisions, edge cases, and roadmap.
+Contributions welcome. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system design and [docs/decisions/](docs/decisions/) for architecture decision records.
 
 Areas where help is useful: algorithm tuning, complexity verification, UI/UX, mobile responsiveness.
 

@@ -1,6 +1,6 @@
 /**
  * Spaced Repetition System — stability + retrievability calculations.
- * Based on FSRS adapted for coding problems (see docs/PLAN.md §6).
+ * Based on FSRS adapted for coding problems (see docs/ARCHITECTURE.md).
  */
 
 /* ── Types ── */
