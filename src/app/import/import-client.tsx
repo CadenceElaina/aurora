@@ -30,6 +30,7 @@ type ImportAttempt = {
   deleted: boolean;
   submitStatus: "idle" | "submitting" | "done" | "skipped" | "error";
   submitError: string | null;
+  forceSubmit?: boolean;
 };
 
 /* ── Parsing helpers ── */
@@ -296,6 +297,9 @@ export function ImportClient({ allProblems, attemptedIds, todayAttemptedIds, onD
         solveTimeMinutes: attempt.solveTimeMinutes,
         rewroteFromScratch: attempt.isReview ? "YES" : "DID_NOT_ATTEMPT",
         notes: attempt.notes || null,
+        source: "import",
+        attemptDate: dateStr + "T12:00:00",
+        ...(attempt.forceSubmit && { force: true }),
       };
 
       try {
@@ -534,7 +538,7 @@ function AttemptCard({ attempt, onUpdate, onDelete }: CardProps) {
             {submitError ?? "Already logged today"}
           </span>
           <button
-            onClick={() => onUpdate({ submitStatus: "idle", submitError: null })}
+            onClick={() => onUpdate({ submitStatus: "idle", submitError: null, forceSubmit: true })}
             className="text-xs text-accent hover:underline"
           >
             Log anyway
@@ -664,28 +668,28 @@ function AttemptCard({ attempt, onUpdate, onDelete }: CardProps) {
           )}
 
           {/* Confidence + Solve time */}
-          <div className="flex items-end gap-4">
-            <div className="flex-1 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
-                  Confidence: {confidence}/5
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {CONF_LABELS[confidence]}
-                </span>
+          <div className="flex items-center gap-4">
+            <div className="space-y-1">
+              <span className="text-xs text-muted-foreground">Confidence:</span>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => onUpdate({ confidence: n })}
+                    className={`flex h-7 w-7 items-center justify-center rounded text-xs transition-colors ${
+                      confidence === n
+                        ? "bg-accent text-accent-foreground font-medium"
+                        : "border border-border text-muted-foreground hover:bg-muted"
+                    }`}
+                    title={CONF_LABELS[n]}
+                  >
+                    {n}
+                  </button>
+                ))}
               </div>
-              <input
-                type="range"
-                min={1}
-                max={5}
-                value={confidence}
-                onChange={(e) =>
-                  onUpdate({ confidence: Number(e.target.value) })
-                }
-                className="w-full accent-accent"
-              />
+              <p className="text-[10px] text-muted-foreground">{CONF_LABELS[confidence]}</p>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0 pb-0.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               <label className="text-xs text-muted-foreground">Time:</label>
               <input
                 type="number"
