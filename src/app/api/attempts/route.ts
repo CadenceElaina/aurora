@@ -17,6 +17,38 @@ const VALID_SOLVED = ["YES", "PARTIAL", "NO"] as const;
 const VALID_QUALITY = ["OPTIMAL", "SUBOPTIMAL", "BRUTE_FORCE", "NONE"] as const;
 const VALID_REWROTE = ["YES", "NO", "DID_NOT_ATTEMPT"] as const;
 
+/**
+ * GET /api/attempts?date=YYYY-MM-DD — list problem IDs with attempts on a given date.
+ */
+export async function GET(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const dateParam = req.nextUrl.searchParams.get("date");
+  if (!dateParam || !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+    return NextResponse.json({ error: "date param required (YYYY-MM-DD)" }, { status: 400 });
+  }
+
+  const dayStart = new Date(dateParam + "T00:00:00");
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+
+  const rows = await db
+    .select({ problemId: attempts.problemId })
+    .from(attempts)
+    .where(
+      and(
+        eq(attempts.userId, session.user.id),
+        gte(attempts.createdAt, dayStart),
+        lt(attempts.createdAt, dayEnd),
+      ),
+    );
+
+  return NextResponse.json(rows);
+}
+
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {

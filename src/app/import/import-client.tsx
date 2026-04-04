@@ -241,7 +241,7 @@ export function ImportClient({ allProblems, attemptedIds, todayAttemptedIds, onD
     [attempts],
   );
 
-  function handleParse() {
+  async function handleParse() {
     setParseError(null);
     const rows = parseActivityText(rawText);
     if (rows.length === 0) {
@@ -251,16 +251,24 @@ export function ImportClient({ allProblems, attemptedIds, todayAttemptedIds, onD
       return;
     }
     const grouped = groupIntoAttempts(rows, dateStr, allProblems, attemptedSet);
-    // Pre-mark attempts already logged today as skipped
-    const isToday = dateStr === today;
-    if (isToday) {
-      for (const a of grouped) {
-        if (a.matchedProblem && todaySet.has(a.matchedProblem.id)) {
-          a.submitStatus = "skipped";
-          a.submitError = "Already logged today";
+
+    // Fetch attempts already logged on the selected date to pre-skip duplicates
+    try {
+      const res = await fetch(`/api/attempts?date=${dateStr}`);
+      if (res.ok) {
+        const existing: { problemId: number }[] = await res.json();
+        const dateSet = new Set(existing.map((e) => e.problemId));
+        for (const a of grouped) {
+          if (a.matchedProblem && dateSet.has(a.matchedProblem.id)) {
+            a.submitStatus = "skipped";
+            a.submitError = "Already logged on this date";
+          }
         }
       }
+    } catch {
+      // Non-critical — server-side 409 will still catch dupes
     }
+
     setAttempts(grouped);
     setStep("confirm");
   }
