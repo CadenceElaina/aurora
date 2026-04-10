@@ -82,8 +82,13 @@ function GitHubSyncDropdown() {
 
   useEffect(() => {
     fetch("/api/github-sync")
-      .then((r) => r.json())
-      .then((d) => setStatus({ connected: d.connected, repo: d.repo }))
+      .then((r) => {
+        if (!r.ok) return null;
+        return r.json();
+      })
+      .then((d) => {
+        if (d) setStatus({ connected: d.connected, repo: d.repo });
+      })
       .catch(() => {});
   }, []);
 
