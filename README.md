@@ -71,7 +71,7 @@ $$S_{\text{new}} = S_{\text{old}} \times \text{multiplier} \times \text{modifier
 | Partial    | 1.1× (quality ignored) |    1.1×     |      —      |
 | Not solved |           —            |    0.8×     |    0.5×     |
 
-**Modifiers** (independent solves only): rewrote from scratch (+0.5), correct time complexity (+0.2), correct space complexity (+0.2), fast solve (+0.2). **Confidence** (all attempts): level 5 (+0.3), level 4 (+0.1), level 2 (−0.2), level 1 (−0.4). Stability clamped to [0.5, 365] days.
+**Modifiers** (independent solves only): rewrote from scratch (+0.5), fast solve on Mediums < 10 min (+0.2). **Confidence** (all attempts): level 5 (+0.3), level 4 (+0.1), level 2 (−0.2), level 1 (−0.4). Stability clamped to [0.5, 365] days.
 
 Partial + confidence ≤ 2 forces next review in 1 day. "Could not solve" is due immediately.
 
@@ -174,11 +174,11 @@ Downloads metadata from [neetcode-gh/leetcode](https://github.com/neetcode-gh/le
 2. Import the repo in [Vercel](https://vercel.com)
 3. Add environment variables in **Settings → Environment Variables**:
 
-   | Variable             | Value                                                        |
-   | -------------------- | ------------------------------------------------------------ |
-   | `DATABASE_URL`       | Supabase connection string (Project Settings → Database → URI) |
-   | `AUTH_SECRET`        | Run `npx auth secret` locally and paste the **value only**   |
-   | `AUTH_GITHUB_ID`     | GitHub OAuth App Client ID                                   |
+   | Variable             | Value                                                            |
+   | -------------------- | ---------------------------------------------------------------- |
+   | `DATABASE_URL`       | Supabase connection string (Project Settings → Database → URI)   |
+   | `AUTH_SECRET`        | Run `npx auth secret` locally and paste the **value only**       |
+   | `AUTH_GITHUB_ID`     | GitHub OAuth App Client ID                                       |
    | `AUTH_GITHUB_SECRET` | GitHub OAuth App Client Secret (**value only**, not `KEY=value`) |
 
 4. Update your GitHub OAuth App's **Authorization callback URL** to:

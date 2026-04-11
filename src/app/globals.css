@@ -1,33 +1,39 @@
 @import "tailwindcss";
 
-/* ── Light theme (default) ── */
+/* ── Light theme (default) — Lavender Nebula ── */
 :root {
-  --background: #fafafa;
-  --foreground: #0a0a0a;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
-  --border: #e4e4e7;
-  --ring: #18181b;
-  --accent: #2563eb;
+  --background: #faf8ff;
+  --foreground: #1a1025;
+  --muted: #f0ecf7;
+  --muted-foreground: #6b5f7d;
+  --border: #e2dced;
+  --ring: #7c3aed;
+  --accent: #a855f7;
   --accent-foreground: #ffffff;
-  --destructive: #dc2626;
-  --success: #16a34a;
-  --warning: #d97706;
+  --accent-secondary: #ec4899;
+  --destructive: #e11d48;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --glow: rgba(168, 85, 247, 0.15);
+  --glow-pink: rgba(236, 72, 153, 0.12);
 }
 
-/* ── Dark theme ── */
+/* ── Dark theme — Deep Space ── */
 .dark {
-  --background: #0a0a0a;
-  --foreground: #fafafa;
-  --muted: #18181b;
-  --muted-foreground: #a1a1aa;
-  --border: #27272a;
-  --ring: #d4d4d8;
-  --accent: #3b82f6;
-  --accent-foreground: #ffffff;
-  --destructive: #ef4444;
-  --success: #22c55e;
-  --warning: #f59e0b;
+  --background: #0c0a14;
+  --foreground: #ede9f6;
+  --muted: #16121f;
+  --muted-foreground: #9b8fb5;
+  --border: #2a2338;
+  --ring: #a78bfa;
+  --accent: #c084fc;
+  --accent-foreground: #0c0a14;
+  --accent-secondary: #f472b6;
+  --destructive: #fb7185;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --glow: rgba(192, 132, 252, 0.2);
+  --glow-pink: rgba(244, 114, 182, 0.15);
 }
 
 @theme inline {
@@ -39,9 +45,12 @@
   --color-ring: var(--ring);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-accent-secondary: var(--accent-secondary);
   --color-destructive: var(--destructive);
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-glow: var(--glow);
+  --color-glow-pink: var(--glow-pink);
 }
 
 body {
@@ -68,4 +77,33 @@ body {
 
 .dot-critical {
   animation: pulse-ring 2s ease-out infinite;
+}
+
+/* Constellation glow for nodes */
+@keyframes nebula-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.glow-node {
+  box-shadow: 0 0 12px var(--glow), 0 0 4px var(--glow-pink);
+}
+
+.glow-node:hover {
+  box-shadow: 0 0 20px var(--glow), 0 0 8px var(--glow-pink);
+}
+
+/* Star field background for landing */
+.starfield {
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, var(--accent) 0.5px, transparent 1px),
+    radial-gradient(1px 1px at 30% 65%, var(--accent-secondary) 0.5px, transparent 1px),
+    radial-gradient(1px 1px at 50% 10%, var(--muted-foreground) 0.3px, transparent 1px),
+    radial-gradient(1px 1px at 70% 40%, var(--accent) 0.4px, transparent 1px),
+    radial-gradient(1px 1px at 80% 80%, var(--accent-secondary) 0.3px, transparent 1px),
+    radial-gradient(1px 1px at 15% 85%, var(--muted-foreground) 0.5px, transparent 1px),
+    radial-gradient(1px 1px at 90% 15%, var(--accent) 0.3px, transparent 1px),
+    radial-gradient(1px 1px at 40% 90%, var(--accent-secondary) 0.4px, transparent 1px),
+    radial-gradient(1px 1px at 60% 55%, var(--muted-foreground) 0.3px, transparent 1px),
+    radial-gradient(1px 1px at 25% 45%, var(--accent) 0.3px, transparent 1px);
 }

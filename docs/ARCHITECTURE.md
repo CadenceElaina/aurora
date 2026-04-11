@@ -129,17 +129,21 @@ $$S_{\text{new}} = S_{\text{old}} \times \text{multiplier} \times \text{modifier
 | Outcome    | Optimal | Brute Force | No Solution |
 | ---------- | :-----: | :---------: | :---------: |
 | Solved     |  2.5×   |    1.5×     |      —      |
-| Partial    |  2.0×   |    1.3×     |      —      |
+| Partial    |  1.1×   |    1.1×     |      —      |
 | Not solved |    —    |    0.8×     |    0.5×     |
+
+> Partial solves use 1.1× regardless of quality — needing help means quality is irrelevant.
 
 **Modifiers** (additive bonuses):
 
-| Signal                | Modifier |
-| --------------------- | :------: |
-| Rewrote from scratch  |   +0.5   |
-| Fast solve (< 10 min) |   +0.2   |
-| Confidence 4–5        |   +0.1   |
-| Confidence 1–2        |   −0.1   |
+| Signal                             | Modifier |
+| ---------------------------------- | :------: |
+| Rewrote from scratch (solved only) |   +0.5   |
+| Fast solve (< 10 min, Medium only) |   +0.2   |
+| Confidence 5                       |   +0.3   |
+| Confidence 4                       |   +0.1   |
+| Confidence 2                       |   −0.2   |
+| Confidence 1                       |   −0.4   |
 
 > **Note:** Time/space complexity correctness bonuses (+0.2 each) were removed. Complexity columns remain in the DB but always store N/A/null. Quality is now binary: Optimal or Not Optimal.
 

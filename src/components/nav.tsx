@@ -13,15 +13,18 @@ const navLinks = [
   { href: "/info", label: "Info" },
 ];
 
-export function Nav() {
+export function Nav({ isAuthenticated = false, authConfigured = true }: { isAuthenticated?: boolean; authConfigured?: boolean }) {
   const pathname = usePathname();
   const [logoHovered, setLogoHovered] = useState(false);
 
+  // On the landing page, show a minimal nav
+  const isLanding = pathname === "/";
+
   return (
-    <header className="sticky top-0 z-50 flex h-14 items-center justify-between border-b border-border bg-background px-6">
+    <header className="sticky top-0 z-50 flex h-14 items-center justify-between border-b border-border/60 bg-background/80 backdrop-blur-md px-6">
       <div className="flex items-center gap-8">
         <Link
-          href="/dashboard"
+          href="/"
           className="text-lg font-semibold text-foreground overflow-hidden whitespace-nowrap"
           onMouseEnter={() => setLogoHovered(true)}
           onMouseLeave={() => setLogoHovered(false)}
@@ -43,25 +46,54 @@ export function Nav() {
             </span>
           </span>
         </Link>
-        <nav className="hidden items-center gap-1 sm:flex">
-          {navLinks.map(({ href, label }) => (
-            <Link
-              key={href}
-              href={href}
-              className={`rounded-md px-3 py-1.5 text-sm transition-colors duration-150 ${
-                pathname.startsWith(href)
-                  ? "bg-muted text-foreground font-medium"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              {label}
-            </Link>
-          ))}
-        </nav>
+        {!isLanding && (
+          <nav className="hidden items-center gap-1 sm:flex">
+            {navLinks.map(({ href, label }) => (
+              <Link
+                key={href}
+                href={href}
+                className={`rounded-md px-3 py-1.5 text-sm transition-colors duration-150 ${
+                  pathname.startsWith(href)
+                    ? "bg-muted text-foreground font-medium"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                {label}
+              </Link>
+            ))}
+          </nav>
+        )}
       </div>
       <div className="flex items-center gap-2">
-        <GitHubSyncDropdown />
+        {isAuthenticated && !isLanding && <GitHubSyncDropdown />}
         <ThemeToggle />
+        {isAuthenticated ? (
+          <button
+            onClick={() => {
+              window.location.href = "/api/auth/signout";
+            }}
+            className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors duration-150"
+            title="Sign out"
+          >
+            Sign out
+          </button>
+        ) : authConfigured ? (
+          <Link
+            href="/api/auth/signin"
+            className="inline-flex h-9 items-center rounded-md bg-accent px-4 text-sm text-accent-foreground transition-all duration-150 hover:shadow-[0_0_12px_var(--glow)]"
+          >
+            Sign in
+          </Link>
+        ) : (
+          <Link
+            href="/auth/error?error=Configuration"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-3 text-xs text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
+            title="Auth not configured — click for setup guide"
+          >
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500" />
+            Setup needed
+          </Link>
+        )}
       </div>
     </header>
   );
