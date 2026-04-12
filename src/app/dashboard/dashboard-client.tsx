@@ -1075,10 +1075,10 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             </div>
             <button
               onClick={() => setShowOverallPace(!showOverallPace)}
-              className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors ml-auto"
+              className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors ml-auto shrink-0"
               title={showOverallPace ? "Showing overall averages — click for 14-day" : "Showing 14-day averages — click for overall"}
             >
-              <span className="text-[9px] uppercase tracking-wider">{showOverallPace ? "overall" : "14d"}</span>
+              <span className="text-[9px] uppercase tracking-wider w-[3.5ch] text-right">{showOverallPace ? "all" : "14d"}</span>
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
             </button>
           </div>

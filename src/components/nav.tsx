@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ThemeToggle } from "@/components/theme";
+import { signOut } from "next-auth/react";
 
 const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
@@ -63,12 +63,9 @@ export function Nav({ isAuthenticated = false, authConfigured = true }: { isAuth
       </div>
       <div className="flex items-center gap-2">
         {isAuthenticated && !isLanding && <GitHubSyncDropdown />}
-        <ThemeToggle />
         {isAuthenticated ? (
           <button
-            onClick={() => {
-              window.location.href = "/api/auth/signout";
-            }}
+            onClick={() => signOut({ callbackUrl: "/" })}
             className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors duration-150"
             title="Sign out"
           >

@@ -25,7 +25,7 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body className="min-h-screen bg-background text-foreground antialiased">
         <ThemeProvider>
           <Nav isAuthenticated={isAuthenticated} authConfigured={isAuthConfigured} />
