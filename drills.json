@@ -237,5 +237,575 @@
     "alternatives": [],
     "explanation": "Common mistake: only checking `node.left.val < node.val < node.right.val`. This misses cases where a deeper node violates the BST property with an ancestor.\n\nThe fix: carry bounds. Every left child must be less than its parent (upper bound tightens). Every right child must be greater (lower bound tightens).\n\nDefault bounds: `(-inf, inf)` — the root can be any value.\n\n`<=` and `>=` enforce strict inequality (most BST problems require distinct values). Change to `<` / `>` if duplicates are allowed.\n\nThis pattern — \"carry constraints down\" — appears in interval trees, segment trees, and range queries.",
     "tags": ["tree", "BST", "validation", "bounds", "recursion"]
+  },
+
+  {
+    "title": "Basic sliding window — fixed size",
+    "category": "Sliding Window",
+    "level": 1,
+    "prompt": "Given a list `nums` and integer `k`, find the maximum sum of any contiguous subarray of size `k`.",
+    "expectedCode": "window_sum = sum(nums[:k])\nmax_sum = window_sum\nfor i in range(k, len(nums)):\n    window_sum += nums[i] - nums[i - k]\n    max_sum = max(max_sum, window_sum)\nreturn max_sum",
+    "alternatives": [],
+    "explanation": "Fixed-size sliding window: compute the first window, then slide by adding the new element and removing the old one.\n\n`nums[i] - nums[i - k]` updates the sum in O(1) instead of recomputing.\n\nThis avoids the naive O(n*k) approach of summing each window from scratch.\n\nPattern applies to: max average subarray, fixed-window problems, moving averages.",
+    "tags": ["sliding window", "fixed size", "sum"]
+  },
+  {
+    "title": "Variable-size sliding window template",
+    "category": "Sliding Window",
+    "level": 1,
+    "prompt": "Given a string `s`, find the length of the longest substring without repeating characters.",
+    "expectedCode": "seen = set()\nl = 0\nmax_len = 0\nfor r in range(len(s)):\n    while s[r] in seen:\n        seen.remove(s[l])\n        l += 1\n    seen.add(s[r])\n    max_len = max(max_len, r - l + 1)\nreturn max_len",
+    "alternatives": [
+      "last_seen = {}\nl = 0\nmax_len = 0\nfor r in range(len(s)):\n    if s[r] in last_seen and last_seen[s[r]] >= l:\n        l = last_seen[s[r]] + 1\n    last_seen[s[r]] = r\n    max_len = max(max_len, r - l + 1)\nreturn max_len"
+    ],
+    "explanation": "Variable-size window: expand `r` every step, shrink `l` when the window is invalid.\n\nThe set tracks characters in the current window. When a duplicate is found, shrink from the left until the duplicate is removed.\n\nAlternative: dict storing last index — jump `l` directly instead of shrinking one at a time. Slightly faster but same O(n).\n\nWindow size is always `r - l + 1`. This template applies to: longest substring problems, minimum window substring.",
+    "tags": ["sliding window", "variable size", "set", "substring"]
+  },
+  {
+    "title": "Sliding window with Counter",
+    "category": "Sliding Window",
+    "level": 2,
+    "prompt": "Given strings `s` and `t`, find the minimum window in `s` that contains all characters of `t`.",
+    "expectedCode": "from collections import Counter\nneed = Counter(t)\nmissing = len(t)\nl = 0\nstart, end = 0, float('inf')\nfor r, c in enumerate(s):\n    if need[c] > 0:\n        missing -= 1\n    need[c] -= 1\n    while missing == 0:\n        if r - l < end - start:\n            start, end = l, r\n        need[s[l]] += 1\n        if need[s[l]] > 0:\n            missing += 1\n        l += 1\nreturn s[start:end+1] if end < float('inf') else ''",
+    "alternatives": [],
+    "explanation": "This combines sliding window with a frequency counter. `need` tracks how many of each char we still need. `missing` tracks total chars still needed.\n\nExpand right: if the char is needed (`need[c] > 0`), decrement `missing`. Always decrement `need[c]` (can go negative = surplus).\n\nShrink left: when `missing == 0` (all chars found), try to minimize window. Restore `need[s[l]]` and check if we lost a needed char.\n\nThis is the hardest sliding window pattern but appears frequently in interviews.",
+    "tags": ["sliding window", "Counter", "minimum window"]
+  },
+  {
+    "title": "Deque for sliding window maximum",
+    "category": "Sliding Window",
+    "level": 2,
+    "prompt": "Given a list `nums` and window size `k`, return the maximum value in each sliding window position.",
+    "expectedCode": "from collections import deque\nq = deque()  # stores indices, decreasing order\nresult = []\nfor i in range(len(nums)):\n    while q and nums[q[-1]] <= nums[i]:\n        q.pop()\n    q.append(i)\n    if q[0] <= i - k:\n        q.popleft()\n    if i >= k - 1:\n        result.append(nums[q[0]])\nreturn result",
+    "alternatives": [],
+    "explanation": "Monotonic deque maintains indices in decreasing value order. The front (`q[0]`) is always the max of the current window.\n\nThree operations per element:\n1. Remove from back: pop smaller elements (they can never be the max)\n2. Add current index to back\n3. Remove from front if it's outside the window (`i - k`)\n\nEach element is added/removed at most once → O(n) total.\n\n`deque` gives O(1) for both `popleft()` and `pop()`. A regular list's `pop(0)` would be O(n).",
+    "tags": ["sliding window", "deque", "monotonic", "maximum"]
+  },
+
+  {
+    "title": "bisect_left and bisect_right",
+    "category": "Binary Search",
+    "level": 1,
+    "prompt": "Given a sorted list `nums` and a `target`, find the leftmost insertion point using the bisect module.",
+    "expectedCode": "from bisect import bisect_left, bisect_right\nleft_pos = bisect_left(nums, target)\nright_pos = bisect_right(nums, target)",
+    "alternatives": [],
+    "explanation": "`bisect_left(a, x)` returns the leftmost position where `x` can be inserted to keep `a` sorted. If `x` exists, it returns the index BEFORE the first occurrence.\n\n`bisect_right(a, x)` returns the position AFTER the last occurrence.\n\nTo check if `x` exists: `i = bisect_left(a, x); exists = i < len(a) and a[i] == x`\n\nTo count occurrences: `bisect_right(a, x) - bisect_left(a, x)`\n\nBoth are O(log n). Use these instead of writing manual binary search when possible.",
+    "tags": ["binary search", "bisect", "sorted"]
+  },
+  {
+    "title": "Manual binary search template",
+    "category": "Binary Search",
+    "level": 1,
+    "prompt": "Write a binary search that returns the index of `target` in sorted list `nums`, or -1 if not found.",
+    "expectedCode": "l, r = 0, len(nums) - 1\nwhile l <= r:\n    mid = l + (r - l) // 2\n    if nums[mid] == target:\n        return mid\n    elif nums[mid] < target:\n        l = mid + 1\n    else:\n        r = mid - 1\nreturn -1",
+    "alternatives": [],
+    "explanation": "The standard binary search template. Key details:\n\n- `l + (r - l) // 2` avoids integer overflow (matters in other languages, good habit in Python too)\n- `while l <= r` — the `=` is critical; without it you miss the case where `l == r` (single element)\n- `l = mid + 1` and `r = mid - 1` — always exclude `mid` after checking it to avoid infinite loops\n\nCommon bug: using `l = mid` or `r = mid` without adjustment → infinite loop when `l + 1 == r`.",
+    "tags": ["binary search", "template", "manual"]
+  },
+  {
+    "title": "Binary search on answer space",
+    "category": "Binary Search",
+    "level": 2,
+    "prompt": "Given `n` piles of bananas with counts in `piles` and `h` hours, find the minimum eating speed `k` such that all bananas are eaten within `h` hours. Each hour, eat min(k, pile) from one pile.",
+    "expectedCode": "import math\nl, r = 1, max(piles)\nwhile l < r:\n    mid = (l + r) // 2\n    hours = sum(math.ceil(p / mid) for p in piles)\n    if hours <= h:\n        r = mid\n    else:\n        l = mid + 1\nreturn l",
+    "alternatives": [],
+    "explanation": "Binary search on the ANSWER, not on an array. The search space is `[1, max(piles)]` — the possible eating speeds.\n\nFor each candidate speed `mid`, compute total hours needed. If feasible (`<= h`), try slower (`r = mid`). If not, go faster (`l = mid + 1`).\n\nNote: `while l < r` (not `<=`) because we're finding a boundary, not a specific value. When `l == r`, that's the answer.\n\n`math.ceil(p / mid)` = hours to eat one pile. `sum(...)` = total hours.\n\nThis pattern applies to: koko bananas, split array, magnetic force, capacity to ship.",
+    "tags": ["binary search", "answer space", "minimize maximum"]
+  },
+  {
+    "title": "Search in rotated sorted array",
+    "category": "Binary Search",
+    "level": 2,
+    "prompt": "Given a rotated sorted array `nums` (no duplicates) and a `target`, return its index or -1.",
+    "expectedCode": "l, r = 0, len(nums) - 1\nwhile l <= r:\n    mid = (l + r) // 2\n    if nums[mid] == target:\n        return mid\n    if nums[l] <= nums[mid]:\n        if nums[l] <= target < nums[mid]:\n            r = mid - 1\n        else:\n            l = mid + 1\n    else:\n        if nums[mid] < target <= nums[r]:\n            l = mid + 1\n        else:\n            r = mid - 1\nreturn -1",
+    "alternatives": [],
+    "explanation": "The key insight: one half of the array is always sorted. Check which half is sorted, then determine if `target` falls in that sorted half.\n\n`nums[l] <= nums[mid]` → left half is sorted. Check if target is in `[nums[l], nums[mid])`. If yes, search left. Otherwise, search right.\n\nElse → right half is sorted. Check if target is in `(nums[mid], nums[r]]`.\n\nThe `<=` in `nums[l] <= nums[mid]` handles the case where `l == mid` (two elements remaining).",
+    "tags": ["binary search", "rotated array", "sorted"]
+  },
+
+  {
+    "title": "Define a ListNode + build a linked list",
+    "category": "Linked List",
+    "level": 1,
+    "prompt": "Define a singly linked list node class, then build a linked list from a list `[1, 2, 3]`.",
+    "expectedCode": "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndummy = ListNode(0)\ncurr = dummy\nfor val in [1, 2, 3]:\n    curr.next = ListNode(val)\n    curr = curr.next\nhead = dummy.next",
+    "alternatives": [],
+    "explanation": "The `ListNode` class is the standard LC definition. `val` holds data, `next` points to the next node.\n\nDummy head pattern: create a fake node at the start so you don't need special-case logic for inserting the first element. After building, `dummy.next` is the real head.\n\nThis pattern appears in virtually every linked list problem: merge lists, add numbers, partition list.",
+    "tags": ["linked list", "ListNode", "dummy head"]
+  },
+  {
+    "title": "Reverse a linked list",
+    "category": "Linked List",
+    "level": 1,
+    "prompt": "Reverse a singly linked list iteratively. Return the new head.",
+    "expectedCode": "prev = None\ncurr = head\nwhile curr:\n    nxt = curr.next\n    curr.next = prev\n    prev = curr\n    curr = nxt\nreturn prev",
+    "alternatives": [
+      "def reverseList(head):\n    if not head or not head.next:\n        return head\n    new_head = reverseList(head.next)\n    head.next.next = head\n    head.next = None\n    return new_head"
+    ],
+    "explanation": "Three pointers: `prev`, `curr`, `nxt`. Each step:\n1. Save next node (`nxt = curr.next`)\n2. Reverse the pointer (`curr.next = prev`)\n3. Advance both (`prev = curr`, `curr = nxt`)\n\nAfter the loop, `prev` is the new head (last node visited).\n\nRecursive version: recurse to the end, then rewire on the way back. Base case is empty or single node.\n\nThis is the #1 most tested linked list operation. Know it cold.",
+    "tags": ["linked list", "reverse", "iterative"]
+  },
+  {
+    "title": "Fast and slow pointers — cycle detection",
+    "category": "Linked List",
+    "level": 2,
+    "prompt": "Detect if a linked list has a cycle. Use Floyd's algorithm (fast/slow pointers).",
+    "expectedCode": "slow = fast = head\nwhile fast and fast.next:\n    slow = slow.next\n    fast = fast.next.next\n    if slow == fast:\n        return True\nreturn False",
+    "alternatives": [],
+    "explanation": "Floyd's tortoise and hare: slow moves 1 step, fast moves 2. If there's a cycle, they MUST meet (fast gains 1 node per step).\n\nIf no cycle, fast reaches the end (`fast` or `fast.next` is None).\n\n`while fast and fast.next` — checks both to avoid NullPointerError when fast is at the last node.\n\nTo find the CYCLE START: after detection, reset one pointer to head. Move both at speed 1. They meet at the cycle entry. This is a separate follow-up question.",
+    "tags": ["linked list", "fast slow", "cycle", "Floyd"]
+  },
+  {
+    "title": "Merge two sorted linked lists",
+    "category": "Linked List",
+    "level": 2,
+    "prompt": "Merge two sorted linked lists `l1` and `l2` into one sorted list. Return the head.",
+    "expectedCode": "dummy = ListNode(0)\ncurr = dummy\nwhile l1 and l2:\n    if l1.val <= l2.val:\n        curr.next = l1\n        l1 = l1.next\n    else:\n        curr.next = l2\n        l2 = l2.next\n    curr = curr.next\ncurr.next = l1 or l2\nreturn dummy.next",
+    "alternatives": [],
+    "explanation": "Dummy head again — avoids special-casing which list provides the first node.\n\nCompare heads of both lists, attach the smaller one, advance that list's pointer.\n\n`curr.next = l1 or l2` — whichever list has remaining nodes gets appended. `or` returns the first truthy value, so if `l1` is not None, it returns `l1`; otherwise `l2`.\n\nO(n + m) time, O(1) extra space (reuses existing nodes).",
+    "tags": ["linked list", "merge", "dummy head", "sorted"]
+  },
+
+  {
+    "title": "Build an adjacency list from edges",
+    "category": "Graphs",
+    "level": 1,
+    "prompt": "Given `n` nodes and a list of `edges` as `[[0,1],[1,2],[0,2]]`, build an adjacency list for an undirected graph.",
+    "expectedCode": "from collections import defaultdict\ngraph = defaultdict(list)\nfor u, v in edges:\n    graph[u].append(v)\n    graph[v].append(u)",
+    "alternatives": [
+      "graph = {i: [] for i in range(n)}\nfor u, v in edges:\n    graph[u].append(v)\n    graph[v].append(u)"
+    ],
+    "explanation": "Adjacency list: `graph[node]` returns a list of neighbors. For undirected graphs, add both directions.\n\n`defaultdict(list)` auto-creates empty lists. Alternative: pre-initialize with dict comprehension (useful when you need all nodes, even isolated ones).\n\nFor directed graphs, only add `graph[u].append(v)` (one direction).\n\nThis is always the first step in graph problems. Build the adjacency list, then run BFS/DFS.",
+    "tags": ["graph", "adjacency list", "defaultdict", "undirected"]
+  },
+  {
+    "title": "BFS traversal with deque",
+    "category": "Graphs",
+    "level": 1,
+    "prompt": "Given an adjacency list `graph` and a `start` node, perform BFS and return nodes in visit order.",
+    "expectedCode": "from collections import deque\nvisited = set([start])\nqueue = deque([start])\norder = []\nwhile queue:\n    node = queue.popleft()\n    order.append(node)\n    for neighbor in graph[node]:\n        if neighbor not in visited:\n            visited.add(neighbor)\n            queue.append(neighbor)\nreturn order",
+    "alternatives": [],
+    "explanation": "BFS uses a FIFO queue. `deque` gives O(1) `popleft()`.\n\nCritical: add to `visited` WHEN ENQUEUING, not when dequeuing. If you wait until dequeue, you may add the same node multiple times → wrong results + TLE.\n\n`set([start])` initializes visited with the start node.\n\nBFS gives shortest path in unweighted graphs. Pattern applies to: shortest path, level-order, flood fill, word ladder.",
+    "tags": ["graph", "BFS", "deque", "visited"]
+  },
+  {
+    "title": "DFS traversal — iterative with stack",
+    "category": "Graphs",
+    "level": 2,
+    "prompt": "Given an adjacency list `graph` and a `start` node, perform iterative DFS and return nodes in visit order.",
+    "expectedCode": "visited = set()\nstack = [start]\norder = []\nwhile stack:\n    node = stack.pop()\n    if node in visited:\n        continue\n    visited.add(node)\n    order.append(node)\n    for neighbor in graph[node]:\n        if neighbor not in visited:\n            stack.append(neighbor)\nreturn order",
+    "alternatives": [
+      "visited = set()\norder = []\ndef dfs(node):\n    visited.add(node)\n    order.append(node)\n    for neighbor in graph[node]:\n        if neighbor not in visited:\n            dfs(neighbor)\ndfs(start)\nreturn order"
+    ],
+    "explanation": "Iterative DFS uses a stack (regular list with `pop()`). Check visited WHEN PROCESSING (after pop), unlike BFS which checks when enqueuing.\n\nWhy the difference? Stack may have duplicates pushed. The `if node in visited: continue` handles this.\n\nRecursive version is cleaner but risks stack overflow on deep graphs (Python default limit: 1000).\n\nDFS is used for: connected components, topological sort, cycle detection, path finding.",
+    "tags": ["graph", "DFS", "stack", "iterative"]
+  },
+  {
+    "title": "Topological sort with Kahn's algorithm",
+    "category": "Graphs",
+    "level": 2,
+    "prompt": "Given `numCourses` and `prerequisites` as `[[1,0],[2,1]]` (course 1 needs 0), return a valid course order or empty list if impossible.",
+    "expectedCode": "from collections import defaultdict, deque\ngraph = defaultdict(list)\nin_degree = [0] * numCourses\nfor course, pre in prerequisites:\n    graph[pre].append(course)\n    in_degree[course] += 1\nqueue = deque(i for i in range(numCourses) if in_degree[i] == 0)\norder = []\nwhile queue:\n    node = queue.popleft()\n    order.append(node)\n    for neighbor in graph[node]:\n        in_degree[neighbor] -= 1\n        if in_degree[neighbor] == 0:\n            queue.append(neighbor)\nreturn order if len(order) == numCourses else []",
+    "alternatives": [],
+    "explanation": "Kahn's algorithm: BFS starting from nodes with in-degree 0 (no prerequisites).\n\n1. Build graph + count in-degrees\n2. Seed queue with all zero-in-degree nodes\n3. Process: for each neighbor, decrement in-degree. If it reaches 0, enqueue.\n4. If `len(order) < numCourses`, there's a cycle → impossible\n\nThis is the standard topological sort for DAGs. Time: O(V + E).\n\nAlternative: DFS-based topo sort with a stack (post-order reverse). Both are valid in interviews.",
+    "tags": ["graph", "topological sort", "BFS", "in-degree", "Kahn"]
+  },
+
+  {
+    "title": "heapq basics — push and pop",
+    "category": "Heap",
+    "level": 1,
+    "prompt": "Create a min-heap, push values 5, 1, 3, then pop the smallest element.",
+    "expectedCode": "import heapq\nheap = []\nheapq.heappush(heap, 5)\nheapq.heappush(heap, 1)\nheapq.heappush(heap, 3)\nsmallest = heapq.heappop(heap)  # 1",
+    "alternatives": [
+      "import heapq\nheap = [5, 1, 3]\nheapq.heapify(heap)\nsmallest = heapq.heappop(heap)  # 1"
+    ],
+    "explanation": "Python's `heapq` is a MIN-heap. `heappush` adds in O(log n), `heappop` removes the smallest in O(log n).\n\n`heapify(list)` converts a list to a heap in-place in O(n) — faster than n pushes if you have all elements upfront.\n\n`heap[0]` peeks at the smallest without removing (O(1)).\n\nThere is NO max-heap in Python's stdlib. Use the negative trick: push `-val`, pop and negate.",
+    "tags": ["heap", "heapq", "min-heap", "push", "pop"]
+  },
+  {
+    "title": "Max-heap with negative trick",
+    "category": "Heap",
+    "level": 1,
+    "prompt": "Simulate a max-heap using `heapq`. Push values 5, 1, 3, then get the largest.",
+    "expectedCode": "import heapq\nmax_heap = []\nheapq.heappush(max_heap, -5)\nheapq.heappush(max_heap, -1)\nheapq.heappush(max_heap, -3)\nlargest = -heapq.heappop(max_heap)  # 5",
+    "alternatives": [],
+    "explanation": "Since Python only has min-heap, negate all values:\n- Push: `heappush(heap, -val)`\n- Pop: `val = -heappop(heap)`\n- Peek: `val = -heap[0]`\n\nThis flips the ordering: the most negative (= largest original) floats to the top.\n\nFor tuples: `heappush(heap, (-priority, item))`. Python compares tuples element by element, so the first element (negated priority) determines order.",
+    "tags": ["heap", "max-heap", "negative trick"]
+  },
+  {
+    "title": "Top K frequent elements",
+    "category": "Heap",
+    "level": 2,
+    "prompt": "Given a list `nums` and integer `k`, return the `k` most frequent elements.",
+    "expectedCode": "from collections import Counter\nimport heapq\ncount = Counter(nums)\nreturn heapq.nlargest(k, count.keys(), key=count.get)",
+    "alternatives": [
+      "from collections import Counter\ncount = Counter(nums)\nreturn [x for x, _ in count.most_common(k)]"
+    ],
+    "explanation": "`heapq.nlargest(k, iterable, key=)` returns the k largest elements. Under the hood it uses a min-heap of size k → O(n log k).\n\n`Counter.most_common(k)` does the same thing and is more concise for frequency problems.\n\nFor the O(n) solution: bucket sort — create `freq[i]` = list of elements with count `i`, then iterate from the end. This is the optimal approach but `nlargest` is fine for interviews.",
+    "tags": ["heap", "Counter", "top-k", "nlargest"]
+  },
+  {
+    "title": "Merge K sorted lists with heap",
+    "category": "Heap",
+    "level": 2,
+    "prompt": "Given a list of `k` sorted linked lists, merge them into one sorted list. Use a min-heap.",
+    "expectedCode": "import heapq\ndummy = ListNode(0)\ncurr = dummy\nheap = []\nfor i, l in enumerate(lists):\n    if l:\n        heapq.heappush(heap, (l.val, i, l))\nwhile heap:\n    val, i, node = heapq.heappop(heap)\n    curr.next = node\n    curr = curr.next\n    if node.next:\n        heapq.heappush(heap, (node.next.val, i, node.next))\nreturn dummy.next",
+    "alternatives": [],
+    "explanation": "Push the head of each list onto the heap. Pop the smallest, append to result, push the next node from that list.\n\nThe tuple `(val, i, node)` uses `i` as a tiebreaker — without it, Python tries to compare `ListNode` objects when values are equal, causing an error.\n\nHeap always has at most `k` elements → each operation is O(log k). Total: O(n log k) where n is total nodes.\n\nThis is the canonical heap problem in interviews.",
+    "tags": ["heap", "merge", "sorted lists", "priority queue"]
+  },
+
+  {
+    "title": "Backtracking template — subsets",
+    "category": "Backtracking",
+    "level": 1,
+    "prompt": "Given a list of distinct integers `nums`, return all possible subsets (the power set).",
+    "expectedCode": "result = []\ndef backtrack(start, path):\n    result.append(path[:])\n    for i in range(start, len(nums)):\n        path.append(nums[i])\n        backtrack(i + 1, path)\n        path.pop()\nbacktrack(0, [])\nreturn result",
+    "alternatives": [],
+    "explanation": "The backtracking template:\n1. Add current state to result\n2. Loop through choices starting from `start`\n3. Make a choice (`append`)\n4. Recurse\n5. Undo the choice (`pop`)\n\n`path[:]` creates a copy — without it, all entries in `result` would reference the same (empty) list.\n\n`start = i + 1` ensures we don't reuse elements and don't generate duplicates like `[1,2]` and `[2,1]`.\n\nSubsets is the simplest backtracking problem. Master this template first.",
+    "tags": ["backtracking", "subsets", "template"]
+  },
+  {
+    "title": "Permutations with backtracking",
+    "category": "Backtracking",
+    "level": 1,
+    "prompt": "Given a list of distinct integers `nums`, return all possible permutations.",
+    "expectedCode": "result = []\ndef backtrack(path, used):\n    if len(path) == len(nums):\n        result.append(path[:])\n        return\n    for i in range(len(nums)):\n        if i in used:\n            continue\n        used.add(i)\n        path.append(nums[i])\n        backtrack(path, used)\n        path.pop()\n        used.remove(i)\nbacktrack([], set())\nreturn result",
+    "alternatives": [],
+    "explanation": "Permutations differ from subsets: order matters, and we use ALL elements.\n\nKey differences from subsets template:\n- No `start` parameter — we can pick any unused element\n- `used` set tracks which INDICES are already in the path\n- Base case: `len(path) == len(nums)` (used all elements)\n\n`used.add(i)` / `used.remove(i)` is the backtracking — mark as used, recurse, unmark.\n\nTime: O(n! * n) — n! permutations, each takes O(n) to copy.",
+    "tags": ["backtracking", "permutations", "used set"]
+  },
+  {
+    "title": "Combinations with pruning",
+    "category": "Backtracking",
+    "level": 2,
+    "prompt": "Given `n` and `k`, return all combinations of `k` numbers from `[1, n]`.",
+    "expectedCode": "result = []\ndef backtrack(start, path):\n    if len(path) == k:\n        result.append(path[:])\n        return\n    for i in range(start, n - (k - len(path)) + 2):\n        path.append(i)\n        backtrack(i + 1, path)\n        path.pop()\nbacktrack(1, [])\nreturn result",
+    "alternatives": [
+      "result = []\ndef backtrack(start, path):\n    if len(path) == k:\n        result.append(path[:])\n        return\n    for i in range(start, n + 1):\n        path.append(i)\n        backtrack(i + 1, path)\n        path.pop()\nbacktrack(1, [])\nreturn result"
+    ],
+    "explanation": "Same as subsets but with a fixed length `k`. The base case appends when `len(path) == k`.\n\nThe pruning optimization: `range(start, n - (k - len(path)) + 2)`. If we need `k - len(path)` more elements and only `n - i + 1` remain, stop early.\n\nWithout pruning (alternative version), it still works but explores dead-end branches.\n\nPruning matters for large inputs — reduces time significantly.",
+    "tags": ["backtracking", "combinations", "pruning"]
+  },
+  {
+    "title": "Subsets II — skip duplicates",
+    "category": "Backtracking",
+    "level": 2,
+    "prompt": "Given a list `nums` that may contain duplicates, return all unique subsets. The result must not contain duplicate subsets.",
+    "expectedCode": "nums.sort()\nresult = []\ndef backtrack(start, path):\n    result.append(path[:])\n    for i in range(start, len(nums)):\n        if i > start and nums[i] == nums[i - 1]:\n            continue\n        path.append(nums[i])\n        backtrack(i + 1, path)\n        path.pop()\nbacktrack(0, [])\nreturn result",
+    "alternatives": [],
+    "explanation": "Two changes from basic subsets:\n1. `nums.sort()` — group duplicates together\n2. `if i > start and nums[i] == nums[i-1]: continue` — skip duplicate choices at the same level\n\nThe condition `i > start` is crucial: we CAN use a duplicate if it's the first choice at this level (`i == start`), just not the second/third/etc.\n\nThis same dedup pattern applies to: combination sum II, permutations II. Sort + skip is the universal duplicate handling strategy.",
+    "tags": ["backtracking", "subsets", "duplicates", "sort"]
+  },
+
+  {
+    "title": "Memoization with @cache",
+    "category": "DP",
+    "level": 1,
+    "prompt": "Compute the nth Fibonacci number using memoization.",
+    "expectedCode": "from functools import cache\n\n@cache\ndef fib(n):\n    if n <= 1:\n        return n\n    return fib(n - 1) + fib(n - 2)",
+    "alternatives": [
+      "memo = {}\ndef fib(n):\n    if n in memo:\n        return memo[n]\n    if n <= 1:\n        return n\n    memo[n] = fib(n - 1) + fib(n - 2)\n    return memo[n]"
+    ],
+    "explanation": "`@cache` (Python 3.9+) automatically memoizes function results. Equivalent to `@lru_cache(maxsize=None)`.\n\nWithout memoization, Fibonacci is O(2^n). With it: O(n) time, O(n) space.\n\nManual alternative: use a dict as the memo table. Check if the result exists before computing.\n\n`@cache` is the fastest way to convert any recursive solution to top-down DP. Just add the decorator — no other code changes needed.\n\nCaveat: on LeetCode, call `fib.cache_clear()` between test cases to avoid stale state.",
+    "tags": ["DP", "memoization", "cache", "fibonacci"]
+  },
+  {
+    "title": "1D tabulation — climbing stairs",
+    "category": "DP",
+    "level": 1,
+    "prompt": "You can climb 1 or 2 stairs at a time. Given `n` stairs, how many distinct ways can you reach the top? Use bottom-up DP.",
+    "expectedCode": "dp = [0] * (n + 1)\ndp[0] = 1\ndp[1] = 1\nfor i in range(2, n + 1):\n    dp[i] = dp[i - 1] + dp[i - 2]\nreturn dp[n]",
+    "alternatives": [
+      "prev, curr = 1, 1\nfor _ in range(2, n + 1):\n    prev, curr = curr, prev + curr\nreturn curr"
+    ],
+    "explanation": "Bottom-up DP: fill a table from base cases forward.\n\n`dp[i]` = ways to reach stair `i`. Base: `dp[0] = dp[1] = 1`. Recurrence: `dp[i] = dp[i-1] + dp[i-2]` (arrive from 1 or 2 stairs below).\n\nSpace optimization: since we only need the last 2 values, use two variables instead of an array → O(1) space.\n\nThis is identical to Fibonacci. The key insight with DP: define what `dp[i]` means, find the recurrence, identify base cases.",
+    "tags": ["DP", "tabulation", "1D", "climbing stairs"]
+  },
+  {
+    "title": "2D DP — unique paths",
+    "category": "DP",
+    "level": 2,
+    "prompt": "Given an `m x n` grid, count unique paths from top-left to bottom-right. You can only move right or down.",
+    "expectedCode": "dp = [[1] * n for _ in range(m)]\nfor i in range(1, m):\n    for j in range(1, n):\n        dp[i][j] = dp[i - 1][j] + dp[i][j - 1]\nreturn dp[m - 1][n - 1]",
+    "alternatives": [],
+    "explanation": "`dp[i][j]` = number of paths to reach cell `(i, j)`. Base: first row and first column are all 1 (only one way: straight right or straight down).\n\nRecurrence: `dp[i][j] = dp[i-1][j] + dp[i][j-1]` — come from above or from the left.\n\n`[[1] * n for _ in range(m)]` initializes the grid. Use list comprehension, NOT `[[1]*n]*m` — that creates m references to the SAME row.\n\nThis pattern extends to: minimum path sum, dungeon game, edit distance.",
+    "tags": ["DP", "2D", "grid", "unique paths"]
+  },
+  {
+    "title": "0/1 Knapsack pattern",
+    "category": "DP",
+    "level": 2,
+    "prompt": "Given `weights` and `values` of `n` items and a knapsack `capacity`, find the maximum value. Each item can be used at most once. Use 1D DP.",
+    "expectedCode": "dp = [0] * (capacity + 1)\nfor i in range(n):\n    for w in range(capacity, weights[i] - 1, -1):\n        dp[w] = max(dp[w], dp[w - weights[i]] + values[i])\nreturn dp[capacity]",
+    "alternatives": [],
+    "explanation": "1D optimization of 2D knapsack. `dp[w]` = max value achievable with capacity `w`.\n\nCritical: iterate `w` in REVERSE (`range(capacity, weights[i]-1, -1)`). This ensures each item is used at most once (0/1 constraint).\n\nIf you iterate forward, `dp[w - weights[i]]` might already include item `i` → effectively unlimited use (unbounded knapsack).\n\nThis pattern appears in: subset sum, partition equal subset, target sum, coin change (unbounded version iterates forward).",
+    "tags": ["DP", "knapsack", "0/1", "1D optimization"]
+  },
+
+  {
+    "title": "Sorted with custom key",
+    "category": "Greedy",
+    "level": 1,
+    "prompt": "Given a list of `intervals` as `[[start, end], ...]`, sort them by end time.",
+    "expectedCode": "intervals.sort(key=lambda x: x[1])",
+    "alternatives": [
+      "sorted_intervals = sorted(intervals, key=lambda x: x[1])"
+    ],
+    "explanation": "`.sort()` sorts in-place, `sorted()` returns a new list. Both accept a `key` function.\n\n`lambda x: x[1]` extracts the end time for comparison. You can sort by multiple keys: `key=lambda x: (x[1], x[0])` — sort by end time, then start time for ties.\n\n`.sort()` is slightly faster (no copy). Use `sorted()` when you need the original list preserved.\n\nSorting by end time is the foundation of interval scheduling / activity selection problems.",
+    "tags": ["greedy", "sort", "lambda", "intervals"]
+  },
+  {
+    "title": "Interval scheduling — maximum non-overlapping",
+    "category": "Greedy",
+    "level": 1,
+    "prompt": "Given a list of `intervals` as `[[start, end], ...]`, find the maximum number of non-overlapping intervals.",
+    "expectedCode": "intervals.sort(key=lambda x: x[1])\ncount = 0\nend = float('-inf')\nfor s, e in intervals:\n    if s >= end:\n        count += 1\n        end = e\nreturn count",
+    "alternatives": [],
+    "explanation": "Classic greedy: sort by end time, then greedily pick intervals that don't overlap with the last picked.\n\n`s >= end` means no overlap (current start is at or after the last picked end). Update `end` when we pick an interval.\n\nWhy sort by end time? Picking the earliest-ending interval leaves the most room for future intervals. This is provably optimal.\n\nFor the related problem 'minimum removals to make non-overlapping': answer is `len(intervals) - count`.",
+    "tags": ["greedy", "intervals", "scheduling", "sort"]
+  },
+  {
+    "title": "Merge overlapping intervals",
+    "category": "Greedy",
+    "level": 2,
+    "prompt": "Given a list of `intervals`, merge all overlapping intervals and return the result.",
+    "expectedCode": "intervals.sort()\nmerged = [intervals[0]]\nfor s, e in intervals[1:]:\n    if s <= merged[-1][1]:\n        merged[-1][1] = max(merged[-1][1], e)\n    else:\n        merged.append([s, e])\nreturn merged",
+    "alternatives": [],
+    "explanation": "Sort by start time (default for lists of lists). Then scan:\n- If current start overlaps with last merged end (`s <= merged[-1][1]`), extend the end\n- Otherwise, start a new merged interval\n\n`max(merged[-1][1], e)` handles the case where one interval fully contains another.\n\nNote: sort by START time (not end) for merging. We need adjacent intervals in order of appearance.\n\nO(n log n) for sort + O(n) scan.",
+    "tags": ["greedy", "intervals", "merge", "sort"]
+  },
+  {
+    "title": "Jump game — can you reach the end?",
+    "category": "Greedy",
+    "level": 2,
+    "prompt": "Given a list `nums` where `nums[i]` is the max jump length from position `i`, determine if you can reach the last index.",
+    "expectedCode": "max_reach = 0\nfor i in range(len(nums)):\n    if i > max_reach:\n        return False\n    max_reach = max(max_reach, i + nums[i])\nreturn True",
+    "alternatives": [],
+    "explanation": "Track the farthest index reachable so far. At each position:\n- If `i > max_reach`, we can't even get here → return False\n- Otherwise, update `max_reach` with `i + nums[i]` (farthest we can reach from here)\n\nIf we finish the loop without returning False, the end is reachable.\n\nThis is greedy because we make locally optimal decisions (always consider the farthest reach) without backtracking.\n\nO(n) time, O(1) space. DP solution exists but is O(n²).",
+    "tags": ["greedy", "jump game", "reachability"]
+  },
+
+  {
+    "title": "When Counter vs defaultdict vs manual dict",
+    "category": "Arrays & Hashing",
+    "level": 3,
+    "prompt": "You need to count character frequencies in a string, then find characters appearing more than n/2 times. Which data structure do you use and why?",
+    "expectedCode": "from collections import Counter\ncount = Counter(s)\nmajority = [c for c, freq in count.items() if freq > len(s) // 2]",
+    "alternatives": [
+      "count = {}\nfor c in s:\n    count[c] = count.get(c, 0) + 1\nmajority = [c for c, freq in count.items() if freq > len(s) // 2]"
+    ],
+    "explanation": "Use `Counter` when: you need to count things from an iterable. It gives you `.most_common()`, arithmetic operations (`counter1 - counter2`), and automatic zero-defaults.\n\nUse `defaultdict(int)` when: you need a dict with a default value but aren't specifically counting.\n\nUse manual `.get()` when: you want no dependency imports, or need custom initialization logic.\n\nAll three are O(n) for counting. `Counter` is the most expressive for frequency problems. For this specific problem, `Counter.most_common(1)` is even more direct.\n\nBoyer-Moore voting algorithm solves majority element in O(1) space — but knowing Counter is more broadly useful.",
+    "tags": ["Counter", "defaultdict", "dict", "when to use"]
+  },
+  {
+    "title": "set vs dict for lookups — when each",
+    "category": "Arrays & Hashing",
+    "level": 3,
+    "prompt": "You need to check if any element in list `a` also appears in list `b`. Then separately, you need to find what value in `b` each element of `a` maps to. Which structure for each?",
+    "expectedCode": "# Existence check → set\nset_b = set(b)\nexists = any(x in set_b for x in a)\n\n# Mapping lookup → dict\ndict_b = {item.key: item.val for item in b}\nvalues = [dict_b.get(x) for x in a]",
+    "alternatives": [],
+    "explanation": "Use `set` when: you only need existence checks (`x in s`). Sets are ~20% faster than dicts for membership tests and use less memory.\n\nUse `dict` when: you need to associate keys with values. Dicts store key-value pairs; sets only store keys.\n\n`any()` with a generator is short-circuit — stops at the first match. More efficient than building a full intersection.\n\n`.get(x)` returns `None` for missing keys instead of raising `KeyError`. Use `.get(x, default)` when you need a specific default.\n\nBoth are O(1) average for lookups, O(n) to build.",
+    "tags": ["set", "dict", "lookup", "when to use"]
+  },
+  {
+    "title": "Expand-from-center vs DP for palindromes",
+    "category": "Two Pointers",
+    "level": 3,
+    "prompt": "Find the longest palindromic substring in string `s`. Use expand-from-center approach. When would you prefer DP instead?",
+    "expectedCode": "def expand(l, r):\n    while l >= 0 and r < len(s) and s[l] == s[r]:\n        l -= 1\n        r += 1\n    return s[l+1:r]\n\nresult = ''\nfor i in range(len(s)):\n    odd = expand(i, i)\n    even = expand(i, i + 1)\n    if len(odd) > len(result):\n        result = odd\n    if len(even) > len(result):\n        result = even\nreturn result",
+    "alternatives": [],
+    "explanation": "Expand-from-center: try each index as a palindrome center (both odd and even length). Expand outward while characters match. O(n²) time, O(1) space.\n\nDP approach: `dp[i][j] = True if s[i:j+1] is a palindrome`. O(n²) time AND space. Useful when you need to know ALL palindromic substrings (not just the longest), e.g., palindrome partitioning.\n\nExpand-from-center is better for:\n- \"Find the longest\" (simpler, less space)\n- Interview settings (easier to code)\n\nDP is better for:\n- \"Count all palindromic substrings\"\n- \"Partition into palindromes\" (need the dp table as preprocessing)\n\nManacher's algorithm does it in O(n) but is rarely expected in interviews.",
+    "tags": ["two pointers", "palindrome", "expand", "DP comparison"]
+  },
+  {
+    "title": "When to sort vs use a hash map",
+    "category": "Two Pointers",
+    "level": 3,
+    "prompt": "Given a list of `intervals`, you need to find if any two overlap. Compare the sort+scan approach vs hash-based approach. When is each better?",
+    "expectedCode": "# Sort approach — O(n log n), clean and simple\nintervals.sort()\nfor i in range(1, len(intervals)):\n    if intervals[i][0] < intervals[i - 1][1]:\n        return True\nreturn False",
+    "alternatives": [],
+    "explanation": "Sort + scan: O(n log n) time, O(1) extra space (if in-place sort). After sorting by start, any overlap must be between adjacent intervals. Simple to code and debug.\n\nHash-based: theoretically O(n) but only works for discrete intervals (e.g., integer ranges). You'd bucket each time slot — impractical for large ranges.\n\nSort wins when:\n- Intervals can be any real numbers\n- You need the result in order (merge, schedule)\n- Space is constrained\n\nHash wins when:\n- Values are small integers (like a meeting room time grid)\n- You need O(n) and the range is bounded\n\nIn interviews, sort+scan is almost always the expected approach for interval problems.",
+    "tags": ["two pointers", "sort", "intervals", "comparison"]
+  },
+  {
+    "title": "Shrink window condition — what to track",
+    "category": "Sliding Window",
+    "level": 3,
+    "prompt": "You're solving a sliding window problem. How do you decide WHEN to shrink the window? Compare 'invalid window' vs 'window exceeds size' approaches.",
+    "expectedCode": "# Pattern 1: Shrink when window becomes INVALID\n# (variable-size window)\nl = 0\nfor r in range(len(s)):\n    # expand: update window state\n    while window_is_invalid():\n        # shrink: undo state for s[l]\n        l += 1\n    # window is valid — update answer\n\n# Pattern 2: Shrink when window EXCEEDS size k\n# (fixed-size window)\nfor r in range(len(nums)):\n    # expand: add nums[r]\n    if r >= k:\n        # shrink: remove nums[r - k]\n    if r >= k - 1:\n        # window is exactly size k — update answer",
+    "alternatives": [],
+    "explanation": "Two distinct sliding window patterns:\n\n**Variable-size (condition-based):** Shrink when the window violates a constraint. Examples: substring with at most k distinct chars, minimum window substring. The `while` loop shrinks until valid.\n\n**Fixed-size (size-based):** Shrink when window exceeds `k`. Examples: max sum of size k, sliding window maximum. No `while` needed — just one removal per step.\n\nCommon mistake: using `if` instead of `while` for variable-size windows. If removing one element doesn't fix the constraint, you need to keep shrinking.\n\nThe window state (what you track) depends on the problem: set for uniqueness, Counter for frequency, sum for totals, deque for order-sensitive queries.",
+    "tags": ["sliding window", "shrink condition", "variable", "fixed"]
+  },
+  {
+    "title": "bisect_left: find vs insert vs count",
+    "category": "Binary Search",
+    "level": 3,
+    "prompt": "Using `bisect_left` and `bisect_right`, implement three operations on a sorted list: (1) check if value exists, (2) find insertion point, (3) count occurrences.",
+    "expectedCode": "from bisect import bisect_left, bisect_right\n\n# 1. Check existence\ni = bisect_left(nums, target)\nexists = i < len(nums) and nums[i] == target\n\n# 2. Insertion point (bisect_left IS the insertion point)\ninsert_pos = bisect_left(nums, target)\n\n# 3. Count occurrences\ncount = bisect_right(nums, target) - bisect_left(nums, target)",
+    "alternatives": [],
+    "explanation": "`bisect_left` returns the leftmost valid insertion point. If the element exists, this is the index of its first occurrence.\n\nExistence check: after getting the index, verify `nums[i] == target` (the element might not exist — bisect just gives where it WOULD go). Also check `i < len(nums)` to avoid index error.\n\nCount: `bisect_right - bisect_left` gives the range of equal elements. This is O(log n) — much better than `list.count()` which is O(n).\n\nWhen to use manual binary search instead: when you need custom comparison logic or are searching on an implicit array (answer space problems).",
+    "tags": ["binary search", "bisect", "existence", "count", "when to use"]
+  },
+  {
+    "title": "Dummy head: when and why",
+    "category": "Linked List",
+    "level": 3,
+    "prompt": "When should you use a dummy head node? Demonstrate with a function that removes all nodes with a given value from a linked list.",
+    "expectedCode": "dummy = ListNode(0, head)\ncurr = dummy\nwhile curr.next:\n    if curr.next.val == val:\n        curr.next = curr.next.next\n    else:\n        curr = curr.next\nreturn dummy.next",
+    "alternatives": [],
+    "explanation": "Use a dummy head when: the HEAD itself might be removed or changed. Without a dummy, you'd need special-case code for removing the head node.\n\nWith dummy: `curr` always starts before the first real node. `curr.next` is the node we're examining. If we remove it, `curr` stays put (we just skip it). The result is always `dummy.next`.\n\nDummy head is almost always worth it for: remove nodes, merge lists, partition lists, add two numbers.\n\nSkip it for: read-only traversals (find middle, detect cycle), or when the head is guaranteed to stay.",
+    "tags": ["linked list", "dummy head", "when to use", "remove"]
+  },
+  {
+    "title": "BFS vs DFS — when to choose which",
+    "category": "Graphs",
+    "level": 3,
+    "prompt": "Given an unweighted graph, should you use BFS or DFS to find the shortest path? What about detecting if a path exists? Explain the trade-offs.",
+    "expectedCode": "# BFS for shortest path (unweighted)\nfrom collections import deque\ndef shortest_path(graph, start, end):\n    queue = deque([(start, 0)])\n    visited = {start}\n    while queue:\n        node, dist = queue.popleft()\n        if node == end:\n            return dist\n        for neighbor in graph[node]:\n            if neighbor not in visited:\n                visited.add(neighbor)\n                queue.append((neighbor, dist + 1))\n    return -1",
+    "alternatives": [],
+    "explanation": "BFS guarantees shortest path in unweighted graphs because it explores level by level. DFS does NOT — it follows one path to the end, which may be the longest path.\n\nUse BFS for:\n- Shortest path (unweighted)\n- Level-order traversal\n- Finding nearest/minimum distance\n\nUse DFS for:\n- Path existence (either works, DFS is simpler recursively)\n- Cycle detection\n- Topological sort\n- Connected components\n- Exhaustive search / backtracking\n\nSpace comparison:\n- BFS: O(width of graph) — can be O(n) for wide graphs\n- DFS: O(depth of graph) — can be O(n) for deep graphs, but often smaller\n\nFor grid problems, BFS is usually preferred (shortest path is common).",
+    "tags": ["graph", "BFS", "DFS", "shortest path", "comparison"]
+  },
+  {
+    "title": "When to use heap vs sorting",
+    "category": "Heap",
+    "level": 3,
+    "prompt": "You need the k smallest elements from a stream of n numbers. Compare heap vs sort approaches. When is each better?",
+    "expectedCode": "import heapq\n\n# Heap approach: O(n log k)\nmax_heap = []\nfor num in stream:\n    if len(max_heap) < k:\n        heapq.heappush(max_heap, -num)\n    elif num < -max_heap[0]:\n        heapq.heapreplace(max_heap, -num)\nresult = [-x for x in max_heap]",
+    "alternatives": [
+      "# Sort approach: O(n log n)\nresult = sorted(stream)[:k]\n\n# Quickselect: O(n) average\nimport random\n# ... partition logic"
+    ],
+    "explanation": "Heap (size k): O(n log k) time, O(k) space. Use a MAX-heap of size k — if new element is smaller than the max, replace it.\n\n`heapreplace(heap, val)` = pop + push in one operation (more efficient than separate calls).\n\nSort: O(n log n) time, O(n) space. Simpler code but slower when k << n.\n\nQuickselect: O(n) average, O(n²) worst. Best asymptotically but hard to implement correctly in interviews.\n\nUse heap when:\n- k << n (e.g., top 10 from millions)\n- Data is streaming (don't have all elements upfront)\n- You need running top-k\n\nUse sort when:\n- k ≈ n\n- Simplicity matters\n- You already need sorted output",
+    "tags": ["heap", "sort", "comparison", "top-k", "stream"]
+  },
+  {
+    "title": "Subsets vs permutations vs combinations — which template",
+    "category": "Backtracking",
+    "level": 3,
+    "prompt": "Compare when to use each backtracking template. Given a problem, how do you identify which pattern applies?",
+    "expectedCode": "# Subsets: order doesn't matter, any length, use 'start'\n# [1,2] and [2,1] are same → need 'start' to avoid duplicates\n# No length constraint → append at every recursion level\n\n# Permutations: order matters, fixed length = n, use 'used' set\n# [1,2] and [2,1] are different → no 'start', check all indices\n# Fixed length → append only when len(path) == n\n\n# Combinations: order doesn't matter, fixed length = k, use 'start'\n# Like subsets but stop at length k\n# [1,2] and [2,1] are same → need 'start'",
+    "alternatives": [],
+    "explanation": "The decision tree:\n\n1. Does order matter?\n   - No → Subsets/Combinations (use `start` parameter)\n   - Yes → Permutations (use `used` set)\n\n2. Is there a length constraint?\n   - No → Subsets (collect at every level)\n   - Yes, length k → Combinations (collect at level k)\n   - Yes, length n (all elements) → Permutations\n\n3. Are there duplicates in input?\n   - Yes → Sort first + skip `if i > start and nums[i] == nums[i-1]`\n   - No → Standard template\n\n4. Can elements be reused?\n   - No → `backtrack(i + 1, ...)` (move forward)\n   - Yes → `backtrack(i, ...)` (stay at current index)\n\nEvery backtracking problem maps to one of these four templates.",
+    "tags": ["backtracking", "subsets", "permutations", "combinations", "decision"]
+  },
+  {
+    "title": "Top-down vs bottom-up DP — when each",
+    "category": "DP",
+    "level": 3,
+    "prompt": "Compare memoization (top-down) vs tabulation (bottom-up) for the coin change problem. When is each approach better?",
+    "expectedCode": "# Top-down (memoization)\nfrom functools import cache\n\n@cache\ndef dp(amount):\n    if amount == 0: return 0\n    if amount < 0: return float('inf')\n    return 1 + min(dp(amount - c) for c in coins)\n\n# Bottom-up (tabulation)\ndp = [float('inf')] * (amount + 1)\ndp[0] = 0\nfor i in range(1, amount + 1):\n    for c in coins:\n        if c <= i:\n            dp[i] = min(dp[i], dp[i - c] + 1)\nreturn dp[amount] if dp[amount] != float('inf') else -1",
+    "alternatives": [],
+    "explanation": "Top-down (memoization):\n+ Easier to write — start with recursive solution, add `@cache`\n+ Only computes needed subproblems (might skip some)\n- Python recursion limit (~1000)\n- Function call overhead\n\nBottom-up (tabulation):\n+ No recursion limit\n+ Usually faster (no function call overhead)\n+ Easier to optimize space (rolling array)\n- Must determine iteration order\n- Computes ALL subproblems (even unnecessary ones)\n\nStart interviews with top-down if unsure. Interviewers often ask for bottom-up as follow-up.\n\nFor problems with small state space: top-down is fine. For problems hitting recursion limits (large n): must use bottom-up.",
+    "tags": ["DP", "memoization", "tabulation", "comparison", "coin change"]
+  },
+  {
+    "title": "Greedy vs DP — how to identify",
+    "category": "Greedy",
+    "level": 3,
+    "prompt": "How do you determine if a problem has a greedy solution vs requiring DP? Illustrate with the coin change problem.",
+    "expectedCode": "# Greedy works for US coins [25, 10, 5, 1]\n# Always pick largest denomination first\ndef greedy_change(amount, coins=[25, 10, 5, 1]):\n    count = 0\n    for c in sorted(coins, reverse=True):\n        count += amount // c\n        amount %= c\n    return count\n\n# Greedy FAILS for arbitrary coins [1, 3, 4], amount=6\n# Greedy: 4+1+1=3 coins. Optimal: 3+3=2 coins.\n# Must use DP for arbitrary denominations",
+    "alternatives": [],
+    "explanation": "Greedy works when: the locally optimal choice leads to the globally optimal solution. This requires the problem to have the \"greedy choice property.\"\n\nHow to identify greedy:\n- Can you prove taking the best local choice never leads to a worse global outcome?\n- Does sorting + one pass solve it?\n- Is backtracking never needed?\n\nCommon greedy patterns:\n- Interval scheduling (sort by end time)\n- Huffman coding\n- Activity selection\n- Jump game\n\nDP is needed when:\n- Local choices affect future options\n- You need to try multiple paths\n- Greedy gives wrong answer on counterexamples\n\nQuick test: try a small counterexample. If greedy fails, use DP.",
+    "tags": ["greedy", "DP", "comparison", "coin change", "identification"]
+  },
+
+  {
+    "title": "Sliding window + hash map combo",
+    "category": "Sliding Window",
+    "level": 4,
+    "prompt": "Find the length of the longest substring with at most `k` distinct characters.",
+    "expectedCode": "from collections import defaultdict\nchar_count = defaultdict(int)\nl = 0\nmax_len = 0\nfor r in range(len(s)):\n    char_count[s[r]] += 1\n    while len(char_count) > k:\n        char_count[s[l]] -= 1\n        if char_count[s[l]] == 0:\n            del char_count[s[l]]\n        l += 1\n    max_len = max(max_len, r - l + 1)\nreturn max_len",
+    "alternatives": [],
+    "explanation": "Combines variable-size sliding window with a frequency map. The window is invalid when `len(char_count) > k` (more than k distinct characters).\n\nCritical: `del char_count[s[l]]` when count hits 0 — otherwise `len(char_count)` stays inflated with zero-count keys.\n\nThis pattern extends to:\n- Longest substring with exactly k distinct: compute `atMost(k) - atMost(k-1)`\n- Fruit into baskets (k=2)\n- Subarrays with k different integers",
+    "tags": ["sliding window", "hash map", "distinct chars", "L4 combine"]
+  },
+  {
+    "title": "Two pointers + binary search combo",
+    "category": "Two Pointers",
+    "level": 4,
+    "prompt": "Given a sorted array `nums` and a target difference `diff`, count pairs `(i, j)` where `i < j` and `nums[j] - nums[i] == diff`.",
+    "expectedCode": "from bisect import bisect_left\ncount = 0\nfor i in range(len(nums)):\n    target = nums[i] + diff\n    j = bisect_left(nums, target, i + 1)\n    if j < len(nums) and nums[j] == target:\n        count += 1\nreturn count",
+    "alternatives": [
+      "seen = set()\ncount = 0\nfor num in nums:\n    if num - diff in seen:\n        count += 1\n    seen.add(num)\nreturn count"
+    ],
+    "explanation": "For each element, binary search for its complement. `bisect_left(nums, target, i+1)` searches only to the right of index i.\n\nThe third argument `lo=i+1` restricts the search range — avoids counting pairs twice.\n\nHash set alternative is simpler and O(n), but the binary search version demonstrates the combination technique and works when you need index pairs specifically.\n\nL4 skill: recognizing when two techniques compose. Here, the sorted array suggests both two-pointer and binary search approaches.",
+    "tags": ["two pointers", "binary search", "pair counting", "L4 combine"]
+  },
+  {
+    "title": "Stack + linked list — flatten nested structure",
+    "category": "Stack",
+    "level": 4,
+    "prompt": "Implement a flatten function for a nested list iterator. The input is a nested list like `[1,[2,[3]],4]`. Use a stack to iterate elements in order.",
+    "expectedCode": "class NestedIterator:\n    def __init__(self, nestedList):\n        self.stack = nestedList[::-1]\n    \n    def next(self):\n        return self.stack.pop()\n    \n    def hasNext(self):\n        while self.stack:\n            top = self.stack[-1]\n            if isinstance(top, int):\n                return True\n            self.stack.pop()\n            for item in top[::-1]:\n                self.stack.append(item)\n        return False",
+    "alternatives": [],
+    "explanation": "Initialize: push elements in reverse order so the first element is on top.\n\n`hasNext()` does the work: if the top is a list, expand it (in reverse) onto the stack. Keep expanding until the top is an integer or the stack is empty.\n\n`[::-1]` reverses before pushing so elements come out in correct order.\n\nThis lazy approach only expands what's needed (vs flattening everything upfront). Good for large/deep nested structures.\n\nCombines stack (LIFO ordering) with list manipulation (nested structure). The pattern appears in: nested list problems, directory traversal, expression evaluation.",
+    "tags": ["stack", "nested", "iterator", "flatten", "L4 combine"]
+  },
+  {
+    "title": "Tree + hash map — path sum III",
+    "category": "Trees",
+    "level": 4,
+    "prompt": "Given a binary tree and a target sum, count the number of paths that sum to target. Paths go top-down but don't need to start at root or end at leaf. Use prefix sums.",
+    "expectedCode": "from collections import defaultdict\ndef pathSum(root, targetSum):\n    prefix = defaultdict(int)\n    prefix[0] = 1\n    count = 0\n    def dfs(node, curr_sum):\n        nonlocal count\n        if not node:\n            return\n        curr_sum += node.val\n        count += prefix[curr_sum - targetSum]\n        prefix[curr_sum] += 1\n        dfs(node.left, curr_sum)\n        dfs(node.right, curr_sum)\n        prefix[curr_sum] -= 1\n    dfs(root, 0)\n    return count",
+    "alternatives": [],
+    "explanation": "Combines DFS traversal with prefix sum technique (borrowed from arrays).\n\nKey insight: if `prefix_sum[j] - prefix_sum[i] == target`, the path from node i+1 to node j sums to target. Same as the subarray sum equals k problem.\n\n`prefix[0] = 1` handles paths starting from root.\n\nCRITICAL: `prefix[curr_sum] -= 1` on the way back (backtracking). Without this, prefix sums from other branches contaminate the count.\n\nThis is an L4 drill because it combines three concepts: tree DFS, prefix sums, and backtracking cleanup.",
+    "tags": ["tree", "prefix sum", "DFS", "hash map", "backtracking", "L4 combine"]
+  },
+  {
+    "title": "Graph + heap — Dijkstra's shortest path",
+    "category": "Graphs",
+    "level": 4,
+    "prompt": "Given a weighted directed graph as an adjacency list `graph[u] = [(v, weight), ...]`, find the shortest distance from `start` to all nodes using Dijkstra's algorithm.",
+    "expectedCode": "import heapq\ndef dijkstra(graph, start, n):\n    dist = [float('inf')] * n\n    dist[start] = 0\n    heap = [(0, start)]\n    while heap:\n        d, u = heapq.heappop(heap)\n        if d > dist[u]:\n            continue\n        for v, w in graph[u]:\n            if dist[u] + w < dist[v]:\n                dist[v] = dist[u] + w\n                heapq.heappush(heap, (dist[v], v))\n    return dist",
+    "alternatives": [],
+    "explanation": "Dijkstra's combines BFS structure with a min-heap for weighted edges.\n\n`if d > dist[u]: continue` — lazy deletion. If we've already found a shorter path, skip this stale entry.\n\nRelaxation: `if dist[u] + w < dist[v]` — can we improve the path to v through u?\n\nWith binary heap: O((V + E) log V). With Fibonacci heap: O(V log V + E) but impractical.\n\nLimitation: doesn't work with negative edge weights (use Bellman-Ford for that).\n\nThis combines graph traversal + heap + greedy relaxation — a canonical L4 multi-concept problem.",
+    "tags": ["graph", "heap", "Dijkstra", "shortest path", "weighted", "L4 combine"]
+  },
+  {
+    "title": "Heap + two pointers — meeting rooms II",
+    "category": "Heap",
+    "level": 4,
+    "prompt": "Given a list of meeting `intervals` as `[[start, end], ...]`, find the minimum number of conference rooms required.",
+    "expectedCode": "import heapq\nintervals.sort()\nheap = []  # end times of active meetings\nfor start, end in intervals:\n    if heap and heap[0] <= start:\n        heapq.heapreplace(heap, end)\n    else:\n        heapq.heappush(heap, end)\nreturn len(heap)",
+    "alternatives": [
+      "starts = sorted(s for s, e in intervals)\nends = sorted(e for s, e in intervals)\nrooms = 0\ne_ptr = 0\nfor s in starts:\n    if s >= ends[e_ptr]:\n        e_ptr += 1\n    else:\n        rooms += 1\nreturn rooms"
+    ],
+    "explanation": "Heap tracks end times of currently active meetings. For each new meeting:\n- If it starts after the earliest ending (`heap[0] <= start`), reuse that room (`heapreplace`)\n- Otherwise, need a new room (`heappush`)\n\n`heapreplace` = pop + push in one step.\n\nTwo-pointer alternative: sort starts and ends separately. Sweep through starts; if current start >= earliest end, free a room, else add one.\n\nBoth O(n log n). Heap version is more intuitive; two-pointer version uses less space (no heap).\n\nCombines sorting + heap + interval reasoning.",
+    "tags": ["heap", "intervals", "meeting rooms", "sort", "L4 combine"]
+  },
+  {
+    "title": "Backtracking + trie — word search II",
+    "category": "Backtracking",
+    "level": 4,
+    "prompt": "Given a 2D board of characters and a list of words, find all words that can be formed by adjacent cells (no cell reuse per word). Use a trie to optimize.",
+    "expectedCode": "class TrieNode:\n    def __init__(self):\n        self.children = {}\n        self.word = None\n\ndef findWords(board, words):\n    root = TrieNode()\n    for w in words:\n        node = root\n        for c in w:\n            if c not in node.children:\n                node.children[c] = TrieNode()\n            node = node.children[c]\n        node.word = w\n    \n    result = []\n    rows, cols = len(board), len(board[0])\n    def dfs(r, c, node):\n        if r < 0 or r >= rows or c < 0 or c >= cols:\n            return\n        char = board[r][c]\n        if char not in node.children:\n            return\n        child = node.children[char]\n        if child.word:\n            result.append(child.word)\n            child.word = None\n        board[r][c] = '#'\n        for dr, dc in [(0,1),(0,-1),(1,0),(-1,0)]:\n            dfs(r + dr, c + dc, child)\n        board[r][c] = char\n    \n    for r in range(rows):\n        for c in range(cols):\n            dfs(r, c, root)\n    return result",
+    "alternatives": [],
+    "explanation": "Without a trie: search for each word independently → O(words * m*n * 4^L). With a trie: search all words simultaneously → O(m*n * 4^L) total.\n\nThe trie acts as a prefix filter — if no word starts with the current path, prune immediately.\n\n`board[r][c] = '#'` marks visited (backtrack by restoring). Cheaper than a visited set.\n\n`child.word = None` after finding prevents duplicates.\n\nCombines: trie (prefix matching) + grid DFS + backtracking (visited state). This is a hard problem that tests multiple data structures working together.",
+    "tags": ["backtracking", "trie", "grid", "word search", "L4 combine"]
+  },
+  {
+    "title": "DP + binary search — longest increasing subsequence",
+    "category": "DP",
+    "level": 4,
+    "prompt": "Find the length of the longest increasing subsequence in `nums`. Use the O(n log n) approach with patience sorting.",
+    "expectedCode": "from bisect import bisect_left\ntails = []\nfor num in nums:\n    pos = bisect_left(tails, num)\n    if pos == len(tails):\n        tails.append(num)\n    else:\n        tails[pos] = num\nreturn len(tails)",
+    "alternatives": [
+      "# O(n^2) DP version\ndp = [1] * len(nums)\nfor i in range(1, len(nums)):\n    for j in range(i):\n        if nums[j] < nums[i]:\n            dp[i] = max(dp[i], dp[j] + 1)\nreturn max(dp)"
+    ],
+    "explanation": "`tails[i]` = smallest tail element for an increasing subsequence of length `i+1`.\n\nFor each number: binary search for its position in `tails`.\n- If it's larger than all tails → extend LIS (`append`)\n- Otherwise → replace the first tail >= num (`tails[pos] = num`)\n\n`tails` is always sorted (invariant maintained by the algorithm), so `bisect_left` works.\n\nO(n log n) vs the DP version's O(n²). The key insight: we don't need the actual subsequence contents, just the optimal tails.\n\nCombines DP thinking (optimal substructure) with binary search (efficient position finding).",
+    "tags": ["DP", "binary search", "LIS", "patience sorting", "L4 combine"]
+  },
+  {
+    "title": "Greedy + stack — largest number removal",
+    "category": "Greedy",
+    "level": 4,
+    "prompt": "Given a non-negative integer represented as a string `num` and an integer `k`, remove `k` digits to make the smallest possible number.",
+    "expectedCode": "stack = []\nfor digit in num:\n    while k and stack and stack[-1] > digit:\n        stack.pop()\n        k -= 1\n    stack.append(digit)\nstack = stack[:len(stack) - k]\nreturn ''.join(stack).lstrip('0') or '0'",
+    "alternatives": [],
+    "explanation": "Greedy insight: to minimize the number, remove the first digit that is larger than the digit after it (peak in a monotonic sense).\n\nMonotonic stack maintains non-decreasing order. When a smaller digit arrives, pop larger digits from the stack (each pop = one removal from `k`).\n\n`stack[:len(stack) - k]` handles remaining removals (if the number is already non-decreasing, remove from the end).\n\n`.lstrip('0')` removes leading zeros. `or '0'` handles the case where all digits are removed.\n\nCombines greedy choice (remove peaks) + monotonic stack (efficient peak tracking). Similar pattern appears in: next greater element, stock span.",
+    "tags": ["greedy", "stack", "monotonic", "digit removal", "L4 combine"]
   }
 ]
