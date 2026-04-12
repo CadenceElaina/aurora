@@ -184,7 +184,7 @@ export default async function AuthErrorPage({
         )}
         <div className="flex items-center justify-center gap-3 pt-2">
           <Link
-            href="/api/auth/signin"
+            href="/auth/signin"
             className="inline-flex h-9 items-center rounded-md bg-accent px-4 text-sm text-accent-foreground transition-all duration-150 hover:shadow-[0_0_16px_var(--glow)]"
           >
             Try Again

@@ -478,7 +478,7 @@ export function LandingPage({ totalProblems, categories, isAuthenticated, authCo
                 </Link>
               ) : authConfigured ? (
                 <Link
-                  href="/api/auth/signin"
+                  href="/auth/signin"
                   className="inline-flex h-10 items-center rounded-md bg-accent px-6 text-sm font-semibold text-accent-foreground shadow-[0_0_28px_var(--glow)] transition-all duration-150 hover:shadow-[0_0_40px_var(--glow)]"
                 >
                   Get started — free

@@ -73,7 +73,7 @@ export function Nav({ isAuthenticated = false, authConfigured = true }: { isAuth
           </button>
         ) : authConfigured ? (
           <Link
-            href="/api/auth/signin"
+            href="/auth/signin"
             className="inline-flex h-9 items-center rounded-md bg-accent px-4 text-sm text-accent-foreground transition-all duration-150 hover:shadow-[0_0_12px_var(--glow)]"
           >
             Sign in

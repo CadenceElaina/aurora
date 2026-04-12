@@ -37,6 +37,7 @@ const authResult = isAuthConfigured
         },
       ],
       pages: {
+        signIn: "/auth/signin",
         error: "/auth/error",
       },
     })

@@ -35,7 +35,7 @@ export default async function MockInterviewPage() {
           </ul>
           <div className="pt-2">
             <a
-              href="/api/auth/signin"
+              href="/auth/signin"
               className="inline-flex h-9 items-center rounded-md bg-accent px-4 text-sm text-accent-foreground transition-colors duration-150 hover:opacity-90"
             >
               Sign in to start a mock interview

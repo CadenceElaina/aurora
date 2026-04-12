@@ -20,7 +20,7 @@ export default async function DashboardPage() {
         <div className="rounded-lg border border-border bg-muted p-8 text-center">
           <p className="text-muted-foreground">Sign in to track your progress.</p>
           <Link
-            href="/api/auth/signin"
+            href="/auth/signin"
             className="mt-4 inline-flex h-9 items-center rounded-md bg-accent px-4 text-sm text-accent-foreground transition-colors duration-150 hover:opacity-90"
           >
             Sign In
