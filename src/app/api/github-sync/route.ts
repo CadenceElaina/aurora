@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     connected: true,
     repo,
     secret,
-    webhookUrl: `${process.env.NEXTAUTH_URL ?? "https://leetcode-spaced-repetition-system.vercel.app"}/api/webhook/github`,
+    webhookUrl: `${process.env.NEXTAUTH_URL ?? "https://aurora-ascent.vercel.app"}/api/webhook/github`,
   });
 }
 

@@ -296,26 +296,30 @@ function GitHubSyncDropdown() {
                   >
                     Disconnect
                   </button>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Disconnect?</span>
+                ) : null}
+              </div>
+              <p className="text-xs text-muted-foreground">{status.repo}</p>
+              {confirming && (
+                <div className="mt-2 rounded-md border border-red-500/30 bg-red-500/5 p-2.5 space-y-2">
+                  <p className="text-xs text-red-400 font-medium">Disconnect GitHub sync?</p>
+                  <p className="text-[11px] text-muted-foreground">New submissions won&apos;t be detected automatically. You can reconnect anytime.</p>
+                  <div className="flex items-center gap-2 pt-0.5">
                     <button
                       onClick={handleDisconnect}
                       disabled={disconnecting}
-                      className="text-xs text-red-400 hover:text-red-300 font-medium disabled:opacity-50"
+                      className="inline-flex h-7 items-center rounded-md bg-red-500/20 border border-red-500/40 px-3 text-xs text-red-400 font-medium hover:bg-red-500/30 disabled:opacity-50 transition-colors"
                     >
-                      {disconnecting ? "..." : "Yes"}
+                      {disconnecting ? "Disconnecting…" : "Yes, disconnect"}
                     </button>
                     <button
                       onClick={() => setConfirming(false)}
-                      className="text-xs text-muted-foreground hover:text-foreground"
+                      className="inline-flex h-7 items-center rounded-md px-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
                     >
-                      No
+                      Cancel
                     </button>
                   </div>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">{status.repo}</p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="p-3 space-y-3">
