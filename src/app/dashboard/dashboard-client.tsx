@@ -231,7 +231,7 @@ function getDefaultTargetDate(): string {
 
 /* ── Main Component ── */
 
-export function DashboardClient({ data }: { data: DashboardData }) {
+export function DashboardClient({ data, isDemo = false }: { data: DashboardData; isDemo?: boolean }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [srsBanner, setSrsBanner] = useState<{ oldS: number; newS: number; next: string; pct: number; attemptId: string; pName: string; pNum: string } | null>(null);
@@ -462,7 +462,19 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   }
 
   return (
-    <div className="h-[calc(100dvh-120px)]">
+    <div className="h-[calc(100dvh-120px)] relative">
+    {/* Demo overlay for signed-out users */}
+    {isDemo && (
+      <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ background: "linear-gradient(to bottom, transparent 0%, rgba(12,10,20,0.6) 40%, rgba(12,10,20,0.92) 100%)" }}>
+        <div className="pointer-events-auto text-center space-y-4">
+          <h2 className="text-2xl font-bold text-foreground">Your dashboard awaits</h2>
+          <p className="text-sm text-muted-foreground max-w-xs mx-auto">Sign in to start tracking your progress with spaced repetition.</p>
+          <Link href="/auth/signin" className="inline-flex h-10 items-center rounded-md bg-accent px-6 text-sm font-semibold text-accent-foreground shadow-[0_0_20px_var(--glow)] transition-all duration-150 hover:shadow-[0_0_32px_var(--glow)]">
+            Sign in with GitHub
+          </Link>
+        </div>
+      </div>
+    )}
     {/* Log Attempt Modal */}
     {logModalProblem && (
       <LogAttemptModal

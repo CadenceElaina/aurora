@@ -6,6 +6,7 @@ import { eq, and, asc, count, sql, sum, avg, gte, lt } from "drizzle-orm";
 import Link from "next/link";
 import { computeRetrievability, computeReadiness } from "@/lib/srs";
 import { DashboardClient } from "./dashboard-client";
+import { DEMO_DASHBOARD_DATA } from "./demo-data";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Dashboard — Aurora" };
@@ -15,18 +16,9 @@ export default async function DashboardPage() {
 
   if (!session?.user?.id) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <div className="rounded-lg border border-border bg-muted p-8 text-center">
-          <p className="text-muted-foreground">Sign in to track your progress.</p>
-          <Link
-            href="/auth/signin"
-            className="mt-4 inline-flex h-9 items-center rounded-md bg-accent px-4 text-sm text-accent-foreground transition-colors duration-150 hover:opacity-90"
-          >
-            Sign In
-          </Link>
-        </div>
-      </div>
+      <Suspense>
+        <DashboardClient data={DEMO_DASHBOARD_DATA} isDemo />
+      </Suspense>
     );
   }
 
