@@ -301,18 +301,19 @@ When an attempt is deleted, the server replays all remaining attempts for that p
 
 ## Syntax Drill System
 
-Rapid-fire recall exercises for Python syntax patterns, separate from (but complementary to) the LeetCode problem SRS. See [decision record](decisions/2026-04-12-syntax-drills.md) and [drill system v2 plan](decisions/2026-04-13-drill-system-v2-plan.md) for design rationale.
+Rapid-fire recall exercises for Python syntax patterns, separate from (but complementary to) the LeetCode problem SRS.
 
 ### Content Model
 
-117 drills stored in `drills.json`, seeded via `scripts/seed-drills.ts`. Each drill targets a single syntax atom (e.g., "defaultdict append", "Counter constructor") across four escalating levels.
+120 drills stored in `drills.json`, seeded via `scripts/seed-drills.ts`. Each drill targets a single syntax atom (e.g., "defaultdict append", "Counter constructor") across five escalating levels.
 
 | Level | Name      | Mode                              | Scoring               |
 | :---: | --------- | --------------------------------- | --------------------- |
-|   1   | Recognize | Multiple-choice (4 shuffled opts) | Exact match only      |
+|   1   | Recognize | MC + type-it (both visible)       | Exact match           |
 |   2   | Recall    | Type from scratch                 | Exact normalized match |
 |   3   | Compose   | Blend 2+ atoms                    | Recall-biased coverage |
 |   4   | Implement | Full function / pattern           | Recall-biased coverage |
+|   5   | Capstone  | Unseen variant, same atoms        | Pyodide test execution or self-rate |
 
 **Recall-biased token coverage** (L3+): `intersection.size / expectedTokens.size` — measures what fraction of the expected tokens the user produced. Thresholds: ≥0.85 → conf 4, ≥0.75 → conf 3, ≥0.65 → conf 2, <0.65 → conf 1.
 
@@ -344,6 +345,9 @@ Rapid-fire recall exercises for Python syntax patterns, separate from (but compl
 | alternatives | TEXT[]       | Accepted alternate answers     |
 | explanation  | TEXT         | Shown after attempt            |
 | tags         | TEXT[]       | For future problem↔drill links |
+| distractors  | TEXT[]       | Wrong MC options (L1 only)     |
+| promptVariants | TEXT[]     | Alternate prompt phrasings     |
+| testCases    | JSONB        | L5 Pyodide test cases          |
 
 #### UserDrillState
 
@@ -422,6 +426,7 @@ Higher levels unlock per category based on average stability at the previous lev
 - L2: unlocks when L1 avg stability > 7 days
 - L3: unlocks when L2 avg stability > 14 days
 - L4: unlocks when L3 avg stability > 21 days
+- L5: unlocks when L4 avg stability > 28 days
 
 ### Drill Fluency Score
 
@@ -444,7 +449,9 @@ Sessions run in the dashboard's "Drills" tab:
 3. **DrillCard** — core interaction. Three phases: prompt → retry (on partial, max 2 attempts) → result (with verdict animation).
 4. **SessionSummary** — modal on completion with counting animations (correct/hard/again), best streak, Done / Keep Going CTAs.
 
-**Keyboard shortcuts:** `Ctrl+Shift+Enter` submit, `Ctrl+.` next, `Ctrl+,` previous, `Tab` type-it (L1 MC → textarea).
+**Code editor:** CodeMirror 6 (`@uiw/react-codemirror`) with Python syntax highlighting, custom Aurora dark theme, no auto-indent (simulates interview whiteboard). Used for all drill input, expected code display, and retry views.
+
+**Keyboard shortcuts:** `Ctrl+Shift+Enter` submit, `Ctrl+.` next, `Ctrl+,` previous.
 
 **Sound effects:** Web Audio API synthesis (`src/lib/sounds.ts`). Four sounds: correct (ascending C5→E5), partial (A4), wrong (descending G4→E4), milestone (C5→E5→G5 at 5/10/25 combo). Mute preference persisted in localStorage.
 
@@ -457,6 +464,16 @@ Sessions run in the dashboard's "Drills" tab:
 | `/api/drills`         |  GET   | Fetch drills with level gating + filter (due/new/all) |
 | `/api/drills/attempt` |  POST  | Log attempt, compute fatigue credit, update SRS state |
 | `/api/drills/stats`   |  GET   | Category fluency scores + overall tier |
+
+### L5 Auto-Grading (Pyodide)
+
+Level 5 drills execute user code against test cases using Pyodide (CPython compiled to WebAssembly). Runs entirely client-side in a Web Worker (`public/workers/pyodide-worker.js`) — no server execution.
+
+1. `PyodideRunner` singleton (`src/lib/pyodide.ts`) manages the worker lifecycle
+2. `init()` loads Pyodide from CDN on drill tab entry (background download)
+3. `runTests(code, testCases)` executes user code + validates against expected outputs
+4. Test results map to confidence via pass rate: ≥80% → 4, ≥60% → 3, ≥40% → 2, <40% → 1
+5. 5-second per-test timeout prevents infinite loops
 
 ---
 
