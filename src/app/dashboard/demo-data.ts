@@ -546,6 +546,7 @@ export interface DemoDrill {
   stability: number;
   testCases?: DrillTestCase[];
   distractors?: string[];
+  tags?: string[];
 }
 
 export const DEMO_DRILLS: DemoDrill[] = [

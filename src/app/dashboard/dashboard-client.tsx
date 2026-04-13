@@ -402,7 +402,7 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
           if (_meta.categoryUnlocks) setCategoryUnlocks(_meta.categoryUnlocks);
         }
         const now = new Date();
-        const mapped: DemoDrill[] = drills.map((d: { id: number; title: string; category: string; level: number; prompt: string; expectedCode: string; alternatives?: string[]; explanation: string; testCases?: Array<{ input: string; expected: string }>; distractors?: string[]; state: { stability: number; lastReviewedAt: string | null; nextReviewAt: string | null; totalAttempts: number; bestConfidence: number | null } | null }) => {
+        const mapped: DemoDrill[] = drills.map((d: { id: number; title: string; category: string; level: number; prompt: string; expectedCode: string; alternatives?: string[]; explanation: string; tags?: string[]; testCases?: Array<{ input: string; expected: string }>; distractors?: string[]; state: { stability: number; lastReviewedAt: string | null; nextReviewAt: string | null; totalAttempts: number; bestConfidence: number | null } | null }) => {
           let dueStatus: "due" | "new" | "mastered" = "new";
           if (d.state) {
             if (d.state.stability > 21) dueStatus = "mastered";
@@ -423,6 +423,7 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
             stability: d.state?.stability ?? 0,
             testCases: d.testCases,
             distractors: d.distractors,
+            tags: d.tags,
           };
         });
         setRealDrills(mapped);
@@ -1616,7 +1617,7 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
                 </div>
               ) : (
                 <div className="flex-1 min-h-0 overflow-hidden">
-                  <SyntaxReferencePanel />
+                  <SyntaxReferencePanel activeDrillTags={drillSession?.active ? drillSession.drills[drillSession.current]?.tags : undefined} />
                 </div>
               )
             ) : (

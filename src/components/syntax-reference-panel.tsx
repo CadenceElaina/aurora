@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { CodeEditor } from "@/components/code-editor";
 import { getPyodide } from "@/lib/pyodide";
 import { SYNTAX_ENTRIES, type SyntaxEntry } from "@/components/syntax-entries";
@@ -24,6 +24,52 @@ for (const entry of SYNTAX_ENTRIES) {
   }
 }
 
+/** Resolve drill tags to the best-matching syntax entry ID */
+function resolveTagsToEntryId(tags: string[]): string | null {
+  for (const tag of tags) {
+    const lower = tag.toLowerCase();
+    // Direct ID match
+    if (ENTRY_MAP.has(lower)) return lower;
+    // Token match (e.g. "defaultdict" → defaultdict entry)
+    const tokenMatch = ENTRY_TOKENS.get(lower);
+    if (tokenMatch) return tokenMatch.id;
+  }
+  // Fuzzy: try partial match against entry IDs/names
+  for (const tag of tags) {
+    const lower = tag.toLowerCase().replace(/\s+/g, "-");
+    for (const [id] of ENTRY_MAP) {
+      if (id.includes(lower) || lower.includes(id)) return id;
+    }
+  }
+  return null;
+}
+
+const RECENTLY_VIEWED_KEY = "aurora-syntax-recently-viewed";
+const PINNED_KEY = "aurora-syntax-pinned";
+const MAX_RECENT = 5;
+
+function loadRecentlyViewed(): string[] {
+  try {
+    const stored = localStorage.getItem(RECENTLY_VIEWED_KEY);
+    return stored ? (JSON.parse(stored) as string[]).filter(id => ENTRY_MAP.has(id)) : [];
+  } catch { return []; }
+}
+
+function saveRecentlyViewed(ids: string[]) {
+  try { localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(ids)); } catch { /* ok */ }
+}
+
+function loadPinned(): Set<string> {
+  try {
+    const stored = localStorage.getItem(PINNED_KEY);
+    return stored ? new Set((JSON.parse(stored) as string[]).filter(id => ENTRY_MAP.has(id))) : new Set();
+  } catch { return new Set(); }
+}
+
+function savePinned(ids: Set<string>) {
+  try { localStorage.setItem(PINNED_KEY, JSON.stringify([...ids])); } catch { /* ok */ }
+}
+
 /**
  * Scan an entry's code content for Python identifiers that match other entries
  * by name token. Returns deduplicated list, excluding the entry itself.
@@ -41,7 +87,31 @@ function detectMentionedEntries(entry: SyntaxEntry): SyntaxEntry[] {
   return [...found.values()];
 }
 
-export function SyntaxReferencePanel() {
+/** Tiny copy-to-clipboard button */
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const onClick = useCallback(() => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }).catch(() => {});
+  }, [text]);
+  return (
+    <button
+      onClick={onClick}
+      className="inline-flex h-5 items-center rounded border border-border bg-card px-1.5 text-[10px] text-muted-foreground hover:text-foreground hover:border-accent/40 transition-colors"
+      title="Copy to clipboard"
+    >
+      {copied ? "✓" : "Copy"}
+    </button>
+  );
+}
+
+interface SyntaxReferencePanelProps {
+  activeDrillTags?: string[];
+}
+
+export function SyntaxReferencePanel({ activeDrillTags }: SyntaxReferencePanelProps) {
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(true);
@@ -49,6 +119,13 @@ export function SyntaxReferencePanel() {
   // Navigation — openId is current expanded entry; navHistory is the back-stack of IDs
   const [openId, setOpenId] = useState<string | null>(null);
   const [navHistory, setNavHistory] = useState<string[]>([]);
+
+  // Recently viewed & pinned
+  const [recentlyViewed, setRecentlyViewed] = useState<string[]>(loadRecentlyViewed);
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(loadPinned);
+
+  // Keyboard focus index (-1 = none)
+  const [focusIdx, setFocusIdx] = useState(-1);
 
   // Variant cycling: per-entry index
   const [variantIdx, setVariantIdx] = useState<Record<string, number>>({});
@@ -59,9 +136,36 @@ export function SyntaxReferencePanel() {
   const [scratchRunning, setScratchRunning] = useState<Record<string, boolean>>({});
   const [scratchError, setScratchError] = useState<Record<string, boolean>>({});
 
+  // Track last auto-opened drill tags to avoid re-triggering
+  const lastAutoOpenRef = useRef<string | null>(null);
+
   // Ref to scroll the open entry into view after navigation
   const openEntryRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const entryRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  // Auto-open entry matching active drill tags
+  useEffect(() => {
+    if (!activeDrillTags || activeDrillTags.length === 0) return;
+    const tagKey = activeDrillTags.join(",");
+    if (lastAutoOpenRef.current === tagKey) return;
+    lastAutoOpenRef.current = tagKey;
+    const matchId = resolveTagsToEntryId(activeDrillTags);
+    if (matchId && matchId !== openId) {
+      setOpenId(matchId);
+      setNavHistory([]);
+    }
+  }, [activeDrillTags, openId]);
+
+  // Track recently viewed when an entry is opened
+  useEffect(() => {
+    if (!openId) return;
+    setRecentlyViewed(prev => {
+      const next = [openId, ...prev.filter(id => id !== openId)].slice(0, MAX_RECENT);
+      saveRecentlyViewed(next);
+      return next;
+    });
+  }, [openId]);
 
   /** Navigate to an entry via a cross-link — pushes current to history */
   const navigateTo = useCallback((id: string) => {
@@ -78,6 +182,27 @@ export function SyntaxReferencePanel() {
     setOpenId((prev) => (prev === id ? null : id));
     setNavHistory([]);
   }, []);
+
+  /** Toggle pin for an entry */
+  const togglePin = useCallback((id: string) => {
+    setPinnedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      savePinned(next);
+      return next;
+    });
+  }, []);
+
+  /** Pre-fill scratch pad with example code */
+  const useInScratch = useCallback((entryId: string, code: string) => {
+    setScratchCode(prev => ({ ...prev, [entryId]: code }));
+    setScratchOutput(prev => ({ ...prev, [entryId]: null }));
+    // Open the entry if not already open
+    if (openId !== entryId) {
+      setOpenId(entryId);
+      setNavHistory([]);
+    }
+  }, [openId]);
 
   /** Go back one step in navigation history */
   const goBack = useCallback(() => {
@@ -149,19 +274,71 @@ export function SyntaxReferencePanel() {
     [scratchCode],
   );
 
-  const filtered = SYNTAX_ENTRIES.filter((e) => {
+  const filtered = useMemo(() => SYNTAX_ENTRIES.filter((e) => {
     const matchesQuery =
       !query ||
       e.name.toLowerCase().includes(query.toLowerCase()) ||
       e.summary.toLowerCase().includes(query.toLowerCase());
     const matchesCategory = !activeCategory || e.category === activeCategory;
     return matchesQuery && matchesCategory;
-  });
+  }), [query, activeCategory]);
 
   // If openId is set but filtered out, still show it at top (navigation overrides filter)
   const openEntry = openId ? ENTRY_MAP.get(openId) : null;
   const openIsFiltered = openEntry ? filtered.some((e) => e.id === openId) : false;
-  const entriesToShow = openEntry && !openIsFiltered ? [openEntry, ...filtered] : filtered;
+
+  // Sort: pinned first, then rest
+  const entriesToShow = useMemo(() => {
+    const base = openEntry && !openIsFiltered ? [openEntry, ...filtered] : filtered;
+    const pinned = base.filter(e => pinnedIds.has(e.id));
+    const unpinned = base.filter(e => !pinnedIds.has(e.id));
+    return [...pinned, ...unpinned];
+  }, [filtered, openEntry, openIsFiltered, pinnedIds]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Only handle when focus is within the scroll container or panel
+      const target = e.target as HTMLElement;
+      if (target.closest(".cm-editor") || target.tagName === "INPUT") return;
+
+      if (e.key === "ArrowDown" || e.key === "j") {
+        e.preventDefault();
+        setFocusIdx(prev => {
+          const next = Math.min(prev + 1, entriesToShow.length - 1);
+          const entry = entriesToShow[next];
+          if (entry) entryRefs.current.get(entry.id)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          return next;
+        });
+      } else if (e.key === "ArrowUp" || e.key === "k") {
+        e.preventDefault();
+        setFocusIdx(prev => {
+          const next = Math.max(prev - 1, 0);
+          const entry = entriesToShow[next];
+          if (entry) entryRefs.current.get(entry.id)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          return next;
+        });
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (focusIdx >= 0 && focusIdx < entriesToShow.length) {
+          toggleEntry(entriesToShow[focusIdx].id);
+        }
+      } else if (e.key === "Escape") {
+        if (openId) {
+          e.preventDefault();
+          setOpenId(null);
+          setNavHistory([]);
+        }
+      }
+    };
+    container.addEventListener("keydown", onKeyDown);
+    return () => container.removeEventListener("keydown", onKeyDown);
+  }, [entriesToShow, focusIdx, openId, toggleEntry]);
+
+  // Reset focus index when entries change
+  useEffect(() => { setFocusIdx(-1); }, [query, activeCategory]);
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -237,6 +414,32 @@ export function SyntaxReferencePanel() {
         )}
       </div>
 
+      {/* ── Recently viewed row ── */}
+      {recentlyViewed.length > 0 && !query && !activeCategory && (
+        <div className="shrink-0 mb-2">
+          <p className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wide mb-1">History</p>
+          <div className="flex flex-wrap gap-1">
+            {recentlyViewed.map(id => {
+              const entry = ENTRY_MAP.get(id);
+              if (!entry) return null;
+              return (
+                <button
+                  key={id}
+                  onClick={() => { toggleEntry(id); }}
+                  className={`inline-flex h-6 items-center rounded-md border px-2 text-[10px] font-medium transition-colors ${
+                    openId === id
+                      ? "border-accent/40 bg-accent/10 text-accent"
+                      : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-accent/40"
+                  }`}
+                >
+                  {entry.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ── Back navigation (shown when navigating via cross-links) ── */}
       {navHistory.length > 0 && (
         <div className="shrink-0 flex items-center gap-2 mb-2">
@@ -260,12 +463,14 @@ export function SyntaxReferencePanel() {
       {/* ── Entry count ── */}
       <p className="shrink-0 text-[10px] text-muted-foreground mb-2">
         {entriesToShow.length} {entriesToShow.length === 1 ? "entry" : "entries"}
+        {pinnedIds.size > 0 && <span className="text-accent/60"> · {pinnedIds.size} pinned</span>}
       </p>
 
       {/* ── Scrollable entries list ── */}
       <div
         ref={scrollContainerRef}
         className="flex flex-col gap-2 overflow-y-auto flex-1 min-h-0"
+        tabIndex={0}
       >
         {entriesToShow.length === 0 && (
           <p className="text-xs text-muted-foreground text-center py-6">
@@ -273,8 +478,10 @@ export function SyntaxReferencePanel() {
           </p>
         )}
 
-        {entriesToShow.map((entry) => {
+        {entriesToShow.map((entry, idx) => {
           const isOpen = openId === entry.id;
+          const isPinned = pinnedIds.has(entry.id);
+          const isFocused = focusIdx === idx;
           const variants = entry.variants ?? [];
           const vIdx = variantIdx[entry.id] ?? 0;
           const currentVariant = variants[vIdx] ?? "";
@@ -285,33 +492,48 @@ export function SyntaxReferencePanel() {
           return (
             <div
               key={entry.id}
-              ref={isOpen ? openEntryRef : null}
+              ref={(el) => {
+                if (isOpen && el) openEntryRef.current = el;
+                if (el) entryRefs.current.set(entry.id, el);
+              }}
               className={`rounded-lg border bg-card overflow-hidden transition-colors shrink-0 ${
-                isOpen ? "border-accent/30" : "border-border"
+                isOpen ? "border-accent/30" : isFocused ? "border-accent/20 ring-1 ring-accent/20" : "border-border"
               }`}
             >
               {/* Entry header */}
-              <button
-                onClick={() => toggleEntry(entry.id)}
-                className="w-full text-left px-3 py-2.5 flex items-start justify-between gap-2 hover:bg-accent/5 transition-colors"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-mono font-semibold text-foreground">
-                      {entry.name}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground/60 bg-muted px-1.5 py-0.5 rounded">
-                      {entry.category}
-                    </span>
+              <div className="flex items-start">
+                <button
+                  onClick={() => toggleEntry(entry.id)}
+                  className="flex-1 text-left px-3 py-2.5 flex items-start justify-between gap-2 hover:bg-accent/5 transition-colors min-w-0"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-mono font-semibold text-foreground">
+                        {entry.name}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground/60 bg-muted px-1.5 py-0.5 rounded">
+                        {entry.category}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                      {entry.summary}
+                    </p>
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                    {entry.summary}
-                  </p>
-                </div>
-                <span className="text-muted-foreground/50 text-xs shrink-0 mt-0.5">
-                  {isOpen ? "▲" : "▼"}
-                </span>
-              </button>
+                  <span className="text-muted-foreground/50 text-xs shrink-0 mt-0.5">
+                    {isOpen ? "▲" : "▼"}
+                  </span>
+                </button>
+                {/* Pin button */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); togglePin(entry.id); }}
+                  className={`shrink-0 mt-2.5 mr-2 text-sm transition-colors ${
+                    isPinned ? "text-amber-400" : "text-muted-foreground/20 hover:text-amber-400/60"
+                  }`}
+                  title={isPinned ? "Unpin" : "Pin to top"}
+                >
+                  ★
+                </button>
+              </div>
 
               {/* Expanded content */}
               {isOpen && (
@@ -319,9 +541,12 @@ export function SyntaxReferencePanel() {
 
                   {/* Syntax */}
                   <div>
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
-                      Syntax
-                    </p>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                        Syntax
+                      </p>
+                      <CopyButton text={entry.syntax} />
+                    </div>
                     <CodeEditor value={entry.syntax} onChange={() => {}} readOnly minHeight="auto" />
                   </div>
 
@@ -360,9 +585,21 @@ export function SyntaxReferencePanel() {
 
                   {/* Example */}
                   <div>
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
-                      Example
-                    </p>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                        Example
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => useInScratch(entry.id, entry.example)}
+                          className="inline-flex h-5 items-center rounded border border-border bg-card px-1.5 text-[10px] text-muted-foreground hover:text-foreground hover:border-accent/40 transition-colors"
+                          title="Load into scratch pad"
+                        >
+                          Use in scratch
+                        </button>
+                        <CopyButton text={entry.example} />
+                      </div>
+                    </div>
                     <CodeEditor value={entry.example} onChange={() => {}} readOnly minHeight="auto" />
                   </div>
 
