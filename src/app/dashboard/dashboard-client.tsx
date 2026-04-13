@@ -13,7 +13,7 @@ import { SessionSummary } from "@/components/session-summary";
 import { DrillTour, shouldShowTour } from "@/components/drill-tour";
 import { SyntaxReferencePanel } from "@/components/syntax-reference-panel";
 import { getMutedPref, setMutedPref, playSound } from "@/lib/sounds";
-import { getPyodide } from "@/lib/pyodide";
+import { getPyodide, terminatePyodide } from "@/lib/pyodide";
 import { DEMO_DRILLS, DEMO_FLUENCY_STATS, type DemoDrill, type DrillConfidence, type DemoFluencyCategory } from "@/app/dashboard/demo-data";
 
 /* ── Types ── */
@@ -1231,7 +1231,7 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
                     });
                   }}
                   onToggleSyntaxRef={() => setSyntaxRefEnabled(prev => !prev)}
-                  onExit={() => setDrillSession(null)}
+                  onExit={() => { terminatePyodide(); setDrillSession(null); }}
                   onPrevious={drillSession.current > 0 ? handleDrillPrevious : undefined}
                   categoryLabel={drillSession.categoryLabel}
                 />

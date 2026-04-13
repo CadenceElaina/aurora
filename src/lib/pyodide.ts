@@ -163,6 +163,19 @@ class PyodideRunner {
     }
   }
 
+  /** Terminate the worker and free WASM memory. */
+  terminate(): void {
+    if (this.worker) {
+      this.worker.terminate();
+      this.worker = null;
+    }
+    this.status = "idle";
+    this.pendingRuns.clear();
+    this.pendingCodeRuns.clear();
+    this.listeners.clear();
+    this.notify();
+  }
+
   private notify(): void {
     for (const cb of this.listeners) cb(this.status);
   }
@@ -172,6 +185,14 @@ class PyodideRunner {
 export function getPyodide(): PyodideRunner {
   if (!instance) instance = new PyodideRunner();
   return instance;
+}
+
+/** Terminate and release the Pyodide worker if it exists. */
+export function terminatePyodide(): void {
+  if (instance) {
+    instance.terminate();
+    instance = null;
+  }
 }
 
 /**

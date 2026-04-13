@@ -43,6 +43,7 @@ function tone(
   gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
   osc.start(startTime);
   osc.stop(startTime + duration + 0.05);
+  osc.onended = () => { gain.disconnect(); osc.disconnect(); };
 }
 
 function doCorrect(c: AudioContext) {

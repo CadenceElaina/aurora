@@ -167,6 +167,15 @@ export function DrillCard({ drill, onRate, onPrevious, muted = false, autoContin
   // Editor shake animation — wraps CodeEditor on wrong answer in prompt phase
   const [editorAnimClass, setEditorAnimClass] = useState("");
   const autoContinueTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const animTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  // Cleanup all pending timers on unmount
+  useEffect(() => {
+    return () => {
+      if (autoContinueTimerRef.current) clearTimeout(autoContinueTimerRef.current);
+      animTimersRef.current.forEach(clearTimeout);
+    };
+  }, []);
 
   // L5 Pyodide test results
   const [testResults, setTestResults] = useState<TestCaseResult[] | null>(null);
@@ -208,15 +217,17 @@ export function DrillCard({ drill, onRate, onPrevious, muted = false, autoContin
       else playSound("wrong", muted);
 
       // Animations — set class, then clear after animation duration so it can re-trigger
+      animTimersRef.current.forEach(clearTimeout);
+      animTimersRef.current = [];
       if (match.verdict === "correct") {
         setVerdictAnimClass("drill-anim-correct-glow");
-        setTimeout(() => setVerdictAnimClass(""), 400);
+        animTimersRef.current.push(setTimeout(() => setVerdictAnimClass(""), 400));
       } else if (match.verdict === "close") {
         setVerdictAnimClass("drill-anim-partial");
-        setTimeout(() => setVerdictAnimClass(""), 450);
+        animTimersRef.current.push(setTimeout(() => setVerdictAnimClass(""), 450));
       } else {
         setEditorAnimClass("drill-anim-wrong-shake");
-        setTimeout(() => setEditorAnimClass(""), 260);
+        animTimersRef.current.push(setTimeout(() => setEditorAnimClass(""), 260));
       }
 
       // Auto-continue: only on clean correct (conf 4), 800ms delay
