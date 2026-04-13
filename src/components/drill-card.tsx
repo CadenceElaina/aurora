@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo, useEffect, useRef, type ReactNode } fro
 import type { DrillConfidence, DrillLevel, DrillTestCase, DemoDrill } from "@/app/dashboard/demo-data";
 import { playSound } from "@/lib/sounds";
 import { getPyodide, passRateToConfidence, type TestCaseResult } from "@/lib/pyodide";
+import { CodeEditor } from "@/components/code-editor";
 
 type DrillCardPhase = "prompt" | "retry" | "result" | "self-rate" | "running-tests";
 
@@ -364,7 +365,7 @@ export function DrillCard({ drill, onRate, onPrevious, muted = false, autoContin
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      const inTextarea = target.tagName === "TEXTAREA";
+      const inEditor = target.closest(".cm-editor") !== null;
 
       // Ctrl+Shift+Enter — submit MC selection or typed code
       if (e.ctrlKey && e.shiftKey && e.key === "Enter" && phase === "prompt" && isL1Mc) {
@@ -383,7 +384,7 @@ export function DrillCard({ drill, onRate, onPrevious, muted = false, autoContin
         e.preventDefault();
         if (phase === "result" && result) {
           handleNext();
-        } else if (phase === "prompt" && userCode.trim() && !inTextarea) {
+        } else if (phase === "prompt" && userCode.trim() && !inEditor) {
           setShowDiscardPrompt(true);
         } else if (phase === "prompt" && !userCode.trim()) {
           // Empty textarea — skip with lowest confidence
@@ -452,24 +453,16 @@ export function DrillCard({ drill, onRate, onPrevious, muted = false, autoContin
                   </button>
                 ))}
               </div>
-              {/* Always-visible type-it textarea */}
+              {/* Always-visible type-it editor */}
               <div>
                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Or type it</p>
-                <textarea
+                <CodeEditor
                   value={userCode}
-                  onChange={(e) => { handleCodeChange(e.target.value); setSelectedMcOption(null); }}
+                  onChange={(val) => { handleCodeChange(val); setSelectedMcOption(null); }}
                   placeholder="Write your code here…"
-                  rows={3}
+                  minHeight="80px"
                   autoFocus
-                  className={`w-full font-mono text-sm bg-card border border-border rounded-lg p-3 text-foreground placeholder:text-muted-foreground/50 resize-y focus:outline-none focus:border-accent/50 ${textareaAnimClass}`}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && e.ctrlKey && e.shiftKey) {
-                      e.preventDefault();
-                      if (selectedMcOption || userCode.trim()) {
-                        selectedMcOption ? handleMcSubmit() : handleSubmit();
-                      }
-                    }
-                  }}
+                  onSubmit={() => { if (selectedMcOption) handleMcSubmit(); else if (userCode.trim()) handleSubmit(); }}
                 />
               </div>
               <div className="flex items-center justify-end gap-2">
@@ -487,19 +480,13 @@ export function DrillCard({ drill, onRate, onPrevious, muted = false, autoContin
             /* Free-type path (L2+) */
             <div>
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Your code</p>
-              <textarea
+              <CodeEditor
                 value={userCode}
-                onChange={(e) => handleCodeChange(e.target.value)}
+                onChange={(val) => handleCodeChange(val)}
                 placeholder="Write your code here…"
-                rows={5}
+                minHeight="120px"
                 autoFocus={drill.level !== 1}
-                className={`w-full font-mono text-sm bg-card border border-border rounded-lg p-3 text-foreground placeholder:text-muted-foreground/50 resize-y focus:outline-none focus:border-accent/50 ${textareaAnimClass}`}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && e.ctrlKey && e.shiftKey) {
-                    e.preventDefault();
-                    if (userCode.trim()) handleSubmit();
-                  }
-                }}
+                onSubmit={() => { if (userCode.trim()) handleSubmit(); }}
               />
             </div>
           )}
@@ -543,34 +530,39 @@ export function DrillCard({ drill, onRate, onPrevious, muted = false, autoContin
       {/* ── RETRY PHASE — wrong code read-only above, fresh textarea below ── */}
       {phase === "retry" && (
         <div className="space-y-3">
+          {/* Verdict banner — tells user why they're retrying */}
+          {result && (() => {
+            const v = VERDICT_STYLES[result.verdict];
+            return (
+              <div className={`rounded-lg border ${v.border} ${v.bg} px-3 py-2 flex items-center gap-2`}>
+                <span className={`text-sm font-bold ${v.text}`}>{v.icon}</span>
+                <span className={`text-sm font-medium ${v.text}`}>
+                  {result.verdict === "close" ? "Almost — try again from scratch" : "Incorrect — try again from scratch"}
+                </span>
+              </div>
+            );
+          })()}
+
           {/* First attempt — read-only, dimmed */}
-          <div className="rounded-lg border border-border/50 bg-card/50 p-3 opacity-60">
+          <div className="opacity-60">
             <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
               Your attempt
             </p>
-            <pre className="font-mono text-sm text-foreground/70 whitespace-pre-wrap">
-              {firstAttemptCode}
-            </pre>
+            <CodeEditor value={firstAttemptCode ?? ""} onChange={() => {}} readOnly minHeight="auto" />
           </div>
 
-          {/* Fresh textarea */}
+          {/* Fresh editor */}
           <div>
             <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
               Write it from scratch
             </p>
-            <textarea
+            <CodeEditor
               value={retryCode}
-              onChange={(e) => setRetryCode(e.target.value)}
+              onChange={setRetryCode}
               placeholder="Try again…"
-              rows={5}
+              minHeight="120px"
               autoFocus
-              className="w-full font-mono text-sm bg-card border border-border rounded-lg p-3 text-foreground placeholder:text-muted-foreground/50 resize-y focus:outline-none focus:border-accent/50"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && e.ctrlKey && e.shiftKey) {
-                  e.preventDefault();
-                  if (retryCode.trim()) handleRetrySubmit();
-                }
-              }}
+              onSubmit={() => { if (retryCode.trim()) handleRetrySubmit(); }}
             />
           </div>
 
@@ -599,15 +591,15 @@ export function DrillCard({ drill, onRate, onPrevious, muted = false, autoContin
       {phase === "self-rate" && (
         <div className="space-y-3">
           {/* User's code — read-only */}
-          <div className="rounded-lg border border-border/50 bg-card/50 p-3">
+          <div className="opacity-70">
             <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Your code</p>
-            <pre className="font-mono text-sm text-foreground/70 whitespace-pre-wrap">{userCode}</pre>
+            <CodeEditor value={userCode} onChange={() => {}} readOnly minHeight="auto" />
           </div>
 
           {/* Reference solution */}
-          <div className="rounded-lg border border-border bg-card p-3">
+          <div>
             <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Reference solution</p>
-            <pre className="font-mono text-sm text-foreground whitespace-pre-wrap">{drill.expectedCode}</pre>
+            <CodeEditor value={drill.expectedCode} onChange={() => {}} readOnly minHeight="auto" />
           </div>
 
           {/* Test cases */}
@@ -714,10 +706,10 @@ export function DrillCard({ drill, onRate, onPrevious, muted = false, autoContin
             </div>
           )}
 
-          {/* Expected code — always shown */}
-          <div className="rounded-lg border border-border bg-card p-3">
+          {/* Expected code — always shown, syntax-highlighted */}
+          <div>
             <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Expected</p>
-            <pre className="font-mono text-sm text-foreground whitespace-pre-wrap">{drill.expectedCode}</pre>
+            <CodeEditor value={drill.expectedCode} onChange={() => {}} readOnly minHeight="auto" />
           </div>
 
           {/* Explanation */}

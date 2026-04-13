@@ -1,14 +1,18 @@
 "use client";
 
+import type { DrillConfidence } from "@/app/dashboard/demo-data";
+
 interface SessionHeaderProps {
   current: number;         // 0-based index of current drill
   total: number;           // total drills in session
   combo: number;           // consecutive correct streak
+  results: DrillConfidence[];
   autoContinue: boolean;
   muted: boolean;
   onToggleAutoContinue: () => void;
   onToggleMute: () => void;
   onExit: () => void;
+  onPrevious?: () => void;
   categoryLabel?: string;
 }
 
@@ -16,17 +20,34 @@ export function SessionHeader({
   current,
   total,
   combo,
+  results,
   autoContinue,
   muted,
   onToggleAutoContinue,
   onToggleMute,
   onExit,
+  onPrevious,
   categoryLabel,
 }: SessionHeaderProps) {
+  const correctCount = results.filter((c) => c >= 3).length;
+  const scored = results.length;
+
   return (
     <div className="flex items-center justify-between shrink-0 py-1">
-      {/* Left: label + dot pips */}
+      {/* Left: back button + label + dot pips */}
       <div className="flex items-center gap-3">
+        {onPrevious ? (
+          <button
+            onClick={onPrevious}
+            title="Previous drill (Ctrl+,)"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1"
+          >
+            ‹ prev
+          </button>
+        ) : (
+          <span className="text-xs text-muted-foreground/30 px-1 select-none">‹ prev</span>
+        )}
+
         <span className="text-xs font-medium text-foreground">
           {categoryLabel ? `${categoryLabel} Practice` : "Daily Drill"}
         </span>
@@ -46,6 +67,13 @@ export function SessionHeader({
             />
           ))}
         </div>
+
+        {/* Score */}
+        {scored > 0 && (
+          <span className="tabular-nums text-[10px] text-muted-foreground">
+            <span className="text-green-500 font-medium">{correctCount}</span>/{scored} correct
+          </span>
+        )}
 
         {/* Combo badge — only after ≥4 consecutive correct */}
         {combo >= 4 && (

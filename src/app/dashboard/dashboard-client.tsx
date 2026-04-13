@@ -1212,6 +1212,7 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
                   current={drillSession.current}
                   total={drillSession.drills.length}
                   combo={drillCombo}
+                  results={drillSession.results}
                   autoContinue={drillAutoContinue}
                   muted={drillMuted}
                   onToggleAutoContinue={() => setDrillAutoContinue(prev => !prev)}
@@ -1222,6 +1223,7 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
                     });
                   }}
                   onExit={() => setDrillSession(null)}
+                  onPrevious={drillSession.current > 0 ? handleDrillPrevious : undefined}
                   categoryLabel={drillSession.categoryLabel}
                 />
                 {drillSession.current >= 12 && (
