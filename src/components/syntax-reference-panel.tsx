@@ -2,62 +2,9 @@
 
 import { useState } from "react";
 import { CodeEditor } from "@/components/code-editor";
+import { SYNTAX_ENTRIES, type SyntaxEntry } from "@/components/syntax-entries";
 
-/**
- * SyntaxReferencePanel — searchable Python syntax quick-reference.
- *
- * Each entry has: name, one-line purpose, canonical syntax,
- * variants, and a minimal example. Users can open an entry and
- * edit a scratch pad to experiment without leaving the drill view.
- *
- * TODO (agent 2): populate SYNTAX_ENTRIES with ~80–100 entries
- * covering all patterns used in NeetCode 150. See
- * docs/decisions/2026-04-13-syntax-panel-agent2-handoff.md for
- * the full spec and content outline.
- */
-
-export interface SyntaxEntry {
-  id: string;
-  name: string;
-  category: string;
-  summary: string;
-  syntax: string;
-  example: string;
-  variants?: string[];
-}
-
-// ── Content placeholder — agent 2 fills this out ──────────────────
-export const SYNTAX_ENTRIES: SyntaxEntry[] = [
-  {
-    id: "defaultdict",
-    name: "defaultdict",
-    category: "Collections",
-    summary: "Dict that auto-initialises missing keys with a factory function.",
-    syntax: "from collections import defaultdict\nd = defaultdict(list)  # or int, set, etc.",
-    example: "from collections import defaultdict\n\ngroups = defaultdict(list)\ngroups['a'].append(1)   # no KeyError\ngroups['a'].append(2)\nprint(dict(groups))     # {'a': [1, 2]}",
-    variants: [
-      "defaultdict(int)   # → 0",
-      "defaultdict(set)   # → set()",
-      "defaultdict(list)  # → []",
-      "defaultdict(lambda: float('inf'))",
-    ],
-  },
-  {
-    id: "counter",
-    name: "Counter",
-    category: "Collections",
-    summary: "Dict subclass for counting hashable objects.",
-    syntax: "from collections import Counter\nCounter(iterable_or_mapping)",
-    example: "from collections import Counter\n\nwords = ['a', 'b', 'a', 'c', 'a', 'b']\ncnt = Counter(words)\nprint(cnt)              # Counter({'a': 3, 'b': 2, 'c': 1})\nprint(cnt.most_common(2))  # [('a', 3), ('b', 2)]",
-    variants: [
-      "Counter(string)   # char frequencies",
-      "Counter(list)     # element frequencies",
-      "c1 + c2           # merge counts",
-      "c1 - c2           # subtract counts",
-    ],
-  },
-];
-// ──────────────────────────────────────────────────────────────────
+export type { SyntaxEntry };
 
 const ALL_CATEGORIES = [...new Set(SYNTAX_ENTRIES.map((e) => e.category))];
 
@@ -119,9 +66,6 @@ export function SyntaxReferencePanel() {
       {/* Entry count */}
       <p className="text-[10px] text-muted-foreground">
         {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
-        {SYNTAX_ENTRIES.length === 2 && (
-          <span className="ml-2 text-amber-500/70">(preview — full content coming soon)</span>
-        )}
       </p>
 
       {/* Entries */}
@@ -165,7 +109,7 @@ export function SyntaxReferencePanel() {
                     <div>
                       <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Variants</p>
                       <div className="space-y-1">
-                        {entry.variants.map((v, i) => (
+                        {entry.variants.map((v: string, i: number) => (
                           <code key={i} className="block font-mono text-xs text-accent/80 bg-muted rounded px-2 py-1">
                             {v}
                           </code>

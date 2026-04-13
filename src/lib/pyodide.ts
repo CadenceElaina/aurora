@@ -27,12 +27,18 @@ interface PendingRun {
   reject: (error: Error) => void;
 }
 
+interface PendingCodeRun {
+  resolve: (output: string) => void;
+  reject: (error: Error) => void;
+}
+
 let instance: PyodideRunner | null = null;
 
 class PyodideRunner {
   private worker: Worker | null = null;
   private status: PyodideStatus = "idle";
   private pendingRuns = new Map<string, PendingRun>();
+  private pendingCodeRuns = new Map<string, PendingCodeRun>();
   private listeners = new Set<(status: PyodideStatus) => void>();
   private nextId = 0;
 
@@ -102,8 +108,38 @@ class PyodideRunner {
     });
   }
 
+  async runCode(code: string): Promise<string> {
+    if (!this.worker || this.status !== "ready") {
+      throw new Error("Pyodide not ready");
+    }
+
+    const id = String(++this.nextId);
+
+    return new Promise<string>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.pendingCodeRuns.delete(id);
+        reject(new Error("Execution timed out"));
+      }, 10_000);
+
+      this.pendingCodeRuns.set(id, {
+        resolve: (output) => {
+          clearTimeout(timeout);
+          this.pendingCodeRuns.delete(id);
+          resolve(output);
+        },
+        reject: (err) => {
+          clearTimeout(timeout);
+          this.pendingCodeRuns.delete(id);
+          reject(err);
+        },
+      });
+
+      this.worker!.postMessage({ type: "run-code", id, code });
+    });
+  }
+
   private handleMessage(e: MessageEvent): void {
-    const { type, id, results, error } = e.data;
+    const { type, id, results, error, output } = e.data;
 
     if (type === "init-done") {
       this.status = "ready";
@@ -117,6 +153,12 @@ class PyodideRunner {
       if (pending) pending.resolve(results);
     } else if (type === "error") {
       const pending = this.pendingRuns.get(id);
+      if (pending) pending.reject(new Error(error));
+    } else if (type === "run-code-result") {
+      const pending = this.pendingCodeRuns.get(id);
+      if (pending) pending.resolve(output);
+    } else if (type === "run-code-error") {
+      const pending = this.pendingCodeRuns.get(id);
       if (pending) pending.reject(new Error(error));
     }
   }

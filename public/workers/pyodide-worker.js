@@ -113,6 +113,47 @@ json.dumps({"actual": repr(_result), "passed": bool(_passed)})
   self.postMessage({ type: "result", id, results });
 }
 
+/**
+ * Run arbitrary user code and capture stdout.
+ */
+async function runCode(id, code) {
+  if (!pyodide) {
+    self.postMessage({ type: "run-code-error", id, error: "Pyodide not loaded" });
+    return;
+  }
+
+  try {
+    const timeoutId = setTimeout(() => {
+      try { pyodide.interruptExecution(); } catch { /* ok */ }
+    }, TIMEOUT_MS);
+
+    // Redirect stdout to capture prints
+    await pyodide.runPythonAsync(`
+import sys, io
+_capture_stdout = io.StringIO()
+sys.stdout = _capture_stdout
+`);
+
+    await pyodide.runPythonAsync(code);
+    clearTimeout(timeoutId);
+
+    const output = await pyodide.runPythonAsync(`
+sys.stdout = sys.__stdout__
+_capture_stdout.getvalue()
+`);
+
+    self.postMessage({ type: "run-code-result", id, output: output || "" });
+  } catch (err) {
+    // Restore stdout on error
+    try {
+      await pyodide.runPythonAsync("sys.stdout = sys.__stdout__");
+    } catch { /* ok */ }
+
+    const errorMsg = String(err).split("\n").filter(l => l.trim()).pop() || String(err);
+    self.postMessage({ type: "run-code-error", id, error: errorMsg });
+  }
+}
+
 self.onmessage = async (e) => {
   const { type, id, code, testCases } = e.data;
 
@@ -120,5 +161,7 @@ self.onmessage = async (e) => {
     await loadPyodideRuntime();
   } else if (type === "run") {
     await runTests(id, code, testCases);
+  } else if (type === "run-code") {
+    await runCode(id, code);
   }
 };

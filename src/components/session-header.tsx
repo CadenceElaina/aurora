@@ -9,8 +9,10 @@ interface SessionHeaderProps {
   results: DrillConfidence[];
   autoContinue: boolean;
   muted: boolean;
+  syntaxRefEnabled: boolean;
   onToggleAutoContinue: () => void;
   onToggleMute: () => void;
+  onToggleSyntaxRef: () => void;
   onExit: () => void;
   onPrevious?: () => void;
   categoryLabel?: string;
@@ -23,8 +25,10 @@ export function SessionHeader({
   results,
   autoContinue,
   muted,
+  syntaxRefEnabled,
   onToggleAutoContinue,
   onToggleMute,
+  onToggleSyntaxRef,
   onExit,
   onPrevious,
   categoryLabel,
@@ -95,6 +99,18 @@ export function SessionHeader({
           }`}
         >
           auto {autoContinue ? "▶" : "▷"}
+        </button>
+
+        <button
+          onClick={onToggleSyntaxRef}
+          title={syntaxRefEnabled ? "Syntax ref on" : "Syntax ref off"}
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
+            syntaxRefEnabled
+              ? "bg-accent/20 text-accent"
+              : "bg-muted-foreground/10 text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          ref {syntaxRefEnabled ? "📖" : "📕"}
         </button>
 
         <button

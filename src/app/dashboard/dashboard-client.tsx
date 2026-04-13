@@ -361,6 +361,7 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
   const [drillAutoContinue, setDrillAutoContinue] = useState(false);
   const [drillCombo, setDrillCombo] = useState(0);
   const [showDrillTour, setShowDrillTour] = useState(false);
+  const [syntaxRefEnabled, setSyntaxRefEnabled] = useState(true);
   const [rightPanelView, setRightPanelView] = useState<"stats" | "syntax">(() => {
     try { return (localStorage.getItem("aurora-right-panel") as "stats" | "syntax") ?? "stats"; } catch { return "stats"; }
   });
@@ -678,6 +679,8 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
 
     setDrillCombo(0);
     setDrillAutoContinue(false);
+    // Hide syntax ref by default when all drills are L5 (capstone)
+    setSyntaxRefEnabled(!sessionDrills.every(d => d.level === 5));
     
     setDrillSession({ active: true, drills: sessionDrills, current: 0, results: [], categoryLabel: categoryFilter });
     setSelectedCategory(null);
@@ -1219,6 +1222,7 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
                   results={drillSession.results}
                   autoContinue={drillAutoContinue}
                   muted={drillMuted}
+                  syntaxRefEnabled={syntaxRefEnabled}
                   onToggleAutoContinue={() => setDrillAutoContinue(prev => !prev)}
                   onToggleMute={() => {
                     setDrillMuted(prev => {
@@ -1226,6 +1230,7 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
                       return !prev;
                     });
                   }}
+                  onToggleSyntaxRef={() => setSyntaxRefEnabled(prev => !prev)}
                   onExit={() => setDrillSession(null)}
                   onPrevious={drillSession.current > 0 ? handleDrillPrevious : undefined}
                   categoryLabel={drillSession.categoryLabel}
@@ -1523,7 +1528,19 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
               </button>
             </div>
             {rightPanelView === "syntax" ? (
-              <SyntaxReferencePanel />
+              !syntaxRefEnabled && drillSession?.active ? (
+                <div className="rounded-lg border border-border bg-muted p-4 text-center">
+                  <p className="text-xs text-muted-foreground">Syntax reference is hidden for L5 capstone drills.</p>
+                  <button
+                    onClick={() => setSyntaxRefEnabled(true)}
+                    className="mt-2 text-xs text-accent hover:underline"
+                  >
+                    Show anyway
+                  </button>
+                </div>
+              ) : (
+                <SyntaxReferencePanel />
+              )
             ) : (
               <FluencyPanel stats={fluencyStats} allDrills={allDrills} categoryUnlocks={categoryUnlocks} onSelectCategory={(cat) => { setSelectedCategory(cat); }} />
             )}

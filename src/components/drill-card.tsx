@@ -171,6 +171,11 @@ export function DrillCard({ drill, onRate, onPrevious, muted = false, autoContin
   // L5 Pyodide test results
   const [testResults, setTestResults] = useState<TestCaseResult[] | null>(null);
 
+  // Run button state (scratch code execution)
+  const [runOutput, setRunOutput] = useState<string | null>(null);
+  const [runError, setRunError] = useState(false);
+  const [runLoading, setRunLoading] = useState(false);
+
   const returnHint = inferReturnHint(drill.expectedCode);
 
   const handleCodeChange = useCallback(
@@ -223,6 +228,25 @@ export function DrillCard({ drill, onRate, onPrevious, muted = false, autoContin
     },
     [drill.id, muted, autoContinue, onRate],
   );
+
+  /** Run user code via Pyodide (scratch execution, not grading) */
+  const handleRun = useCallback(async () => {
+    const pyodide = getPyodide();
+    if (!pyodide.isReady() || !userCode.trim()) return;
+    setRunLoading(true);
+    setRunOutput(null);
+    setRunError(false);
+    try {
+      const output = await pyodide.runCode(userCode);
+      setRunOutput(output);
+      setRunError(false);
+    } catch (err) {
+      setRunOutput(err instanceof Error ? err.message : String(err));
+      setRunError(true);
+    } finally {
+      setRunLoading(false);
+    }
+  }, [userCode]);
 
   /** First attempt submit */
   const handleSubmit = useCallback(() => {
@@ -398,8 +422,27 @@ export function DrillCard({ drill, onRate, onPrevious, muted = false, autoContin
             >
               Check Answer
             </button>
+            {drill.level < 5 && (
+              <button
+                onClick={handleRun}
+                disabled={!getPyodide().isReady() || runLoading || !userCode.trim()}
+                className="inline-flex h-8 items-center rounded-md border border-border bg-card px-3 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:border-accent/40 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {runLoading ? "Running…" : !getPyodide().isReady() ? "Loading…" : "▶ Run"}
+              </button>
+            )}
             <span className="text-[10px] text-muted-foreground">Ctrl+Shift+Enter</span>
           </div>
+
+          {/* Run output panel */}
+          {runOutput !== null && (
+            <div className="rounded-lg border border-border bg-card p-3 font-mono text-xs">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Output</p>
+              <pre className={`whitespace-pre-wrap ${runError ? "text-red-400" : "text-foreground/70"}`}>
+                {runOutput || <span className="text-muted-foreground/40 italic">no output</span>}
+              </pre>
+            </div>
+          )}
         </>
       )}
 
