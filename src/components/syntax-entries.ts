@@ -6,6 +6,8 @@ export interface SyntaxEntry {
   syntax: string;
   example: string;
   variants?: string[];
+  /** Other entries this card explicitly cross-links to */
+  related?: { id: string; label: string }[];
 }
 
 export const SYNTAX_ENTRIES: SyntaxEntry[] = [
@@ -23,6 +25,10 @@ export const SYNTAX_ENTRIES: SyntaxEntry[] = [
       "defaultdict(set)   # → set()",
       "defaultdict(list)  # → []",
       "defaultdict(lambda: float('inf'))",
+    ],
+    related: [
+      { id: "lambda", label: "lambda (factory functions)" },
+      { id: "sorted-builtin", label: "sorted() (key usage)" },
     ],
   },
   {
@@ -112,6 +118,10 @@ export const SYNTAX_ENTRIES: SyntaxEntry[] = [
       "sorted(d)              # sort dict → list of keys",
       "sorted(d.items())      # sort dict by key → [(k,v),…]",
     ],
+    related: [
+      { id: "key-lambda", label: "key=lambda" },
+      { id: "sorted-zip", label: "sorted(zip(…))" },
+    ],
   },
   {
     id: "sort-inplace",
@@ -127,6 +137,10 @@ export const SYNTAX_ENTRIES: SyntaxEntry[] = [
       "lst.sort(key=lambda x: x[1]) # sort by 2nd element",
       "lst.sort(key=str.lower)       # case-insensitive",
     ],
+    related: [
+      { id: "key-lambda", label: "key=lambda" },
+      { id: "sorted-builtin", label: "sorted() (non-destructive)" },
+    ],
   },
   {
     id: "key-lambda",
@@ -141,6 +155,11 @@ export const SYNTAX_ENTRIES: SyntaxEntry[] = [
       "key=lambda x: (x[0], -x[1]) # multi-key with tiebreak",
       "key=lambda x: abs(x)        # by absolute value",
       "key=len                      # by length (no lambda needed)",
+    ],
+    related: [
+      { id: "lambda", label: "lambda expressions" },
+      { id: "sorted-builtin", label: "sorted()" },
+      { id: "max-min-key", label: "max() / min() with key" },
     ],
   },
   {

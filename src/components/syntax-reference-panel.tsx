@@ -1,18 +1,97 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { CodeEditor } from "@/components/code-editor";
+import { getPyodide } from "@/lib/pyodide";
 import { SYNTAX_ENTRIES, type SyntaxEntry } from "@/components/syntax-entries";
 
 export type { SyntaxEntry };
 
 const ALL_CATEGORIES = [...new Set(SYNTAX_ENTRIES.map((e) => e.category))];
 
+// Build a lookup map for O(1) entry access by id
+const ENTRY_MAP = new Map(SYNTAX_ENTRIES.map((e) => [e.id, e]));
+
 export function SyntaxReferencePanel() {
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+
+  // Navigation — openId is current expanded entry; navHistory is the stack of IDs we came from
   const [openId, setOpenId] = useState<string | null>(null);
+  const [navHistory, setNavHistory] = useState<string[]>([]);
+
+  // Variant cycling: per-entry index
+  const [variantIdx, setVariantIdx] = useState<Record<string, number>>({});
+
+  // Scratch pad state: per-entry
   const [scratchCode, setScratchCode] = useState<Record<string, string>>({});
+  const [scratchOutput, setScratchOutput] = useState<Record<string, string | null>>({});
+  const [scratchRunning, setScratchRunning] = useState<Record<string, boolean>>({});
+  const [scratchError, setScratchError] = useState<Record<string, boolean>>({});
+
+  /** Navigate to an entry via a cross-link — pushes current to history */
+  const navigateTo = useCallback((id: string) => {
+    setOpenId((prev) => {
+      if (prev !== null) setNavHistory((h) => [...h, prev]);
+      return id;
+    });
+    // Clear search so the target entry is visible
+    setQuery("");
+    setActiveCategory(null);
+  }, []);
+
+  /** Toggle expand/collapse via the header click — resets navigation history */
+  const toggleEntry = useCallback((id: string) => {
+    setOpenId((prev) => (prev === id ? null : id));
+    setNavHistory([]);
+  }, []);
+
+  /** Go back one step in navigation history */
+  const goBack = useCallback(() => {
+    setNavHistory((h) => {
+      const prev = h[h.length - 1] ?? null;
+      setOpenId(prev);
+      return h.slice(0, -1);
+    });
+  }, []);
+
+  /** Jump back to the first entry in the navigation chain */
+  const goToStart = useCallback(() => {
+    setNavHistory((h) => {
+      setOpenId(h[0] ?? null);
+      return [];
+    });
+  }, []);
+
+  const cycleVariant = useCallback((entryId: string, dir: 1 | -1) => {
+    setVariantIdx((prev) => {
+      const entry = ENTRY_MAP.get(entryId);
+      const len = entry?.variants?.length ?? 0;
+      if (len === 0) return prev;
+      const cur = prev[entryId] ?? 0;
+      return { ...prev, [entryId]: (cur + dir + len) % len };
+    });
+  }, []);
+
+  const runScratch = useCallback(async (entryId: string) => {
+    const code = scratchCode[entryId] ?? "";
+    if (!code.trim()) return;
+    const pyodide = getPyodide();
+    if (!pyodide.isReady()) return;
+    setScratchRunning((r) => ({ ...r, [entryId]: true }));
+    setScratchOutput((o) => ({ ...o, [entryId]: null }));
+    setScratchError((e) => ({ ...e, [entryId]: false }));
+    try {
+      const out = await pyodide.runCode(code);
+      setScratchOutput((o) => ({ ...o, [entryId]: out }));
+      setScratchError((e) => ({ ...e, [entryId]: false }));
+    } catch (err) {
+      setScratchOutput((o) => ({ ...o, [entryId]: err instanceof Error ? err.message : String(err) }));
+      setScratchError((e) => ({ ...e, [entryId]: true }));
+    } finally {
+      setScratchRunning((r) => ({ ...r, [entryId]: false }));
+    }
+  }, [scratchCode]);
 
   const filtered = SYNTAX_ENTRIES.filter((e) => {
     const matchesQuery =
@@ -23,70 +102,108 @@ export function SyntaxReferencePanel() {
     return matchesQuery && matchesCategory;
   });
 
-  return (
-    <div className="flex flex-col gap-3 h-full">
-      {/* Search */}
-      <input
-        type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search syntax… (e.g. defaultdict, heapq)"
-        className="w-full rounded-lg border border-border bg-card px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-accent/50"
-      />
+  // If openId is set but filtered out, still show it at top (navigation overrides filter)
+  const openEntry = openId ? ENTRY_MAP.get(openId) : null;
+  const openIsFiltered = openEntry ? filtered.some((e) => e.id === openId) : false;
+  const entriesToShow = openEntry && !openIsFiltered ? [openEntry, ...filtered] : filtered;
 
-      {/* Category pills */}
-      {ALL_CATEGORIES.length > 1 && (
-        <div className="flex flex-wrap gap-1">
-          <button
-            onClick={() => setActiveCategory(null)}
-            className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
-              activeCategory === null
-                ? "bg-accent/20 text-accent"
-                : "bg-muted-foreground/10 text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            All
-          </button>
-          {ALL_CATEGORIES.map((cat) => (
+  return (
+    <div className="flex flex-col gap-0">
+      {/* ── Sticky search + filter ── */}
+      <div className="sticky top-0 z-10 bg-card border-b border-border/50 px-0 pt-0 pb-3 space-y-2 mb-3">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search syntax… (e.g. defaultdict, heapq)"
+          className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-accent/50"
+        />
+
+        {ALL_CATEGORIES.length > 1 && (
+          <div className="flex flex-wrap gap-1">
             <button
-              key={cat}
-              onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-              className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                activeCategory === cat
+              onClick={() => setActiveCategory(null)}
+              className={`inline-flex h-5 items-center rounded-full px-2 text-[10px] font-medium transition-colors ${
+                activeCategory === null
                   ? "bg-accent/20 text-accent"
-                  : "bg-muted-foreground/10 text-muted-foreground hover:text-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
-              {cat}
+              All
             </button>
-          ))}
+            {ALL_CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+                className={`inline-flex h-5 items-center rounded-full px-2 text-[10px] font-medium transition-colors ${
+                  activeCategory === cat
+                    ? "bg-accent/20 text-accent"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Back navigation (shown when navigating via cross-links) ── */}
+      {navHistory.length > 0 && (
+        <div className="flex items-center gap-2 mb-2">
+          <button
+            onClick={goBack}
+            className="inline-flex h-6 items-center gap-1 rounded-md border border-border bg-card px-2 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← back to {ENTRY_MAP.get(navHistory[navHistory.length - 1]!)?.name ?? "…"}
+          </button>
+          {navHistory.length > 1 && (
+            <button
+              onClick={goToStart}
+              className="inline-flex h-6 items-center gap-1 rounded-md border border-border bg-card px-2 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              ↩ start ({ENTRY_MAP.get(navHistory[0]!)?.name ?? "…"})
+            </button>
+          )}
         </div>
       )}
 
-      {/* Entry count */}
-      <p className="text-[10px] text-muted-foreground">
-        {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
+      {/* ── Entry count ── */}
+      <p className="text-[10px] text-muted-foreground mb-2">
+        {entriesToShow.length} {entriesToShow.length === 1 ? "entry" : "entries"}
       </p>
 
-      {/* Entries */}
-      <div className="flex flex-col gap-2 overflow-y-auto flex-1 min-h-0">
-        {filtered.length === 0 && (
-          <p className="text-xs text-muted-foreground text-center py-6">No matches for &quot;{query}&quot;</p>
+      {/* ── Entries ── */}
+      <div className="flex flex-col gap-2">
+        {entriesToShow.length === 0 && (
+          <p className="text-xs text-muted-foreground text-center py-6">
+            No matches for &quot;{query}&quot;
+          </p>
         )}
-        {filtered.map((entry) => {
+
+        {entriesToShow.map((entry) => {
           const isOpen = openId === entry.id;
+          const variants = entry.variants ?? [];
+          const vIdx = variantIdx[entry.id] ?? 0;
+          const currentVariant = variants[vIdx] ?? "";
+
+          // Only show related links that actually exist in ENTRY_MAP
+          const related = (entry.related ?? []).filter((r) => ENTRY_MAP.has(r.id));
+
           return (
             <div
               key={entry.id}
-              className="rounded-lg border border-border bg-card overflow-hidden"
+              className={`rounded-lg border bg-card overflow-hidden transition-colors ${
+                isOpen ? "border-accent/30" : "border-border"
+              }`}
             >
-              {/* Entry header — click to expand */}
+              {/* Entry header */}
               <button
-                onClick={() => setOpenId(isOpen ? null : entry.id)}
+                onClick={() => toggleEntry(entry.id)}
                 className="w-full text-left px-3 py-2.5 flex items-start justify-between gap-2 hover:bg-accent/5 transition-colors"
               >
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-mono font-semibold text-foreground">{entry.name}</span>
                     <span className="text-[10px] text-muted-foreground/60 bg-muted px-1.5 py-0.5 rounded">{entry.category}</span>
                   </div>
@@ -95,45 +212,115 @@ export function SyntaxReferencePanel() {
                 <span className="text-muted-foreground/50 text-xs shrink-0 mt-0.5">{isOpen ? "▲" : "▼"}</span>
               </button>
 
-              {/* Expanded detail */}
+              {/* Expanded content */}
               {isOpen && (
-                <div className="border-t border-border/50 px-3 py-3 space-y-3">
+                <div className="border-t border-border/50 px-3 py-3 space-y-4">
+
                   {/* Syntax */}
                   <div>
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Syntax</p>
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Syntax</p>
                     <CodeEditor value={entry.syntax} onChange={() => {}} readOnly minHeight="auto" />
                   </div>
 
-                  {/* Variants */}
-                  {entry.variants && entry.variants.length > 0 && (
+                  {/* Variants — single card with cycle buttons */}
+                  {variants.length > 0 && (
                     <div>
-                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Variants</p>
-                      <div className="space-y-1">
-                        {entry.variants.map((v: string, i: number) => (
-                          <code key={i} className="block font-mono text-xs text-accent/80 bg-muted rounded px-2 py-1">
-                            {v}
-                          </code>
-                        ))}
+                      <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Variant</p>
+                        {variants.length > 1 && (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => cycleVariant(entry.id, -1)}
+                              className="inline-flex h-5 w-5 items-center justify-center rounded border border-border text-[10px] text-muted-foreground hover:text-foreground hover:border-accent/40 transition-colors"
+                            >
+                              ←
+                            </button>
+                            <span className="text-[10px] text-muted-foreground tabular-nums min-w-[2.5rem] text-center">
+                              {vIdx + 1} / {variants.length}
+                            </span>
+                            <button
+                              onClick={() => cycleVariant(entry.id, 1)}
+                              className="inline-flex h-5 w-5 items-center justify-center rounded border border-border text-[10px] text-muted-foreground hover:text-foreground hover:border-accent/40 transition-colors"
+                            >
+                              →
+                            </button>
+                          </div>
+                        )}
                       </div>
+                      <code className="block font-mono text-xs text-accent/80 bg-muted rounded-md px-3 py-2 whitespace-pre">
+                        {currentVariant}
+                      </code>
                     </div>
                   )}
 
                   {/* Example */}
                   <div>
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Example</p>
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Example</p>
                     <CodeEditor value={entry.example} onChange={() => {}} readOnly minHeight="auto" />
                   </div>
 
+                  {/* Related links */}
+                  {related.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">See also</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {related.map((r) => (
+                          <button
+                            key={r.id}
+                            onClick={() => navigateTo(r.id)}
+                            className="inline-flex h-6 items-center rounded-md border border-accent/30 bg-accent/10 px-2 text-[10px] font-medium text-accent hover:bg-accent/20 transition-colors"
+                          >
+                            {r.label} →
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Scratch pad */}
                   <div>
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Scratch pad</p>
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Scratch pad</p>
                     <CodeEditor
                       value={scratchCode[entry.id] ?? ""}
                       onChange={(val) => setScratchCode((prev) => ({ ...prev, [entry.id]: val }))}
                       placeholder="Try it here…"
                       minHeight="80px"
+                      onSubmit={() => runScratch(entry.id)}
                     />
+                    <div className="flex items-center gap-2 mt-2">
+                      <button
+                        onClick={() => runScratch(entry.id)}
+                        disabled={!getPyodide().isReady() || scratchRunning[entry.id] || !scratchCode[entry.id]?.trim()}
+                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:border-accent/40 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {scratchRunning[entry.id]
+                          ? "Running…"
+                          : !getPyodide().isReady()
+                          ? "Loading…"
+                          : "▶ Run"}
+                      </button>
+                      {scratchOutput[entry.id] !== null && scratchOutput[entry.id] !== undefined && (
+                        <button
+                          onClick={() => setScratchOutput((o) => ({ ...o, [entry.id]: null }))}
+                          className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                        >
+                          clear
+                        </button>
+                      )}
+                      <span className="text-[10px] text-muted-foreground/40">Ctrl+Shift+Enter</span>
+                    </div>
+
+                    {/* Output */}
+                    {scratchOutput[entry.id] !== null && scratchOutput[entry.id] !== undefined && (
+                      <div className="mt-2 rounded-md border border-border bg-muted p-3">
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Output</p>
+                        <pre className={`font-mono text-xs whitespace-pre-wrap ${scratchError[entry.id] ? "text-red-400" : "text-foreground/70"}`}>
+                          {scratchOutput[entry.id] || <span className="text-muted-foreground/40 italic">no output</span>}
+                        </pre>
+                      </div>
+                    )}
                   </div>
+
                 </div>
               )}
             </div>
