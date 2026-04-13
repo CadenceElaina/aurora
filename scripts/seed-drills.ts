@@ -60,7 +60,21 @@ async function main() {
         testCases: d.testCases ?? null,
         distractors: d.distractors ?? [],
       })
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: syntaxDrills.title,
+        set: {
+          category: d.category,
+          level: d.level,
+          prompt: d.prompt,
+          expectedCode: d.expectedCode,
+          alternatives: d.alternatives,
+          explanation: d.explanation,
+          tags: d.tags,
+          promptVariants: d.promptVariants ?? [],
+          testCases: d.testCases ?? null,
+          distractors: d.distractors ?? [],
+        },
+      });
   }
 
   console.log(`✓ Seeded ${items.length} drills`);
