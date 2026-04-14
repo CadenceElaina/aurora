@@ -88,7 +88,7 @@ All mutations go through `/api/*` routes:
 - `src/lib/srs.ts` — SRS algorithm engine
 - `src/db/schema.ts` — full data model (enums, columns, relations)
 - `src/auth.ts` — NextAuth config with DrizzleAdapter
-- `src/lib/demo-data.ts` — demo mode data
+- `src/app/dashboard/demo-data.ts` — demo mode data
 - `docs/ARCHITECTURE.md` — detailed system design and algorithm math
 - `docs/decisions/` — ADRs explaining major design choices
 

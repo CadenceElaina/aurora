@@ -1497,54 +1497,6 @@ function ActivityChart({ history }: { history: AttemptDay[] }) {
   );
 }
 
-/* ── Review Urgency Bar ── */
-
-function ReviewUrgencyBar({ queue }: { queue: ReviewItem[] }) {
-  const [hovered, setHovered] = useState<string | null>(null);
-  const counts = { critical: 0, high: 0, medium: 0, due: 0 };
-  queue.forEach(item => { counts[priorityLevel(item)]++; });
-  const total = queue.length;
-
-  const segments = [
-    { key: "critical", label: "Critical", desc: "5+ days overdue or <25% retention", color: "bg-red-500", count: counts.critical },
-    { key: "high", label: "Overdue", desc: "1-5 days overdue or <45% retention", color: "bg-orange-500", count: counts.high },
-    { key: "medium", label: "Soon", desc: "Due within a day", color: "bg-amber-400", count: counts.medium },
-    { key: "due", label: "Due", desc: "Due today", color: "bg-sky-400", count: counts.due },
-  ].filter(s => s.count > 0);
-
-  return (
-    <div>
-      <div className="flex h-2.5 overflow-hidden rounded-full bg-background">
-        {segments.map((s) => (
-          <div
-            key={s.key}
-            className={`${s.color} transition-all duration-300 cursor-pointer ${hovered && hovered !== s.key ? "opacity-40" : ""}`}
-            style={{ width: `${(s.count / total) * 100}%` }}
-            onMouseEnter={() => setHovered(s.key)}
-            onMouseLeave={() => setHovered(null)}
-          />
-        ))}
-      </div>
-      <div className="flex gap-3 mt-1.5">
-        {segments.map((s) => (
-          <div
-            key={s.key}
-            className={`flex items-center gap-1 transition-opacity duration-150 ${hovered && hovered !== s.key ? "opacity-40" : ""}`}
-            onMouseEnter={() => setHovered(s.key)}
-            onMouseLeave={() => setHovered(null)}
-          >
-            <div className={`w-1.5 h-1.5 rounded-full ${s.color}`} />
-            <span className="text-[10px] text-muted-foreground">
-              {s.count} {s.label}
-              {hovered === s.key && <span className="text-foreground/60"> — {s.desc}</span>}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 /* ── Status Dot (hover tooltip) ── */
 
 function StatusDot({

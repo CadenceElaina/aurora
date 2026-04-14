@@ -6,7 +6,7 @@
 /* ── Types ── */
 
 export type SolvedIndependently = "YES" | "PARTIAL" | "NO";
-export type SolutionQuality = "OPTIMAL" | "BRUTE_FORCE" | "NONE";
+export type SolutionQuality = "OPTIMAL" | "SUBOPTIMAL" | "BRUTE_FORCE" | "NONE";
 export type RewroteFromScratch = "YES" | "NO" | "DID_NOT_ATTEMPT";
 
 export interface AttemptSignals {
@@ -200,23 +200,5 @@ function scoreToTier(score: number): "S" | "A" | "B" | "C" | "D" {
   if (score >= 55) return "B";
   if (score >= 35) return "C";
   return "D";
-}
-
-/* ── Tier badge colors (from STYLE_GUIDE.md) ── */
-export const TIER_COLORS: Record<string, string> = {
-  S: "bg-violet-500 text-white",
-  A: "bg-blue-500 text-white",
-  B: "bg-emerald-500 text-white",
-  C: "bg-amber-500 text-white",
-  D: "bg-zinc-400 text-white",
-};
-
-/* ── Retention badge colors (from STYLE_GUIDE.md) ── */
-export function retentionLabel(r: number): { label: string; color: string } {
-  if (r >= 0.8) return { label: "Strong", color: "text-green-500" };
-  if (r >= 0.6) return { label: "Good", color: "text-emerald-400" };
-  if (r >= 0.4) return { label: "Fading", color: "text-amber-500" };
-  if (r >= 0.2) return { label: "Weak", color: "text-orange-500" };
-  return { label: "Critical", color: "text-red-500" };
 }
 
