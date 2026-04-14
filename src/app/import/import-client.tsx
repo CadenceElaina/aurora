@@ -397,7 +397,7 @@ export function ImportClient({ allProblems, attemptedIds, todayAttemptedIds, onD
           <textarea
             value={rawText}
             onChange={(e) => setRawText(e.target.value)}
-            placeholder="Paste activity table here…"
+            placeholder={`Paste activity table here…\n\nExample (select all rows on the NeetCode activity page, then Ctrl+C):\n\nTwo Sum\tEasy\tAccepted\tPython\t40 ms\t16.5 MB\t2:30 PM\nValid Anagram\tEasy\tAccepted\tPython\t52 ms\t17.1 MB\t2:45 PM`}
             rows={embedded ? 8 : 12}
             className={`block w-full rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm ${
               embedded ? "flex-1 min-h-0 resize-none" : "resize-y"

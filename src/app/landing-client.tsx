@@ -473,15 +473,9 @@ export function LandingPage({ totalProblems, categories, isAuthenticated, authCo
               Aurora schedules your next review at the optimal time.
             </p>
 
+            {!isAuthenticated && (
             <div className="flex items-center gap-4 pt-2">
-              {isAuthenticated ? (
-                <Link
-                  href="/dashboard"
-                  className="inline-flex h-10 items-center rounded-md bg-accent px-6 text-sm font-semibold text-accent-foreground shadow-[0_0_28px_var(--glow)] transition-all duration-150 hover:shadow-[0_0_40px_var(--glow)]"
-                >
-                  Go to Dashboard
-                </Link>
-              ) : authConfigured ? (
+              {authConfigured ? (
                 <Link
                   href="/auth/signin"
                   className="inline-flex h-10 items-center rounded-md bg-accent px-6 text-sm font-semibold text-accent-foreground shadow-[0_0_28px_var(--glow)] transition-all duration-150 hover:shadow-[0_0_40px_var(--glow)]"
@@ -496,15 +490,14 @@ export function LandingPage({ totalProblems, categories, isAuthenticated, authCo
                   Browse Problems
                 </Link>
               )}
-              {!isAuthenticated && (
                 <Link
                   href="/dashboard"
                   className="inline-flex h-10 items-center rounded-md border border-accent/30 px-5 text-sm font-medium text-foreground transition-all duration-150 hover:border-accent/60 hover:shadow-[0_0_20px_var(--glow)]"
                 >
                   View demo
                 </Link>
-              )}
             </div>
+            )}
 
             {/* Stats row */}
             <div className="flex items-center gap-5">

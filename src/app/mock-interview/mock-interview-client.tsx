@@ -88,11 +88,22 @@ export function MockInterviewClient({ problems, categories, weakCategories, isDe
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Mock Interview</h1>
-        <div className="rounded-lg border border-border bg-muted p-6 space-y-4 max-w-2xl">
+        <div className="rounded-lg border border-border bg-muted p-6 space-y-5 max-w-2xl">
           <p className="text-sm text-foreground">
             Simulate a real coding interview. You&apos;ll get {problems.length} problem{problems.length !== 1 ? "s" : ""} (medium + hard)
             from your {weakCategories.length > 0 ? "weak categories" : "full problem set"} with a {TIMER_MINUTES}-minute timer.
           </p>
+
+          {/* How it works */}
+          <div className="rounded-md border border-border/60 bg-background/50 p-3 space-y-2">
+            <p className="text-xs font-medium text-foreground">How it works</p>
+            <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
+              <li>Click <strong className="text-foreground">Start Interview</strong> to begin the {TIMER_MINUTES}-minute countdown</li>
+              <li>Open each problem on LeetCode and solve it under time pressure</li>
+              <li>When the timer ends (or you finish early), log your attempts to update your SRS data</li>
+            </ol>
+          </div>
+
           {weakCategories.length > 0 && (
             <div>
               <p className="text-xs text-muted-foreground mb-1">Targeting weak categories:</p>
@@ -121,7 +132,7 @@ export function MockInterviewClient({ problems, categories, weakCategories, isDe
           </p>
           <button
             onClick={startInterview}
-            className="inline-flex h-9 items-center rounded-md bg-accent px-4 text-sm text-accent-foreground transition-colors duration-150 hover:opacity-90"
+            className="inline-flex h-10 items-center rounded-md bg-accent px-5 text-sm font-semibold text-accent-foreground transition-colors duration-150 hover:opacity-90"
           >
             Start Interview ({TIMER_MINUTES} min)
           </button>
@@ -169,21 +180,32 @@ export function MockInterviewClient({ problems, categories, weakCategories, isDe
   }
 
   // Active phase
+  const timerProgress = timeLeft / (TIMER_MINUTES * 60);
+  const barColor = timeLeft <= 300 ? "bg-red-500" : timeLeft <= 600 ? "bg-yellow-500" : "bg-accent";
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Mock Interview</h1>
         <div className="flex items-center gap-4">
-          <span className={`font-mono text-2xl font-bold ${timerColor}`}>
+          <span className={`font-mono text-3xl font-bold tabular-nums ${timerColor}`}>
             {formatTime(timeLeft)}
           </span>
           <button
             onClick={finishEarly}
-            className="inline-flex h-9 items-center rounded-md px-4 text-sm text-foreground transition-colors duration-150 hover:bg-muted"
+            className="inline-flex h-9 items-center rounded-md border border-border px-4 text-sm text-foreground transition-colors duration-150 hover:bg-muted"
           >
-            End Interview
+            End Early
           </button>
         </div>
+      </div>
+
+      {/* Timer progress bar */}
+      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-1000 ease-linear ${barColor}`}
+          style={{ width: `${timerProgress * 100}%` }}
+        />
       </div>
 
       <div className="space-y-4 max-w-3xl">
