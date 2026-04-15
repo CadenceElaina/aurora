@@ -341,6 +341,7 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
   const [deferredItems, setDeferredItems] = useState(data.deferredProblems);
   const [autoDeferHards, setAutoDeferHards] = useState(data.autoDeferHards);
   const [reviewItems, setReviewItems] = useState(data.reviewQueue);
+  const [deferSearch, setDeferSearch] = useState("");
 
 
   const activityData = useMemo(() => {
@@ -466,6 +467,64 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
     const neededPerDay = daysLeft > 0 ? (remaining + shortfall) / daysLeft : remaining;
     return { daysLeft, remaining, projected, projectedRaw, onTrack, neededPerDay };
   }, [targetDate, targetCount, data.attemptedCount, data.avgPerDay, data.learningCount, data.masteredCount, data.learningList]);
+
+  // Queue projection: simulate review backlog clearing
+  const queueProjection = useMemo(() => {
+    const queue = reviewItems.map((r) => ({ stability: r.stability, daysOverdue: r.daysOverdue }));
+    if (queue.length === 0) return null;
+
+    const reviewsPerDay = Math.max(1, data.avgReviewPerDay);
+    const newPerDay = data.avgNewPerDay;
+    // Average stability multiplier based on typical outcomes (solved + confidence 3-4)
+    const AVG_MULTIPLIER = 2.0;
+
+    // Simulate: each day, review N items (lowest stability first).
+    // After review, item re-enters queue after newStability days.
+    // New problems add ~1 review on day 2.
+    type QueueItem = { stability: number; dueInDays: number };
+    const items: QueueItem[] = queue.map((q) => ({ stability: q.stability, dueInDays: 0 }));
+
+    const dailyQueueSize: number[] = [];
+    const MAX_DAYS = 30;
+
+    for (let day = 0; day < MAX_DAYS; day++) {
+      // Count items due today or earlier
+      const due = items.filter((it) => it.dueInDays <= day);
+      dailyQueueSize.push(due.length);
+
+      // Review the lowest-stability items first
+      due.sort((a, b) => a.stability - b.stability);
+      const toReview = due.slice(0, Math.round(reviewsPerDay));
+
+      for (const item of toReview) {
+        item.stability = Math.min(365, item.stability * AVG_MULTIPLIER);
+        item.dueInDays = day + Math.round(item.stability);
+      }
+
+      // Add new problems (each becomes a review in ~1 day)
+      if (newPerDay > 0) {
+        const newCount = Math.round(newPerDay);
+        for (let i = 0; i < newCount; i++) {
+          items.push({ stability: 0.5, dueInDays: day + 1 });
+        }
+      }
+    }
+
+    // Find when queue clears (first day with 0 items, or min)
+    const clearDay = dailyQueueSize.findIndex((size) => size === 0);
+    const minSize = Math.min(...dailyQueueSize);
+    const minDay = dailyQueueSize.indexOf(minSize);
+
+    return {
+      currentSize: queue.length,
+      dailyQueueSize,
+      clearDay: clearDay === -1 ? null : clearDay,
+      minSize,
+      minDay,
+      reviewsPerDay: Math.round(reviewsPerDay * 10) / 10,
+      newPerDay: Math.round(newPerDay * 10) / 10,
+    };
+  }, [reviewItems, data.avgReviewPerDay, data.avgNewPerDay]);
 
   const weakCategories = useMemo(() =>
     [...data.categoryStats]
@@ -614,7 +673,30 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
     });
     if (!res.ok) return;
     setAutoDeferHards(enabled);
-    router.refresh();
+    if (enabled) {
+      // Move all hards from review queue to deferred client-side
+      const hards = reviewItems.filter((r) => r.difficulty === "Hard");
+      setReviewItems((prev) => prev.filter((r) => r.difficulty !== "Hard"));
+      setDeferredItems((prev) => [
+        ...prev,
+        ...hards.map((item) => ({
+          stateId: item.stateId,
+          problemId: item.problemId,
+          title: item.title,
+          leetcodeNumber: item.leetcodeNumber,
+          difficulty: item.difficulty,
+          category: item.category,
+          totalAttempts: item.totalAttempts,
+          stability: item.stability,
+          deferredUntil: null,
+          isAutoDeferred: true,
+        })),
+      ]);
+    } else {
+      // Remove auto-deferred items and let server rebuild on refresh
+      setDeferredItems((prev) => prev.filter((d) => !d.isAutoDeferred));
+      router.refresh();
+    }
   }
 
   return (
@@ -726,17 +808,17 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
                     </span>
                   )}
                 </button>
-                {deferredItems.length > 0 && (
-                  <button
-                    onClick={() => setListMode("deferred")}
-                    className={`text-sm px-2.5 py-1 rounded transition-colors ${listMode === "deferred" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    Deferred
+                <button
+                  onClick={() => setListMode("deferred")}
+                  className={`text-sm px-2.5 py-1 rounded transition-colors ${listMode === "deferred" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Deferred
+                  {deferredItems.length > 0 && (
                     <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full ${listMode === "deferred" ? "bg-accent-foreground/20" : "bg-muted"}`}>
                       {deferredItems.length}
                     </span>
-                  </button>
-                )}
+                  )}
+                </button>
                 <button
                   onClick={() => setListMode("import")}
                   className={`text-sm px-2.5 py-1 rounded transition-colors ${listMode === "import" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
@@ -882,13 +964,6 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
                           </span>
                           <DifficultyBadge difficulty={item.difficulty} />
                           <button
-                            onClick={() => demoGuard(() => handleDefer(item.problemId))}
-                            className="inline-flex h-7 items-center rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                            title="Defer — remove from review queue for 30 days"
-                          >
-                            Defer
-                          </button>
-                          <button
                             onClick={() => demoGuard(() => setLogModalProblem({
                               problemId: item.problemId,
                               title: item.title,
@@ -1020,18 +1095,11 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
 
           {/* Deferred list */}
           {listMode === "deferred" && (
-            deferredItems.length === 0 ? (
-              <div className="rounded-lg border border-border bg-muted p-6 text-center">
-                <p className="text-sm text-muted-foreground">No deferred problems.</p>
-                <button onClick={() => setListMode("review")} className="mt-2 text-xs text-accent hover:underline">
-                  Back to reviews →
-                </button>
-              </div>
-            ) : (
-              <div className="rounded-lg border border-border overflow-hidden flex-1 flex flex-col min-h-0">
-                <div className="px-3 py-2 border-b border-border bg-muted/50 flex items-center justify-between">
+            <div className="rounded-lg border border-border overflow-hidden flex-1 flex flex-col min-h-0">
+              <div className="px-3 py-2 border-b border-border bg-muted/50 space-y-2">
+                <div className="flex items-center justify-between">
                   <p className="text-xs text-muted-foreground">
-                    {deferredItems.length} problem{deferredItems.length !== 1 ? "s" : ""} deferred from review queue
+                    {deferredItems.length} problem{deferredItems.length !== 1 ? "s" : ""} deferred
                   </p>
                   <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
                     <input
@@ -1043,6 +1111,53 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
                     Auto-defer Hards
                   </label>
                 </div>
+                {/* Search to defer from review queue */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search review queue to defer a problem..."
+                    value={deferSearch}
+                    onChange={(e) => setDeferSearch(e.target.value)}
+                    className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  {deferSearch.trim() && (
+                    <div className="absolute top-full left-0 right-0 z-10 mt-1 rounded-md border border-border bg-background shadow-lg max-h-48 overflow-y-auto">
+                      {reviewItems
+                        .filter((r) => {
+                          const s = deferSearch.toLowerCase();
+                          return r.title.toLowerCase().includes(s) || String(r.leetcodeNumber ?? "").includes(s) || r.category.toLowerCase().includes(s);
+                        })
+                        .slice(0, 10)
+                        .map((item) => (
+                          <button
+                            key={item.problemId}
+                            onClick={() => {
+                              demoGuard(() => handleDefer(item.problemId));
+                              setDeferSearch("");
+                            }}
+                            className="flex items-center gap-2 w-full px-2.5 py-1.5 text-left hover:bg-muted transition-colors border-b border-border last:border-b-0"
+                          >
+                            <span className="text-[10px] text-muted-foreground tabular-nums w-6 shrink-0">{item.leetcodeNumber}</span>
+                            <span className="text-xs truncate flex-1">{item.title}</span>
+                            <DifficultyBadge difficulty={item.difficulty} />
+                            <span className="text-[10px] text-muted-foreground">Defer</span>
+                          </button>
+                        ))}
+                      {reviewItems.filter((r) => {
+                        const s = deferSearch.toLowerCase();
+                        return r.title.toLowerCase().includes(s) || String(r.leetcodeNumber ?? "").includes(s) || r.category.toLowerCase().includes(s);
+                      }).length === 0 && (
+                        <p className="px-2.5 py-2 text-xs text-muted-foreground">No matching review items</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {deferredItems.length === 0 ? (
+                <div className="p-4 text-center">
+                  <p className="text-xs text-muted-foreground">No deferred problems yet. Use the search above to defer problems from your review queue.</p>
+                </div>
+              ) : (
                 <div className="overflow-y-auto flex-1 min-h-0">
                   {deferredItems.map((item) => (
                     <div
@@ -1069,8 +1184,8 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
                     </div>
                   ))}
                 </div>
-              </div>
-            )
+              )}
+            </div>
           )}
 
         </section>
@@ -1383,6 +1498,61 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
             </div>
           )}
         </section>
+
+        {/* Queue Projection */}
+        {queueProjection && (
+          <section className="rounded-lg border border-border bg-muted p-3">
+            <button
+              onClick={() => toggleWidget("queue")}
+              className="flex items-center justify-between w-full"
+            >
+              <p className="text-xs font-medium text-muted-foreground">Review Queue Forecast</p>
+              <span className="text-[10px] text-muted-foreground">{collapsedWidgets.queue ? "▼" : "▲"}</span>
+            </button>
+            {!collapsedWidgets.queue && (
+              <div className="mt-2 space-y-2">
+                {/* Mini bar chart — 30 day projection */}
+                <div className="flex items-end gap-px h-12">
+                  {queueProjection.dailyQueueSize.map((size, i) => {
+                    const maxSize = Math.max(...queueProjection.dailyQueueSize, 1);
+                    const height = Math.max(2, (size / maxSize) * 100);
+                    const isToday = i === 0;
+                    return (
+                      <div
+                        key={i}
+                        className={`flex-1 rounded-t-sm transition-all ${isToday ? "bg-accent" : size === 0 ? "bg-green-500/60" : "bg-orange-500/60"}`}
+                        style={{ height: `${height}%` }}
+                        title={`Day ${i}: ${size} items due`}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span>Today</span>
+                  <span>+30 days</span>
+                </div>
+
+                {/* Summary text */}
+                <div className="text-xs text-muted-foreground space-y-0.5">
+                  <p>
+                    <span className="font-medium text-foreground">{queueProjection.currentSize}</span> due now
+                    {" · "}
+                    <span className="font-medium text-foreground">{queueProjection.reviewsPerDay}</span> reviews/day
+                    {" · "}
+                    <span className="font-medium text-foreground">{queueProjection.newPerDay}</span> new/day
+                  </p>
+                  {queueProjection.clearDay !== null ? (
+                    <p className="text-green-500">Queue clears in ~{queueProjection.clearDay} day{queueProjection.clearDay !== 1 ? "s" : ""}</p>
+                  ) : (
+                    <p className="text-amber-500">
+                      Queue won&apos;t fully clear in 30d — lowest: {queueProjection.minSize} items (day {queueProjection.minDay})
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Mastery Progress */}
         <section className="rounded-lg border border-border bg-muted p-3">
