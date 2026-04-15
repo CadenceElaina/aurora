@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { SetupGuide } from "@/components/setup-guide";
 
 const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
@@ -153,6 +154,7 @@ export function Nav({ isAuthenticated = false, authConfigured = true, isDemo = f
         ) : null}
       </div>
       <div className="flex items-center gap-2">
+        <SetupGuide />
         {isAuthenticated && !isLanding && <GitHubSyncDropdown />}
         {isDemo && !isLanding && <DemoGitHubBadge />}
         {greeting && !isLanding && (
