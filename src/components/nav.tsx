@@ -126,7 +126,7 @@ export function Nav({ isAuthenticated = false, authConfigured = true, isDemo = f
             </span>
           </span>
         </Link>
-        {!isLanding ? (
+        {!isLanding && (
           <nav className="hidden items-center gap-1 sm:flex">
             {navLinks.map(({ href, label }) => (
               <Link
@@ -142,19 +142,10 @@ export function Nav({ isAuthenticated = false, authConfigured = true, isDemo = f
               </Link>
             ))}
           </nav>
-        ) : isAuthenticated ? (
-          <nav className="hidden items-center gap-1 sm:flex">
-            <Link
-              href="/dashboard"
-              className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors duration-150"
-            >
-              Dashboard
-            </Link>
-          </nav>
-        ) : null}
+        )}
       </div>
       <div className="flex items-center gap-2">
-        <SetupGuide />
+        {!isLanding && <SetupGuide />}
         {isAuthenticated && !isLanding && <GitHubSyncDropdown />}
         {isDemo && !isLanding && <DemoGitHubBadge />}
         {greeting && !isLanding && (
