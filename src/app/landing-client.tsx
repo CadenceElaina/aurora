@@ -545,7 +545,7 @@ export function LandingPage({ totalProblems, categories, isAuthenticated, authCo
       </div>
 
       {/* ── Bottom bar ── */}
-      <div className="px-6 py-2 shrink-0 relative z-10">
+      <div className="px-6 py-4 pb-6 shrink-0 relative z-10">
         <div className="mx-auto flex max-w-4xl items-center justify-between">
           <a
             href="https://github.com/CadenceElaina/aurora"
