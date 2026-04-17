@@ -435,7 +435,7 @@ export function LandingPage({ totalProblems, categories, isAuthenticated, authCo
 
   return (
     <div
-      className="flex h-[calc(100vh-3.5rem)] flex-col relative overflow-hidden"
+      className="flex h-[calc(100dvh-3.5rem)] flex-col relative overflow-hidden"
       style={{ width: "100vw", marginLeft: "calc(-50vw + 50%)", marginTop: "-2rem", marginBottom: "-2rem" }}
     >
       {/* Canvas sky — fixed fullscreen behind everything */}

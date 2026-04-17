@@ -176,6 +176,9 @@ function DashboardSkyCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    // Respect prefers-reduced-motion — skip all animation if user opted out
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -239,7 +242,7 @@ function DashboardSkyCanvas() {
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="fixed inset-0 w-screen h-screen pointer-events-none z-0" />;
+  return <canvas ref={canvasRef} aria-hidden="true" className="aurora-starfield fixed inset-0 w-screen h-screen pointer-events-none z-0" />;
 }
 
 function retentionColor(r: number): string {
@@ -313,19 +316,27 @@ const DIFF_ORDER: Record<string, number> = { Hard: 0, Medium: 1, Easy: 2 };
 /* ── Default target: September 1 of current year (or next year if past) ── */
 function getDefaultTargetDate(): string {
   const now = new Date();
-  const year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
-  return `${year}-09-01`;
+  // End of current semester: Dec 15 if spring/summer (before Aug), May 15 if fall
+  if (now.getMonth() >= 8) {
+    // Fall semester → target Dec 15 of this year
+    return `${now.getFullYear()}-12-15`;
+  }
+  // Spring/Summer → target May 15 of this year (or Dec 15 if already past May)
+  if (now.getMonth() >= 5) {
+    return `${now.getFullYear()}-12-15`;
+  }
+  return `${now.getFullYear()}-05-15`;
 }
 
 /* ── Main Component ── */
 
-export function DashboardClient({ data, isDemo = false }: { data: DashboardData; isDemo?: boolean }) {
+export function DashboardClient({ data }: { data: DashboardData }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [srsBanner, setSrsBanner] = useState<{ oldS: number; newS: number; next: string; pct: number; attemptId: string; pName: string; pNum: string } | null>(null);
 
   const [targetDate, setTargetDate] = useState(getDefaultTargetDate());
-  const [targetCount, setTargetCount] = useState(150);
+  const [targetCount, setTargetCount] = useState(50);
   const [showSettings, setShowSettings] = useState(false);
   const [categoryView, setCategoryView] = useState<"weak" | "all">("weak");
   const [listMode, setListMode] = useState<ListMode>("review");
@@ -616,16 +627,7 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
     router.refresh();
   }
 
-  // Demo sign-in prompt overlay
-  const [showDemoSignIn, setShowDemoSignIn] = useState(false);
 
-  function demoGuard(action: () => void) {
-    if (isDemo) {
-      setShowDemoSignIn(true);
-      return;
-    }
-    action();
-  }
 
   async function handleDefer(problemId: number, until?: string) {
     const res = await fetch("/api/review", {
@@ -701,40 +703,21 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
   }
 
   return (
-    <>
-    {/* Onboarding Walkthrough */}
-    <Onboarding />
-    <div className="relative lg:h-[calc(100dvh-120px)]">
+    <div className="h-[calc(100dvh-120px)] relative">
     {/* Subtle ambient starfield — fixed, full-viewport, behind all content */}
     <DashboardSkyCanvas />
     {/* All interactive content above the starfield */}
-    <div className="relative z-[1] flex flex-col lg:h-full lg:min-h-0">
-    {/* Demo sign-in prompt */}
-    {showDemoSignIn && (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowDemoSignIn(false)}>
-        <div className="rounded-lg border border-border bg-muted p-6 text-center space-y-3 max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
-          <p className="text-sm text-muted-foreground">This is a demo preview</p>
-          <h3 className="text-lg font-semibold text-foreground">Sign in to track your progress</h3>
-          <p className="text-xs text-muted-foreground">All your data will be synced with spaced repetition scheduling.</p>
-          <div className="flex gap-2 justify-center pt-1">
-            <Link href="/auth/signin" className="inline-flex h-9 items-center rounded-md bg-accent px-4 text-sm font-medium text-accent-foreground transition-all duration-150 hover:shadow-[0_0_12px_var(--glow)]">
-              Sign in with GitHub
-            </Link>
-            <button onClick={() => setShowDemoSignIn(false)} className="inline-flex h-9 items-center rounded-md border border-border px-4 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Keep exploring
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
+    <div className="relative z-[1] flex flex-col h-full min-h-0">
     {/* Log Attempt Modal */}
-    {logModalProblem && !isDemo && (
+    {logModalProblem && (
       <LogAttemptModal
         problem={logModalProblem}
         onClose={() => setLogModalProblem(null)}
         onLogged={handleLoggedFromModal}
       />
     )}
+    {/* Onboarding Walkthrough */}
+    <Onboarding />
     {/* SRS Feedback Banner */}
     {srsBanner && <SrsFeedbackBanner {...srsBanner} onDismiss={() => setSrsBanner(null)} onUndo={async () => {
       if (!srsBanner.attemptId) return;
@@ -744,15 +727,15 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
         window.location.reload();
       }
     }} />}
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:flex-1 lg:min-h-0 lg:grid-rows-1">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 flex-1 min-h-0 lg:grid-rows-1">
       {/* ── Combined Problem Queue ── */}
-      <div className="flex flex-col lg:min-h-0 lg:col-span-6" data-onboarding="queue">
+      <div className="flex flex-col min-h-0 lg:col-span-6" data-onboarding="queue">
         {/* Pending GitHub submissions banner */}
         {pendingItems.length > 0 && (
           <PendingBanner
             items={pendingItems}
             onConfirm={(item) => {
-              demoGuard(() => setLogModalProblem({
+              setLogModalProblem({
                 problemId: item.problemId,
                 title: item.problemTitle,
                 leetcodeNumber: item.leetcodeNumber,
@@ -761,10 +744,9 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
                 attemptDate: item.detectedAt,
                 pendingId: item.id,
                 source: "github",
-              }));
+              });
             }}
             onDismiss={async (item) => {
-              if (isDemo) { setShowDemoSignIn(true); return; }
               await fetch("/api/pending", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -774,11 +756,11 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
             }}
           />
         )}
-        <section className="flex flex-col lg:flex-1 lg:min-h-0">
+        <section className="flex flex-col flex-1 min-h-0">
           {/* Tab header — row 1: tabs + search/browse always visible */}
           <div className="flex flex-col gap-1.5 mb-2 shrink-0">
             <div className="flex items-center justify-between gap-2">
-              <div className="flex gap-0.5 rounded-md border border-border p-0.5 overflow-x-auto">
+              <div className="flex gap-0.5 rounded-md border border-border p-0.5">
                 <button
                   onClick={() => setListMode("review")}
                   className={`text-sm px-2.5 py-1 rounded transition-colors ${listMode === "review" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
@@ -968,13 +950,13 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
                           </span>
                           <DifficultyBadge difficulty={item.difficulty} />
                           <button
-                            onClick={() => demoGuard(() => setLogModalProblem({
+                            onClick={() => setLogModalProblem({
                               problemId: item.problemId,
                               title: item.title,
                               leetcodeNumber: item.leetcodeNumber,
                               difficulty: item.difficulty,
                               isReview: true,
-                            }))}
+                            })}
                             className="inline-flex h-7 items-center rounded-md bg-accent px-3 text-xs text-accent-foreground transition-colors hover:opacity-90"
                           >
                             Log
@@ -1021,13 +1003,13 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
                       <div className="flex items-center gap-1.5 shrink-0">
                         <DifficultyBadge difficulty={p.difficulty} />
                         <button
-                          onClick={() => demoGuard(() => setLogModalProblem({
+                          onClick={() => setLogModalProblem({
                             problemId: p.id,
                             title: p.title,
                             leetcodeNumber: p.leetcodeNumber,
                             difficulty: p.difficulty,
                             isReview: false,
-                          }))}
+                          })}
                           className="inline-flex h-7 items-center rounded-md border border-border px-3 text-xs text-foreground transition-colors hover:bg-muted"
                         >
                           Log
@@ -1109,7 +1091,7 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
                     <input
                       type="checkbox"
                       checked={autoDeferHards}
-                      onChange={(e) => demoGuard(() => handleToggleAutoDeferHards(e.target.checked))}
+                      onChange={(e) => handleToggleAutoDeferHards(e.target.checked)}
                       className="rounded border-border"
                     />
                     Auto-defer Hards
@@ -1136,7 +1118,7 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
                           <button
                             key={item.problemId}
                             onClick={() => {
-                              demoGuard(() => handleDefer(item.problemId));
+                              handleDefer(item.problemId);
                               setDeferSearch("");
                             }}
                             className="flex items-center gap-2 w-full px-2.5 py-1.5 text-left hover:bg-muted transition-colors border-b border-border last:border-b-0"
@@ -1179,7 +1161,7 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
                       <div className="flex items-center gap-1.5 shrink-0">
                         <DifficultyBadge difficulty={item.difficulty} />
                         <button
-                          onClick={() => demoGuard(() => handleUndefer(item.problemId))}
+                          onClick={() => handleUndefer(item.problemId)}
                           className="inline-flex h-7 items-center rounded-md border border-border px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                         >
                           Restore
@@ -1196,7 +1178,7 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
       </div>
 
       {/* ── Right Column ── */}
-      <div className="flex flex-col lg:col-span-6 lg:min-h-0" data-onboarding="stats">
+      <div className="flex flex-col lg:col-span-6 min-h-0" data-onboarding="stats">
         {showStatsDetail ? (
           /* ── Stats Detail (back side) ── */
           <section className="rounded-lg border border-border bg-muted p-4 space-y-4 overflow-y-auto flex-1 min-h-0">
@@ -1353,7 +1335,7 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
         {/* Countdown */}
         <section className="rounded-lg border border-border bg-muted p-3">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-medium text-muted-foreground">Fall Recruiting Countdown</p>
+            <p className="text-xs font-medium text-muted-foreground">Semester Progress</p>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowSettings(!showSettings)}
@@ -1463,7 +1445,7 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
               onSave={saveSettings}
               onCancel={() => setShowSettings(false)}
               autoDeferHards={autoDeferHards}
-              onToggleAutoDeferHards={(v) => demoGuard(() => handleToggleAutoDeferHards(v))}
+              onToggleAutoDeferHards={(v) => handleToggleAutoDeferHards(v)}
             />
           )}
         </section>
@@ -1672,7 +1654,6 @@ export function DashboardClient({ data, isDemo = false }: { data: DashboardData;
     </div>
     </div>
     </div>
-    </>
   );
 }
 
