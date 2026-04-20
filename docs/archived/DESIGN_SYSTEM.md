@@ -1,7 +1,12 @@
-# Aurora — Design System
+# Aurora — Design System (ARCHIVED)
 
-> **Single source of truth for all visual and interaction decisions.**
-> Every component, page, and UI element must follow these rules.
+> **⚠️ ARCHIVED — DO NOT USE AS REFERENCE**
+>
+> Archived 2026-04-20. This document described the pre-rebrand shadcn-style design (neutral grays, blue accent, no shadows, no animations). The shipped Aurora design is the "Lavender Nebula" palette with purple glows, canvas starfields, and animated transitions — nothing in this file reflects current reality.
+>
+> Kept for historical reference only. A replacement design system doc will be written once the current aesthetic stabilizes.
+
+---
 
 ---
 

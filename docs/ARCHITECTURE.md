@@ -286,17 +286,72 @@ When an attempt is deleted, the server replays all remaining attempts for that p
 
 | Page           | Route                    | Nav | Purpose                                                        |
 | -------------- | ------------------------ | :-: | -------------------------------------------------------------- |
+| Landing        | `/`                      |     | Marketing page + demo entry point (no auth required)           |
 | Dashboard      | `/dashboard`             |  ✓  | Unified hub: review queue, new problems, stats, countdown      |
+| Problem List   | `/problems`              |  ✓  | Browse all 150, filter by category/difficulty/Blind75          |
 | Mock Interview | `/mock-interview`        |  ✓  | Timed 45-min session: 1 medium + 1 hard from weak categories   |
-| Problem List   | `/problems`              |     | Browse all 150, filter by category/difficulty/Blind75          |
+| Info           | `/info`                  |  ✓  | About, how-it-works, FAQ                                       |
 | Problem Detail | `/problems/[id]`         |     | Info, complexity, notes, links, attempt history                |
 | Attempt Form   | `/problems/[id]/attempt` |     | 3-step attempt logging                                         |
-| Review Queue   | `/review`                |     | Priority-ordered list with skip/feedback                       |
+| Review Queue   | `/review`                |     | Priority-ordered list with skip/feedback (standalone view)     |
+| Activity       | `/activity`              |     | Full attempt history timeline                                  |
 | Stats          | `/stats`                 |     | Full analytics: charts, retention, categories                  |
 | Import         | `/import`                |     | Paste NeetCode activity for bulk import                        |
+
+Only four routes appear in primary nav; the others are reachable contextually (from dashboard panels, problem lists, or deep links).
+
+---
+
+## Demo Mode
+
+Unauthenticated visitors see a fully interactive dashboard populated with simulated data from [`src/lib/demo-data.ts`](../src/lib/demo-data.ts). This is a core product pillar — the tool must be evaluable without sign-up.
+
+**Mechanics:**
+
+- Pages check `session?.user?.id`. If absent, they render the client component with `isDemo={true}` and demo data instead of DB queries.
+- Mutations are gated by a `demoGuard()` wrapper that pops a sign-in prompt instead of hitting the API.
+- Demo state lives only in component memory — refresh resets it.
+- A "DEMO" badge in the nav makes the mode unambiguous.
+
+**Implication for new features:** any new page that touches user data needs a demo fallback. Do not break the unauthenticated path.
+
+---
+
+## Onboarding
+
+First-time authenticated users see a walkthrough via [`src/components/onboarding.tsx`](../src/components/onboarding.tsx). The walkthrough is an animated, multi-frame overlay that simulates a mid-semester review queue (D → S tier progression) to show what the dashboard becomes after sustained use.
+
+- Completion state stored in `localStorage` key `aurora_onboarding_complete`.
+- Dismissible at any step; re-openable from the nav's Setup Guide.
+- The setup guide ([`src/components/setup-guide.tsx`](../src/components/setup-guide.tsx)) also handles ongoing help — GitHub sync setup, import instructions, general FAQ — as a persistent floating panel.
+
+---
+
+## Account Lifecycle
+
+### Sign-up
+
+GitHub OAuth via NextAuth v5 with `DrizzleAdapter`. First login creates a `users` row plus associated `accounts` and `sessions` rows. No email verification step — OAuth trust is sufficient.
+
+### Sign-out
+
+Standard NextAuth `signOut()` — clears the session cookie and server-side session row. Does not touch user data.
+
+### Account Deletion
+
+`DELETE /api/account` ([`src/app/api/account/route.ts`](../src/app/api/account/route.ts)):
+
+1. Requires active session.
+2. Requires confirmation string `"delete my account"` in request body (case-insensitive, trimmed). 400 if mismatch.
+3. Deletes the `users` row — Postgres cascade rules remove `accounts`, `sessions`, `attempts`, `user_problem_states`, and `pending_submissions`.
+4. Client clears `localStorage` on success (onboarding flag, greeting cache, etc.) so the next visitor starts fresh.
+
+Entry point is the `DeleteAccountButton` in the nav. Button opens a modal ([`src/components/delete-account-modal.tsx`](../src/components/delete-account-modal.tsx)) that requires typing the confirmation phrase before enabling the submit button.
+
+> Destructive and irreversible. No soft-delete; no export. If export becomes a requirement, it should precede this flow rather than replace it.
 
 ---
 
 ## Design System
 
-See [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) for colors, typography, spacing, and component patterns.
+The previous design system document ([archived](archived/DESIGN_SYSTEM.md)) described a shadcn-style neutral palette that predates the current Aurora "Lavender Nebula" rebrand and is no longer accurate. Colors and component styles are currently defined directly in [`src/app/globals.css`](../src/app/globals.css). A replacement doc will be written once the visual system stabilizes.
