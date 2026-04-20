@@ -28,7 +28,14 @@ type ProblemState = {
 };
 
 const ALL = "All";
-const PAGE_SIZE = 25;
+const MIN_PAGE_SIZE = 5;
+const DEFAULT_PAGE_SIZE = 15;
+// Average rendered row height in px (cell py-3 + text + border). Measured, not assumed —
+// if row density changes the constant needs updating.
+const ROW_HEIGHT_PX = 49;
+const TABLE_HEADER_PX = 41;
+// Space reserved below the table for pagination controls + page bottom padding.
+const BOTTOM_RESERVE_PX = 96;
 
 function statusLabel(r: number, bestQuality?: string | null): { label: string; className: string } {
   if (bestQuality === "NONE") return { label: "Unsolved", className: "text-red-500" };
@@ -58,12 +65,31 @@ export function ProblemsTable({
   const [statusFilter, setStatusFilter] = useState<string>(initialStatus ?? ALL);
   const [blind75Only, setBlind75Only] = useState(false);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const tableWrapperRef = useRef<HTMLDivElement>(null);
 
   // Default Blind-75 filter based on the user's chosen goal (set during onboarding).
   // Runs once on mount to avoid SSR/client hydration mismatch.
   useEffect(() => {
     const goal = typeof window !== "undefined" ? localStorage.getItem("srs_goal_type") : null;
     if (goal === "blind75") setBlind75Only(true);
+  }, []);
+
+  // Size the page so the whole table fits in the viewport without scrolling.
+  // Measures the table wrapper's top (relative to viewport) and the remaining
+  // vertical space, then divides by row height.
+  useEffect(() => {
+    function recompute() {
+      const el = tableWrapperRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      const available = window.innerHeight - top - BOTTOM_RESERVE_PX - TABLE_HEADER_PX;
+      const rows = Math.floor(available / ROW_HEIGHT_PX);
+      setPageSize(Math.max(MIN_PAGE_SIZE, rows));
+    }
+    recompute();
+    window.addEventListener("resize", recompute);
+    return () => window.removeEventListener("resize", recompute);
   }, []);
 
   const categories = useMemo(
@@ -89,14 +115,14 @@ export function ProblemsTable({
     });
   }, [problems, problemStates, search, difficultyFilter, categoryFilter, statusFilter, blind75Only]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const pageStart = (currentPage - 1) * PAGE_SIZE;
-  const visible = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+  const pageStart = (currentPage - 1) * pageSize;
+  const visible = filtered.slice(pageStart, pageStart + pageSize);
 
   useEffect(() => {
     setPage(1);
-  }, [search, difficultyFilter, categoryFilter, statusFilter, blind75Only]);
+  }, [search, difficultyFilter, categoryFilter, statusFilter, blind75Only, pageSize]);
 
   const inputClass = "h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2";
 
@@ -148,7 +174,7 @@ export function ProblemsTable({
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
+      <div ref={tableWrapperRef} className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
@@ -217,7 +243,7 @@ export function ProblemsTable({
           currentPage={currentPage}
           totalPages={totalPages}
           pageStart={pageStart}
-          pageEnd={Math.min(pageStart + PAGE_SIZE, filtered.length)}
+          pageEnd={Math.min(pageStart + pageSize, filtered.length)}
           total={filtered.length}
           onChange={setPage}
         />
