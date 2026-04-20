@@ -595,7 +595,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
     [...data.categoryStats]
       .filter(c => c.attempted > 0)
       .sort((a, b) => a.avgRetention - b.avgRetention)
-      .slice(0, 6),
+      .slice(0, data.categoryStats.length),
     [data.categoryStats],
   );
 
@@ -1389,7 +1389,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                 </div>
               </div>
               {/* Pace status — full-width bottom row, easy to scan */}
-              <div className="mt-2 pt-2 border-t border-border/50 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
+              <div className="mt-2 pt-2 border-t border-border/50 flex items-center justify-between text-xs">
                 <span className={`font-semibold ${countdown.onTrack ? "text-green-500" : "text-orange-500"}`}>
                   {countdown.onTrack ? "On track" : "Behind pace"}
                 </span>
@@ -1580,10 +1580,10 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
           {!collapsedWidgets.activity && (
             <div className="mt-2 space-y-3">
               {/* 2-column stats row: Streak | Pace comparison */}
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-2 gap-2 text-xs border border-border/40 rounded-md bg-background/30 divide-x divide-border/40">
                 {/* Col 1: Streak */}
-                <div className="flex flex-col gap-1">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide leading-none mb-0.5">Streak</p>
+                <div className="flex flex-col gap-1.5 p-2">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider leading-none">Streak</p>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Current</span>
                     <span className="font-semibold tabular-nums flex items-center gap-0.5">
@@ -1606,9 +1606,9 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                   )}
                 </div>
                 {/* Col 2: Goal vs Actual comparison table */}
-                <div className="flex flex-col gap-1 border-l border-border/50 pl-2">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide leading-none">Pace</p>
+                <div className="flex flex-col gap-1.5 p-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider leading-none">Pace</p>
                     {!editingPace && (
                       <button onClick={() => setEditingPace(true)} className="p-0.5 text-muted-foreground hover:text-foreground transition-colors" title="Edit goals">
                         <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -1742,7 +1742,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                     );
                   })}
                 </div>
-                <div className="flex justify-between text-[11px] text-muted-foreground">
+                <div className="flex justify-between text-xs text-muted-foreground">
                   <span><span className="font-medium text-foreground">{proj.currentSize}</span> due now</span>
                   <span>{proj.reviewsPerDay} rev/d · {proj.newPerDay} new/d · <span className="text-muted-foreground/60">+30d</span></span>
                 </div>
