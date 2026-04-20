@@ -294,7 +294,7 @@ export function LandingPage({ totalProblems, categories, isAuthenticated, authCo
 
   return (
     <div
-      className="relative flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden"
+      className="relative flex h-[calc(100dvh-3.5rem-1px)] flex-col overflow-hidden"
       style={{ width: "100vw", marginLeft: "calc(-50vw + 50%)", marginTop: "-2rem", marginBottom: "-2rem" }}
     >
       <SkyCanvas />

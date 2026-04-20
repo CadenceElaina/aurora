@@ -259,6 +259,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
   const [showSettings, setShowSettings] = useState(false);
   const [categoryView, setCategoryView] = useState<"weak" | "all">("weak");
   const [listMode, setListMode] = useState<ListMode>("review");
+  const [goalType, setGoalType] = useState<"blind75" | "neetcode150" | "none">("neetcode150");
   const [reviewSort, setReviewSort] = useState<ReviewSort>("urgency");
   const [newSort, setNewSort] = useState<NewSort>("curriculum");
   const [completedSort, setCompletedSort] = useState<CompletedSort>("retention");
@@ -297,7 +298,20 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
         if (parsed.count) setTargetCount(parsed.count);
       } catch { /* ignore */ }
     }
+    const savedGoal = localStorage.getItem("srs_goal_type");
+    if (savedGoal && ["blind75", "neetcode150", "none"].includes(savedGoal)) {
+      setGoalType(savedGoal as "blind75" | "neetcode150" | "none");
+    }
+    const savedTab = localStorage.getItem("aurora_tab_mode");
+    if (savedTab && ["review", "new", "completed", "deferred", "import"].includes(savedTab)) {
+      setListMode(savedTab as ListMode);
+    }
   }, []);
+
+  // Persist active tab across sessions
+  useEffect(() => {
+    if (!isDemo) localStorage.setItem("aurora_tab_mode", listMode);
+  }, [listMode, isDemo]);
 
   // SRS feedback banner from attempt redirect
   useEffect(() => {
@@ -484,13 +498,13 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
   }, [reviewItems, reviewSort]);
 
   const sortedNewProblems = useMemo(() => {
-    const q = [...data.newProblems];
+    let q = goalType === "blind75" ? data.newProblems.filter(p => p.blind75) : [...data.newProblems];
     if (newSort === "hardest") {
       q.sort((a, b) => DIFF_ORDER[a.difficulty] - DIFF_ORDER[b.difficulty]);
     }
     // "curriculum" = default order from server (already sorted by id)
     return q;
-  }, [data.newProblems, newSort]);
+  }, [data.newProblems, newSort, goalType]);
 
   const filteredReviewQueue = useMemo(() => {
     if (!queueSearch.trim()) return sortedReviewQueue;
@@ -640,6 +654,8 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
         setTargetDate(prefs.targetDate);
         setListMode("new");
       }
+      setGoalType(prefs.goalType);
+      localStorage.setItem("srs_goal_type", prefs.goalType);
       setAutoDeferHards(prefs.autoDeferHards);
       if (prefs.autoDeferHards) {
         setReviewItems((prev) => prev.filter((r) => r.difficulty !== "Hard"));
@@ -740,9 +756,9 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                   className={`text-sm px-2.5 py-1 rounded transition-colors ${listMode === "new" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   New
-                  {data.newProblems.length > 0 && (
+                  {sortedNewProblems.length > 0 && (
                     <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full ${listMode === "new" ? "bg-accent-foreground/20" : "bg-muted"}`}>
-                      {data.newProblems.length}
+                      {sortedNewProblems.length}
                     </span>
                   )}
                 </button>
@@ -802,7 +818,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                     onClick={() => setReviewSort(s)}
                     className={`text-xs px-2 py-0.5 rounded transition-colors ${
                       reviewSort === s
-                        ? "bg-muted text-foreground font-medium"
+                        ? "bg-accent/15 text-accent border border-accent/30 font-medium"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -812,20 +828,40 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
               </div>
             )}
             {listMode === "new" && (
-              <div className="flex gap-1">
+              <div className="flex items-center gap-1">
                 {(["curriculum", "hardest"] as NewSort[]).map((s) => (
                   <button
                     key={s}
                     onClick={() => setNewSort(s)}
                     className={`text-xs px-2 py-0.5 rounded transition-colors ${
                       newSort === s
-                        ? "bg-muted text-foreground font-medium"
+                        ? "bg-accent/15 text-accent border border-accent/30 font-medium"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
                     {s === "curriculum" ? "Curriculum order" : "Hardest first"}
                   </button>
                 ))}
+                <span className="flex-1" />
+                {goalType === "blind75" && (
+                  <>
+                    <span className="text-xs font-medium text-accent">Blind 75</span>
+                    <button
+                      onClick={() => { setGoalType("neetcode150"); localStorage.setItem("srs_goal_type", "neetcode150"); }}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Show all 150 →
+                    </button>
+                  </>
+                )}
+                {goalType !== "blind75" && data.newProblems.some(p => p.blind75) && (
+                  <button
+                    onClick={() => { setGoalType("blind75"); localStorage.setItem("srs_goal_type", "blind75"); }}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Blind 75 only
+                  </button>
+                )}
               </div>
             )}
             {listMode === "completed" && (
@@ -836,7 +872,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                     onClick={() => setCompletedSort(s)}
                     className={`text-xs px-2 py-0.5 rounded transition-colors ${
                       completedSort === s
-                        ? "bg-muted text-foreground font-medium"
+                        ? "bg-accent/15 text-accent border border-accent/30 font-medium"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >

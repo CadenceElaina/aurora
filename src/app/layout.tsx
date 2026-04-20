@@ -28,7 +28,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
-      <body className="min-h-screen bg-background text-foreground antialiased">
+      <body className="min-h-screen overflow-x-hidden bg-background text-foreground antialiased">
         <ThemeProvider>
           <Nav isAuthenticated={isAuthenticated} authConfigured={isAuthConfigured} isDemo={!isAuthenticated} userName={userName} />
           <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>

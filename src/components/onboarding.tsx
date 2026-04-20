@@ -68,7 +68,7 @@ const STEPS = [
 export function Onboarding({ isDemo = false, userId, onPreferences }: {
   isDemo?: boolean;
   userId?: string;
-  onPreferences?: (prefs: { targetCount: number; targetDate: string; autoDeferHards: boolean }) => void;
+  onPreferences?: (prefs: { targetCount: number; targetDate: string; autoDeferHards: boolean; goalType: "blind75" | "neetcode150" | "none" }) => void;
 }) {
   const [show, setShow] = useState(false);
   const storageKey = userId ? `${ONBOARDING_KEY}_${userId}` : ONBOARDING_KEY;
@@ -76,6 +76,9 @@ export function Onboarding({ isDemo = false, userId, onPreferences }: {
   const [rects, setRects] = useState<{ queue: Rect | null; stats: Rect | null }>({ queue: null, stats: null });
   const [logFrame, setLogFrame] = useState(0);
   const logIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [lastSpotlightRect, setLastSpotlightRect] = useState<Rect | null>(null);
+  const [spotlightVisible, setSpotlightVisible] = useState(false);
+  const spotlightFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Preference state for goal step
   const [selectedGoal, setSelectedGoal] = useState<"blind75" | "neetcode150" | "none">("neetcode150");
@@ -120,6 +123,20 @@ export function Onboarding({ isDemo = false, userId, onPreferences }: {
     }
   }, [step, show]);
 
+  // Spotlight fade: keeps spotlight visible briefly when step changes away from a targeted step
+  useEffect(() => {
+    const rect = STEPS[step].target ? rects[STEPS[step].target as "queue" | "stats"] : null;
+    if (spotlightFadeTimerRef.current) clearTimeout(spotlightFadeTimerRef.current);
+    if (rect) {
+      setLastSpotlightRect(rect);
+      setSpotlightVisible(true);
+    } else {
+      setSpotlightVisible(false);
+      spotlightFadeTimerRef.current = setTimeout(() => setLastSpotlightRect(null), 350);
+    }
+    return () => { if (spotlightFadeTimerRef.current) clearTimeout(spotlightFadeTimerRef.current); };
+  }, [step, rects]);
+
   function finish() {
     const targetCount = selectedGoal === "blind75" ? 75 : selectedGoal === "neetcode150" ? 150 : 0;
     if (targetCount > 0) {
@@ -132,7 +149,8 @@ export function Onboarding({ isDemo = false, userId, onPreferences }: {
         body: JSON.stringify({ action: "toggle-auto-defer-hards", enabled: deferHards }),
       }).catch(() => {/* ignore errors during onboarding save */});
     }
-    onPreferences?.({ targetCount, targetDate: selectedDate, autoDeferHards: deferHards });
+    localStorage.setItem("srs_goal_type", selectedGoal);
+    onPreferences?.({ targetCount, targetDate: selectedDate, autoDeferHards: deferHards, goalType: selectedGoal });
     localStorage.setItem(storageKey, "1");
     setShow(false);
   }
@@ -175,15 +193,16 @@ export function Onboarding({ isDemo = false, userId, onPreferences }: {
         <defs>
           <mask id="onboarding-mask">
             <rect width="100%" height="100%" fill="white" />
-            {targetRect && (
+            {lastSpotlightRect && (
               <rect
-                x={targetRect.left - spotlightPadding}
-                y={targetRect.top - spotlightPadding}
-                width={targetRect.width + spotlightPadding * 2}
-                height={targetRect.height + spotlightPadding * 2}
+                x={lastSpotlightRect.left - spotlightPadding}
+                y={lastSpotlightRect.top - spotlightPadding}
+                width={lastSpotlightRect.width + spotlightPadding * 2}
+                height={lastSpotlightRect.height + spotlightPadding * 2}
                 rx={spotlightRadius}
                 ry={spotlightRadius}
                 fill="black"
+                style={{ opacity: spotlightVisible ? 1 : 0, transition: "opacity 0.35s ease" }}
               />
             )}
           </mask>
@@ -192,22 +211,24 @@ export function Onboarding({ isDemo = false, userId, onPreferences }: {
       </svg>
 
       {/* Spotlight glow ring */}
-      {targetRect && (
+      {lastSpotlightRect && (
         <div
-          className="absolute rounded-xl border-2 border-accent/50 transition-all duration-500 ease-in-out"
+          className="absolute rounded-xl border-2 border-accent/50"
           style={{
             pointerEvents: "none",
-            top: targetRect.top - spotlightPadding,
-            left: targetRect.left - spotlightPadding,
-            width: targetRect.width + spotlightPadding * 2,
-            height: targetRect.height + spotlightPadding * 2,
+            top: lastSpotlightRect.top - spotlightPadding,
+            left: lastSpotlightRect.left - spotlightPadding,
+            width: lastSpotlightRect.width + spotlightPadding * 2,
+            height: lastSpotlightRect.height + spotlightPadding * 2,
             boxShadow: "0 0 24px rgba(139,92,246,0.35)",
+            opacity: spotlightVisible ? 1 : 0,
+            transition: "opacity 0.35s ease",
           }}
         />
       )}
 
       {/* ═══ Queue overlay with log animation (step 1) ═══ */}
-      {step === 1 && queueRect && (
+      {queueRect && (
         <div
           className="absolute overflow-hidden rounded-lg bg-background"
           style={{
@@ -216,6 +237,8 @@ export function Onboarding({ isDemo = false, userId, onPreferences }: {
             left: queueRect.left,
             width: queueRect.width,
             height: queueRect.height,
+            opacity: step === 1 ? 1 : 0,
+            transition: "opacity 0.35s ease",
           }}
         >
           {/* Tab bar */}
