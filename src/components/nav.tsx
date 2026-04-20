@@ -10,7 +10,6 @@ import { DeleteAccountModal } from "@/components/delete-account-modal";
 const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/problems", label: "Problems" },
-  { href: "/mock-interview", label: "Mock" },
   { href: "/info", label: "Info" },
 ];
 

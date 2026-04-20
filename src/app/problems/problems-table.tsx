@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { DifficultyBadge } from "@/components/difficulty-badge";
+import { LogAttemptModal } from "@/components/log-attempt-modal";
 
 type Problem = {
   id: number;
@@ -66,6 +67,7 @@ export function ProblemsTable({
   const [blind75Only, setBlind75Only] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [logModalProblem, setLogModalProblem] = useState<Problem | null>(null);
   const tableWrapperRef = useRef<HTMLDivElement>(null);
 
   // Default Blind-75 filter based on the user's chosen goal (set during onboarding).
@@ -189,6 +191,7 @@ export function ProblemsTable({
                 </span>
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Last</th>
+              <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
@@ -223,6 +226,14 @@ export function ProblemsTable({
                   <td className="px-4 py-3 text-xs text-muted-foreground">
                     {state?.lastReviewed ? formatDate(state.lastReviewed) : "—"}
                   </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => setLogModalProblem(p)}
+                      className="inline-flex h-7 items-center rounded-md border border-border px-2.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    >
+                      Log
+                    </button>
+                  </td>
                 </tr>
               );
             })}
@@ -236,6 +247,21 @@ export function ProblemsTable({
           </tbody>
         </table>
       </div>
+
+      {/* Log Attempt Modal */}
+      {logModalProblem && (
+        <LogAttemptModal
+          problem={{
+            problemId: logModalProblem.id,
+            title: logModalProblem.title,
+            leetcodeNumber: logModalProblem.leetcodeNumber,
+            difficulty: logModalProblem.difficulty,
+            isReview: false,
+          }}
+          onClose={() => setLogModalProblem(null)}
+          onLogged={() => setLogModalProblem(null)}
+        />
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (

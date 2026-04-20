@@ -939,7 +939,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                 <div className="flex-[3] min-w-0 flex rounded-md border border-border p-0.5 gap-0.5">
                   {(["retention", "review-date", "category"] as CompletedSort[]).map((s) => (
                     <button key={s} onClick={() => setCompletedSort(s)} className={`flex-1 text-center text-xs px-1 py-0.5 rounded transition-colors ${completedSort === s ? "bg-accent/20 text-accent font-semibold" : "text-muted-foreground hover:text-foreground"}`}>
-                      {s === "retention" ? "Fading" : s === "review-date" ? "Next review" : "Category"}
+                      {s === "retention" ? "Weakest first" : s === "review-date" ? "Due soonest" : "Category"}
                     </button>
                   ))}
                 </div>
@@ -1053,20 +1053,9 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                   <span className="font-medium text-muted-foreground">
                     Deferred{deferredItems.length > 0 ? ` (${deferredItems.length})` : ""}
                   </span>
-                  <div className="flex items-center gap-2.5" onClick={(e) => e.stopPropagation()}>
-                    <label className="flex items-center gap-1 cursor-pointer text-muted-foreground">
-                      <input
-                        type="checkbox"
-                        checked={autoDeferHards}
-                        onChange={(e) => demoGuard(() => handleToggleAutoDeferHards(e.target.checked))}
-                        className="rounded border-border"
-                      />
-                      <span>Auto-defer Hards</span>
-                    </label>
-                    <button onClick={() => setShowDeferredInline((v) => !v)}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`text-muted-foreground transition-transform ${showDeferredInline ? "" : "rotate-180"}`}><polyline points="18 15 12 9 6 15"/></svg>
-                    </button>
-                  </div>
+                  <button onClick={() => setShowDeferredInline((v) => !v)}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`text-muted-foreground transition-transform ${showDeferredInline ? "" : "rotate-180"}`}><polyline points="18 15 12 9 6 15"/></svg>
+                  </button>
                 </button>
                 {showDeferredInline && (
                   <div className="border-t border-border">
@@ -1286,8 +1275,8 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
       </div>
 
       {/* ── Right Column ── */}
-      <div className="flex flex-col lg:col-span-6 lg:min-h-0" data-onboarding="stats">
-        <div className="flex flex-col gap-3 overflow-y-auto flex-1 min-h-0">
+      <div className="flex flex-col lg:col-span-6 lg:min-h-0 overflow-x-hidden" data-onboarding="stats">
+        <div className="flex flex-col gap-3 overflow-y-auto overflow-x-hidden flex-1 min-h-0">
         {!showStatsDetail && (<>
         {/* Countdown */}
         <section className="rounded-lg border border-border bg-muted p-3">
@@ -1593,16 +1582,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                 <div className="flex flex-col gap-1 border-l border-border/50 pl-2">
                   <div className="flex items-center justify-between mb-0.5">
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide leading-none">Pace</p>
-                    {editingPace ? (
-                      <button
-                        onClick={() => {
-                          localStorage.setItem("aurora_planned_new_per_day", String(plannedNewPerDay));
-                          localStorage.setItem("aurora_planned_review_per_day", String(plannedReviewPerDay));
-                          setEditingPace(false);
-                        }}
-                        className="text-[10px] text-accent hover:opacity-80"
-                      >Save</button>
-                    ) : (
+                    {!editingPace && (
                       <button onClick={() => setEditingPace(true)} className="p-0.5 text-muted-foreground hover:text-foreground transition-colors" title="Edit goals">
                         <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       </button>
@@ -1638,6 +1618,23 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                       </>
                     )}
                   </div>
+                  {/* Save/Cancel when editing */}
+                  {editingPace && (
+                    <div className="flex justify-end gap-1.5 mt-1">
+                      <button
+                        onClick={() => setEditingPace(false)}
+                        className="inline-flex h-6 items-center rounded border border-border px-2 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                      >Cancel</button>
+                      <button
+                        onClick={() => {
+                          localStorage.setItem("aurora_planned_new_per_day", String(plannedNewPerDay));
+                          localStorage.setItem("aurora_planned_review_per_day", String(plannedReviewPerDay));
+                          setEditingPace(false);
+                        }}
+                        className="inline-flex h-6 items-center rounded bg-accent px-2 text-[10px] text-accent-foreground hover:opacity-90"
+                      >Save</button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -2019,18 +2016,18 @@ function SettingsPanel({
           Hards are excluded from reviews until you master the easier problems in each category
         </p>
       </div>
-      <div className="flex gap-2">
-        <button
-          onClick={() => onSave(d, c, t)}
-          className="inline-flex h-7 items-center rounded-md bg-accent px-3 text-xs text-accent-foreground hover:opacity-90"
-        >
-          Save
-        </button>
+      <div className="flex justify-end gap-2 pt-1">
         <button
           onClick={onCancel}
           className="inline-flex h-7 items-center rounded-md border border-border px-3 text-xs text-foreground hover:bg-muted"
         >
           Cancel
+        </button>
+        <button
+          onClick={() => onSave(d, c, t)}
+          className="inline-flex h-7 items-center rounded-md bg-accent px-3 text-xs text-accent-foreground hover:opacity-90"
+        >
+          Save
         </button>
       </div>
     </div>
