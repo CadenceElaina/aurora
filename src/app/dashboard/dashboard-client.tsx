@@ -852,7 +852,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
         <section className="flex flex-col lg:flex-1 lg:min-h-0">
           {/* Tab header — row 1: tabs full-width; row 2: sort pills + search */}
           <div className="flex flex-col gap-1.5 mb-2 shrink-0">
-            <div className="flex gap-0.5 rounded-md border border-border p-0.5 overflow-x-auto w-full">
+            <div className="flex gap-0.5 rounded-md border border-border p-0.5 w-full">
                 <button
                   onClick={() => setListMode("review")}
                   className={`flex-1 text-center text-sm px-2 py-1 rounded transition-colors ${listMode === "review" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
@@ -886,43 +886,29 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                     </span>
                   )}
                 </button>
-
-            </div>
-            <div className="flex items-center gap-1.5 overflow-x-auto">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Quick actions</span>
-              <button
-                onClick={() => setListMode("import")}
-                className={`h-7 rounded-md border px-2.5 text-xs transition-colors ${listMode === "import" ? "border-accent bg-accent/20 text-accent font-semibold" : "border-border text-muted-foreground hover:text-foreground"}`}
-              >
-                Import
-              </button>
-              <button
-                onClick={() => {
-                  if (listMode !== "mock") {
-                    // Pick problems fresh each time we enter mock panel
-                    setMockSelectedProblems(pickMockProblems(data.mockCandidates));
-                    if (mockPhase === "finished") { setMockPhase("setup"); setMockLoggedIds(new Set()); }
-                  }
-                  setListMode("mock");
-                }}
-                className={`relative h-7 rounded-md border px-2.5 text-xs transition-colors ${listMode === "mock" ? "border-accent bg-accent/20 text-accent font-semibold" : "border-border text-muted-foreground hover:text-foreground"}`}
-              >
-                Mock
-                {mockPhase === "active" && listMode !== "mock" && (
-                  <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-                )}
-              </button>
-              {(deferredItems.length > 0 || autoDeferHards) && (
+                {/* Thin divider before utility actions */}
+                <span className="w-px bg-border my-0.5 shrink-0" />
+                <button
+                  onClick={() => setListMode("import")}
+                  className={`text-sm px-2.5 py-1 rounded transition-colors ${listMode === "import" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Import
+                </button>
                 <button
                   onClick={() => {
-                    if (listMode !== "review") setListMode("review");
-                    setShowDeferredInline((v) => !v);
+                    if (listMode !== "mock") {
+                      setMockSelectedProblems(pickMockProblems(data.mockCandidates));
+                      if (mockPhase === "finished") { setMockPhase("setup"); setMockLoggedIds(new Set()); }
+                    }
+                    setListMode("mock");
                   }}
-                  className={`h-7 rounded-md border px-2.5 text-xs transition-colors ${showDeferredInline ? "border-accent bg-accent/20 text-accent font-semibold" : "border-border text-muted-foreground hover:text-foreground"}`}
+                  className={`relative text-sm px-2.5 py-1 rounded transition-colors ${listMode === "mock" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
                 >
-                  {showDeferredInline ? "Hide deferred" : `Show deferred${deferredItems.length > 0 ? ` (${deferredItems.length})` : ""}`}
+                  Mock
+                  {mockPhase === "active" && listMode !== "mock" && (
+                    <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                  )}
                 </button>
-              )}
             </div>
             {/* Row 2: sort control + search */}
             <div className="flex items-center gap-1.5">
@@ -1058,9 +1044,17 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
               </div>
             )}
             {/* Inline deferred disclosure — lives at the bottom of the Review tab */}
-            {(deferredItems.length > 0 || autoDeferHards) && showDeferredInline && (
+            {(deferredItems.length > 0 || autoDeferHards) && (
               <div className="rounded-lg border border-border overflow-hidden shrink-0">
-                <div className="border-t border-border">
+                <button
+                  onClick={() => setShowDeferredInline((v) => !v)}
+                  className="flex w-full items-center justify-between px-3 py-2 text-xs text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  <span className="font-medium">Deferred{deferredItems.length > 0 ? ` (${deferredItems.length})` : ""}</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${showDeferredInline ? "" : "rotate-180"}`}><polyline points="18 15 12 9 6 15"/></svg>
+                </button>
+                {showDeferredInline && (
+                  <div className="border-t border-border">
                     <div className="px-3 py-2 border-b border-border/50">
                       <div className="relative">
                         <input
@@ -1130,6 +1124,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                       </div>
                     )}
                   </div>
+                )}
               </div>
             )}
             </div>
