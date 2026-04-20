@@ -1598,7 +1598,10 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                   <div className="grid grid-cols-3 items-center">
                     <span className="text-xs text-muted-foreground">New</span>
                     {editingPace ? (
-                      <input type="number" min="0" step="0.5" value={plannedNewPerDay} onChange={(e) => setPlannedNewPerDay(parseFloat(e.target.value) || 0)} className="col-span-2 rounded border border-border bg-background px-1.5 py-0.5 text-right text-[11px] tabular-nums focus:outline-none focus:ring-1 focus:ring-accent" />
+                      <>
+                        <span className="text-right font-medium tabular-nums text-muted-foreground">{plannedNewPerDay.toFixed(1)}</span>
+                        <input type="number" min="0" step="0.5" value={plannedNewPerDay} onChange={(e) => setPlannedNewPerDay(parseFloat(e.target.value) || 0)} className="rounded border border-border bg-background px-1.5 py-0.5 text-right text-[11px] tabular-nums focus:outline-none focus:ring-1 focus:ring-accent w-full" />
+                      </>
                     ) : (
                       <>
                         <span className="text-right font-medium tabular-nums text-muted-foreground">{plannedNewPerDay.toFixed(1)}</span>
@@ -1610,7 +1613,10 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                   <div className="grid grid-cols-3 items-center">
                     <span className="text-xs text-muted-foreground">Review</span>
                     {editingPace ? (
-                      <input type="number" min="0" step="0.5" value={plannedReviewPerDay} onChange={(e) => setPlannedReviewPerDay(parseFloat(e.target.value) || 0)} className="col-span-2 rounded border border-border bg-background px-1.5 py-0.5 text-right text-[11px] tabular-nums focus:outline-none focus:ring-1 focus:ring-accent" />
+                      <>
+                        <span className="text-right font-medium tabular-nums text-muted-foreground">{plannedReviewPerDay.toFixed(1)}</span>
+                        <input type="number" min="0" step="0.5" value={plannedReviewPerDay} onChange={(e) => setPlannedReviewPerDay(parseFloat(e.target.value) || 0)} className="rounded border border-border bg-background px-1.5 py-0.5 text-right text-[11px] tabular-nums focus:outline-none focus:ring-1 focus:ring-accent w-full" />
+                      </>
                     ) : (
                       <>
                         <span className="text-right font-medium tabular-nums text-muted-foreground">{plannedReviewPerDay.toFixed(1)}</span>
