@@ -45,7 +45,7 @@ type CompletedItem = {
 type ListMode = "review" | "new" | "completed" | "import" | "deferred" | "mock";
 type MockPhase = "setup" | "active" | "finished";
 type ReviewSort = "urgency" | "overdue" | "difficulty" | "category";
-type NewSort = "curriculum" | "hardest";
+type NewDifficultyFilter = "all" | "easy" | "easy-medium" | "medium" | "hard";
 type CompletedSort = "retention" | "review-date" | "category";
 
 type NewProblem = {
@@ -280,7 +280,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
   const [listMode, setListMode] = useState<ListMode>("review");
   const [goalType, setGoalType] = useState<"blind75" | "neetcode150" | "none">("neetcode150");
   const [reviewSort, setReviewSort] = useState<ReviewSort>("urgency");
-  const [newSort, setNewSort] = useState<NewSort>("curriculum");
+  const [newDifficultyFilter, setNewDifficultyFilter] = useState<NewDifficultyFilter>("all");
   const [completedSort, setCompletedSort] = useState<CompletedSort>("retention");
   const [queueSearch, setQueueSearch] = useState("");
   const [showStatsDetail, setShowStatsDetail] = useState(false);
@@ -612,12 +612,12 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
 
   const sortedNewProblems = useMemo(() => {
     let q = goalType === "blind75" ? data.newProblems.filter(p => p.blind75) : [...data.newProblems];
-    if (newSort === "hardest") {
-      q.sort((a, b) => DIFF_ORDER[a.difficulty] - DIFF_ORDER[b.difficulty]);
-    }
-    // "curriculum" = default order from server (already sorted by id)
+    if (newDifficultyFilter === "easy") q = q.filter(p => p.difficulty === "Easy");
+    else if (newDifficultyFilter === "easy-medium") q = q.filter(p => p.difficulty === "Easy" || p.difficulty === "Medium");
+    else if (newDifficultyFilter === "medium") q = q.filter(p => p.difficulty === "Medium");
+    else if (newDifficultyFilter === "hard") q = q.filter(p => p.difficulty === "Hard");
     return q;
-  }, [data.newProblems, newSort, goalType]);
+  }, [data.newProblems, newDifficultyFilter, goalType]);
 
   const filteredReviewQueue = useMemo(() => {
     if (!queueSearch.trim()) return sortedReviewQueue;
@@ -932,23 +932,17 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                 </div>
               )}
               {listMode === "new" && (
-                <div className="flex-[3] min-w-0 flex items-center rounded-md border border-border p-0.5 gap-0.5">
-                  {(["curriculum", "hardest"] as NewSort[]).map((s) => (
-                    <button key={s} onClick={() => setNewSort(s)} className={`text-xs px-2 py-0.5 rounded transition-colors ${newSort === s ? "bg-accent/20 text-accent font-semibold" : "text-muted-foreground hover:text-foreground"}`}>
-                      {s === "curriculum" ? "Curriculum" : "Hardest first"}
-                    </button>
-                  ))}
-                  <span className="flex-1" />
-                  {goalType === "blind75" && (
-                    <>
-                      <span className="text-xs font-medium text-accent px-1">Blind 75</span>
-                      <button onClick={() => { setGoalType("neetcode150"); localStorage.setItem("srs_goal_type", "neetcode150"); }} className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1">All 150</button>
-                    </>
-                  )}
-                  {goalType !== "blind75" && data.newProblems.some(p => p.blind75) && (
-                    <button onClick={() => { setGoalType("blind75"); localStorage.setItem("srs_goal_type", "blind75"); }} className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1">Blind 75</button>
-                  )}
-                </div>
+                <select
+                  value={newDifficultyFilter}
+                  onChange={(e) => setNewDifficultyFilter(e.target.value as NewDifficultyFilter)}
+                  className="h-7 rounded border border-border bg-background px-2 text-xs text-foreground focus:outline-none shrink-0"
+                >
+                  <option value="all">All difficulties</option>
+                  <option value="easy">Easy only</option>
+                  <option value="easy-medium">Easy &amp; Medium</option>
+                  <option value="medium">Medium only</option>
+                  <option value="hard">Hard only</option>
+                </select>
               )}
               {listMode === "completed" && (
                 <div className="flex-[3] min-w-0 flex rounded-md border border-border p-0.5 gap-0.5">
@@ -962,20 +956,13 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
               {(listMode === "deferred" || listMode === "import" || listMode === "mock") && <span className="flex-[3] min-w-0" />}
               {/* Search */}
               {listMode !== "import" && listMode !== "mock" && (
-                <div className={`flex items-center gap-1.5 min-w-0 ${(listMode === "review" || listMode === "new" || listMode === "completed") ? "flex-[2]" : "flex-1"}`}>
-                  <input
-                    type="text"
-                    value={queueSearch}
-                    onChange={(e) => setQueueSearch(e.target.value)}
-                    placeholder="Filter…"
-                    className="h-7 flex-1 min-w-0 rounded border border-border bg-background px-2 text-xs placeholder:text-muted-foreground focus:outline-none"
-                  />
-                  {listMode === "new" && (
-                    <Link href="/problems" className="text-xs text-accent hover:underline shrink-0">
-                      Browse all →
-                    </Link>
-                  )}
-                </div>
+                <input
+                  type="text"
+                  value={queueSearch}
+                  onChange={(e) => setQueueSearch(e.target.value)}
+                  placeholder="Filter…"
+                  className="h-7 flex-1 min-w-0 rounded border border-border bg-background px-2 text-xs placeholder:text-muted-foreground focus:outline-none"
+                />
               )}
             </div>
           </div>

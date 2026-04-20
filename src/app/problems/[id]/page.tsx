@@ -10,6 +10,7 @@ import { ProblemNotes } from "@/components/problem-notes";
 import { DeleteAttemptButton } from "@/components/delete-attempt-button";
 import { auth } from "@/auth";
 import { computeRetrievability } from "@/lib/srs";
+import { ProblemLogButton } from "./log-button";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -269,21 +270,14 @@ export default async function ProblemDetailPage({ params }: { params: Promise<{ 
       )}
 
       {/* Log Attempt CTA */}
-      <Link
-        href={`/problems/${problem.id}/attempt`}
-        className={`inline-flex h-9 items-center gap-2 rounded-md px-4 text-sm transition-colors duration-150 hover:opacity-90 ${
-          srsState && srsState.nextReviewAt && srsState.nextReviewAt <= now
-            ? "bg-red-500 text-white"
-            : "bg-accent text-accent-foreground"
-        }`}
-      >
-        {srsState
-          ? srsState.nextReviewAt && srsState.nextReviewAt <= now
-            ? "Review Now (Due)"
-            : "Log Attempt"
-          : "Start First Attempt"
-        }
-      </Link>
+      <ProblemLogButton
+        problemId={problem.id}
+        title={problem.title}
+        leetcodeNumber={problem.leetcodeNumber}
+        difficulty={problem.difficulty as "Easy" | "Medium" | "Hard"}
+        isDue={!!(srsState?.nextReviewAt && srsState.nextReviewAt <= now)}
+        hasAttempts={!!srsState}
+      />
     </div>
   );
 }
