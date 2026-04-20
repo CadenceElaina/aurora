@@ -48,10 +48,11 @@ export function LogAttemptModal({ problem, onClose, onLogged }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
-  const [expandNotes, setExpandNotes] = useState(false);
   const [notes, setNotes] = useState("");
   const [customDate, setCustomDate] = useState(
-    problem.attemptDate ? new Date(problem.attemptDate).toISOString().split("T")[0] : ""
+    problem.attemptDate
+      ? new Date(problem.attemptDate).toISOString().split("T")[0]
+      : new Date().toISOString().split("T")[0]
   );
 
   // Close on Escape
@@ -162,10 +163,10 @@ export function LogAttemptModal({ problem, onClose, onLogged }: Props) {
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/60" />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 rounded-lg border border-border bg-background shadow-2xl">
+      <div className="relative w-full max-w-md mx-4 rounded-lg border border-border bg-background shadow-2xl max-h-[90dvh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2 min-w-0">
@@ -182,7 +183,7 @@ export function LogAttemptModal({ problem, onClose, onLogged }: Props) {
         </div>
 
         {/* Body */}
-        <div className="px-4 py-4 space-y-4">
+        <div className="px-4 py-4 space-y-4 overflow-y-auto flex-1 min-h-0">
           {/* Outcome */}
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground">How did it go?</p>
@@ -271,41 +272,28 @@ export function LogAttemptModal({ problem, onClose, onLogged }: Props) {
             </div>
           </div>
 
-          {/* Notes / Date expander */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setExpandNotes((v) => !v)}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-150 ${expandNotes ? "rotate-180" : ""}`}><polyline points="18 15 12 9 6 15"/></svg>
-              {expandNotes ? "Hide notes" : "Add notes / date"}
-            </button>
-            {expandNotes && (
-              <div className="space-y-3 pt-3">
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground">Notes</p>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={3}
-                    placeholder="Key insight, approach, patterns…"
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 resize-none"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground">Date</p>
-                  <input
-                    type="date"
-                    value={customDate}
-                    max={new Date().toISOString().split("T")[0]}
-                    onChange={(e) => setCustomDate(e.target.value)}
-                    placeholder={new Date().toISOString().split("T")[0]}
-                    className="h-8 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                  />
-                </div>
-              </div>
-            )}
+          {/* Date */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground">Date</p>
+            <input
+              type="date"
+              value={customDate}
+              max={new Date().toISOString().split("T")[0]}
+              onChange={(e) => setCustomDate(e.target.value)}
+              className="h-8 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            />
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground">Notes</p>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              placeholder="Key insight, approach, patterns…"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 resize-none"
+            />
           </div>
 
           {/* Error / Duplicate */}
@@ -335,28 +323,20 @@ export function LogAttemptModal({ problem, onClose, onLogged }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-          <a
-            href={`/problems/${problem.problemId}/attempt${problem.attemptDate ? `?attemptDate=${encodeURIComponent(problem.attemptDate)}` : ""}`}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border">
+          <button
+            onClick={onClose}
+            className="inline-flex h-8 items-center rounded-md border border-border px-3 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            Full form →
-          </a>
-          <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="inline-flex h-8 items-center rounded-md border border-border px-3 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => handleSubmit()}
-              disabled={submitting}
-              className="inline-flex h-8 items-center rounded-md bg-accent px-4 text-xs text-accent-foreground font-medium transition-colors hover:opacity-90 disabled:opacity-50"
-            >
-              {submitting ? "Saving…" : "Save"}
-            </button>
-          </div>
+            Cancel
+          </button>
+          <button
+            onClick={() => handleSubmit()}
+            disabled={submitting}
+            className="inline-flex h-8 items-center rounded-md bg-accent px-4 text-xs text-accent-foreground font-medium transition-colors hover:opacity-90 disabled:opacity-50"
+          >
+            {submitting ? "Saving…" : "Save"}
+          </button>
         </div>
       </div>
     </div>
