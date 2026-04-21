@@ -2173,7 +2173,7 @@ function SettingsPanel({
 /* ── Info Tooltip ── */
 
 function SolvedDonut({ breakdown, totalSolved, totalTarget }: { breakdown: DifficultyBreakdown[]; totalSolved: number; totalTarget: number }) {
-  const r = 28;
+  const r = 34;
   const C = 2 * Math.PI * r;
   const TOTAL_PROBLEMS = 150;
   const easy = breakdown.find(d => d.difficulty === "Easy");
@@ -2192,19 +2192,19 @@ function SolvedDonut({ breakdown, totalSolved, totalTarget }: { breakdown: Diffi
   ].filter(s => s.len > 0);
   return (
     <div className="flex items-center gap-2.5 shrink-0">
-      <svg width="72" height="72" viewBox="0 0 72 72">
-        <circle cx={36} cy={36} r={r} fill="none" strokeWidth={6} stroke="#374151" />
+      <svg width="84" height="84" viewBox="0 0 84 84">
+        <circle cx={42} cy={42} r={r} fill="none" strokeWidth={7} stroke="#374151" />
         {segs.map(({ color, len, start }) => (
           <circle
-            key={color} cx={36} cy={36} r={r} fill="none"
-            stroke={color} strokeWidth={6}
+            key={color} cx={42} cy={42} r={r} fill="none"
+            stroke={color} strokeWidth={7}
             strokeDasharray={`${len} ${C - len}`}
             strokeDashoffset={0}
-            transform={`rotate(${-90 + (start / C) * 360} 36 36)`}
+            transform={`rotate(${-90 + (start / C) * 360} 42 42)`}
           />
         ))}
-        <text x={36} y={36} textAnchor="middle" dominantBaseline="central" fill="#f9fafb" fontSize="18" fontWeight="700">{totalSolved}</text>
-        <text x={36} y={51} textAnchor="middle" dominantBaseline="central" fill="#9ca3af" fontSize="9">/{totalTarget}</text>
+        <text x={42} y={42} textAnchor="middle" dominantBaseline="central" fill="#f9fafb" fontSize="20" fontWeight="700">{totalSolved}</text>
+        <text x={42} y={58} textAnchor="middle" dominantBaseline="central" fill="#9ca3af" fontSize="10">/{totalTarget}</text>
       </svg>
       <div className="flex flex-col gap-1.5 text-xs">
         <div className="flex items-center gap-1">
@@ -2250,10 +2250,13 @@ function InfoTooltip({ content }: { content: React.ReactNode }) {
       onMouseLeave={() => setOpen(false)}
     >
       <span
-        className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full border border-muted-foreground/40 text-[10px] text-muted-foreground hover:text-foreground hover:border-foreground/50 transition-colors cursor-help"
+        className="inline-flex text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-help"
         aria-label="More info"
       >
-        i
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 16v-4M12 8h.01"/>
+        </svg>
       </span>
       {open && pos && createPortal(
         <div

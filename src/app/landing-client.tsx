@@ -261,7 +261,7 @@ function FeatureCard({ icon, title, desc }: { icon: string; title: string; desc:
         <span className="text-xs">{icon}</span>
         <p className="text-xs font-semibold text-foreground">{title}</p>
       </div>
-      <p className="text-[11px] text-muted-foreground leading-snug">{desc}</p>
+      <p className="text-xs text-muted-foreground leading-snug">{desc}</p>
     </div>
   );
 }
@@ -304,7 +304,7 @@ export function LandingPage({ totalProblems, categories, isAuthenticated, authCo
         <div className="mx-auto w-full max-w-6xl px-6 sm:px-8 flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-12">
           {/* Hero */}
           <div className="w-full max-w-lg shrink-0 space-y-2 sm:space-y-3">
-            <p className="text-[10px] sm:text-xs font-medium uppercase tracking-widest text-accent">Spaced repetition for LeetCode</p>
+            <p className="text-xs sm:text-sm font-medium uppercase tracking-widest text-accent">Spaced repetition for LeetCode</p>
 
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight leading-tight min-h-[4rem] sm:min-h-[4.5rem] text-white" style={{ textShadow: "0 2px 24px rgba(0,0,0,0.9), 0 0 60px rgba(0,0,0,0.6)" }}>
               <span
@@ -356,24 +356,24 @@ export function LandingPage({ totalProblems, categories, isAuthenticated, authCo
             <div className="flex items-center justify-between gap-2">
               <div className="text-center flex-1">
                 <p className="text-base font-bold text-foreground">{totalProblems}</p>
-                <p className="text-[11px] text-muted-foreground">problems</p>
+                <p className="text-xs text-muted-foreground">problems</p>
               </div>
               <div className="h-5 w-px bg-border/50" />
               <div className="text-center flex-1">
                 <p className="text-base font-bold text-foreground">{categories.length}</p>
-                <p className="text-[11px] text-muted-foreground">categories</p>
+                <p className="text-xs text-muted-foreground">categories</p>
               </div>
               <div className="h-5 w-px bg-border/50" />
               <div className="text-center relative group focus-within:*:last-child:opacity-100 focus-within:*:last-child:pointer-events-auto flex-1">
                 <div className="flex items-center gap-1 justify-center">
                   <p className="text-base font-bold text-foreground">FSRS</p>
-                  <button type="button" className="text-muted-foreground/60 text-[10px] cursor-help" aria-label="What is FSRS?">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <button type="button" className="text-muted-foreground/70 cursor-help" aria-label="What is FSRS?">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                     </svg>
                   </button>
                 </div>
-                <p className="text-[11px] text-muted-foreground">algorithm</p>
+                <p className="text-xs text-muted-foreground">algorithm</p>
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-60 rounded-lg border border-border/60 bg-muted/95 p-3 text-left text-xs text-foreground shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-150 z-50">
                   <p className="font-semibold mb-1">Free Spaced Repetition Scheduler</p>
                   <p className="text-muted-foreground leading-relaxed">An open-source algorithm that schedules reviews at growing intervals based on how well you retain each problem. Aurora adapts it using solve outcome, confidence, and solve speed.</p>
