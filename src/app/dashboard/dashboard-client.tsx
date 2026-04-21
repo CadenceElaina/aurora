@@ -1299,26 +1299,27 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
             </div>
           </div>
 
-          {/* Days left */}
-          <div className="flex items-baseline gap-2 mb-1">
-            <span className="text-3xl font-bold tabular-nums leading-none">{countdown.daysLeft}</span>
-            <span className="text-sm text-muted-foreground">days left</span>
-          </div>
-          <div className="flex items-center gap-2 mb-2">
-            <p className="text-xs text-muted-foreground">
-              {targetCount} problems by {new Date(targetDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            </p>
-            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${countdown.onTrack ? "bg-green-500/15 text-green-500" : "bg-orange-500/15 text-orange-500"}`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${countdown.onTrack ? "bg-green-500" : "bg-orange-500"}`} />
-              {countdown.onTrack ? "On track" : `Need ${countdown.neededPerDay.toFixed(1)}/day`}
-            </span>
-          </div>
-
-          {/* Donut progress */}
-          <SolvedDonut breakdown={data.difficultyBreakdown} totalSolved={data.attemptedCount} />
-          <div className="flex justify-between mt-1">
-            <span className="text-xs text-muted-foreground tabular-nums">{data.attemptedCount} solved · {countdown.remaining} to go</span>
-            <span className="text-xs text-muted-foreground tabular-nums">Projected <span className="font-medium text-foreground">{countdown.projectedRaw}/{targetCount}</span></span>
+          {/* Main body: left info + right donut */}
+          <div className="flex items-start gap-3 mt-1">
+            {/* Left: days + date + badge + projected */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-bold tabular-nums leading-none">{countdown.daysLeft}</span>
+                <span className="text-sm text-muted-foreground">days left</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {targetCount} problems by {new Date(targetDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              </p>
+              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold mt-1.5 ${countdown.onTrack ? "bg-green-500/15 text-green-500" : "bg-orange-500/15 text-orange-500"}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${countdown.onTrack ? "bg-green-500" : "bg-orange-500"}`} />
+                {countdown.onTrack ? "On track" : `Need ${countdown.neededPerDay.toFixed(1)}/day`}
+              </span>
+              <p className="text-xs text-muted-foreground mt-2">
+                Projected <span className="font-medium text-foreground">{countdown.projectedRaw}/{targetCount}</span>
+              </p>
+            </div>
+            {/* Right: donut */}
+            <SolvedDonut breakdown={data.difficultyBreakdown} totalSolved={data.attemptedCount} totalTarget={targetCount} />
           </div>
 
           {/* Settings */}
@@ -2081,8 +2082,8 @@ function SettingsPanel({
 
 /* ── Info Tooltip ── */
 
-function SolvedDonut({ breakdown, totalSolved }: { breakdown: DifficultyBreakdown[]; totalSolved: number }) {
-  const r = 18;
+function SolvedDonut({ breakdown, totalSolved, totalTarget }: { breakdown: DifficultyBreakdown[]; totalSolved: number; totalTarget: number }) {
+  const r = 28;
   const C = 2 * Math.PI * r;
   const TOTAL_PROBLEMS = 150;
   const easy = breakdown.find(d => d.difficulty === "Easy");
@@ -2097,26 +2098,25 @@ function SolvedDonut({ breakdown, totalSolved }: { breakdown: DifficultyBreakdow
     { color: "#ef4444", len: (hA / TOTAL_PROBLEMS) * C, start: ((eA + mA) / TOTAL_PROBLEMS) * C },
   ].filter(s => s.len > 0);
   return (
-    <div className="flex items-center gap-3 mt-2">
-      <svg width="48" height="48" viewBox="0 0 48 48" className="shrink-0">
-        <circle cx={24} cy={24} r={r} fill="none" strokeWidth={4} stroke="hsl(var(--background))" />
+    <div className="flex flex-col items-center gap-1.5 shrink-0">
+      <svg width="72" height="72" viewBox="0 0 72 72">
+        <circle cx={36} cy={36} r={r} fill="none" strokeWidth={6} stroke="hsl(var(--background))" />
         {segs.map(({ color, len, start }) => (
           <circle
-            key={color} cx={24} cy={24} r={r} fill="none"
-            stroke={color} strokeWidth={4}
+            key={color} cx={36} cy={36} r={r} fill="none"
+            stroke={color} strokeWidth={6}
             strokeDasharray={`${len} ${C - len}`}
             strokeDashoffset={0}
-            transform={`rotate(${-90 + (start / C) * 360} 24 24)`}
+            transform={`rotate(${-90 + (start / C) * 360} 36 36)`}
           />
         ))}
-        <text x={24} y={25} textAnchor="middle" dominantBaseline="central" fill="currentColor" fontSize="9" fontWeight="700">{totalSolved}</text>
+        <text x={36} y={33} textAnchor="middle" dominantBaseline="central" fill="currentColor" fontSize="13" fontWeight="700">{totalSolved}</text>
+        <text x={36} y={46} textAnchor="middle" dominantBaseline="central" fill="hsl(var(--muted-foreground))" fontSize="8">/{totalTarget}</text>
       </svg>
-      <div className="flex-1 space-y-1.5">
-        <div className="flex gap-2.5">
-          <span className="text-[11px] text-green-500 tabular-nums">E {eA}<span className="text-muted-foreground">/{easy?.count ?? 0}</span></span>
-          <span className="text-[11px] text-amber-500 tabular-nums">M {mA}<span className="text-muted-foreground">/{medium?.count ?? 0}</span></span>
-          <span className="text-[11px] text-red-500 tabular-nums">H {hA}<span className="text-muted-foreground">/{hard?.count ?? 0}</span></span>
-        </div>
+      <div className="flex gap-2 text-[10px] tabular-nums">
+        <span className="text-green-500">{eA}<span className="text-muted-foreground">E</span></span>
+        <span className="text-amber-500">{mA}<span className="text-muted-foreground">M</span></span>
+        <span className="text-red-500">{hA}<span className="text-muted-foreground">H</span></span>
       </div>
     </div>
   );
