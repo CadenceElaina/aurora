@@ -533,11 +533,12 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
 
   const queueProjectionGoals = useMemo(() => {
     const queue = reviewItems.map((r) => ({ stability: r.stability, daysOverdue: r.daysOverdue }));
-    if (queue.length === 0) return null;
+    if (queue.length === 0 && forecastNewPerDay === 0) return null;
 
     const reviewsPerDay = Math.max(0.1, forecastReviewPerDay);
     const newPerDay = forecastNewPerDay;
     const AVG_MULTIPLIER = 2.0;
+    const INITIAL_STABILITY = 2; // days before first review of a new problem
 
     type QueueItem = { stability: number; dueInDays: number };
     const items: QueueItem[] = queue.map((q) => ({ stability: q.stability, dueInDays: 0 }));
@@ -545,8 +546,17 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
     const dailyQueueSize: number[] = [];
     const MAX_DAYS = 30;
     let reviewBudget = 0;
+    let newBudget = 0;
 
     for (let day = 0; day < MAX_DAYS; day++) {
+      // Inject new problems into the simulation so New/d actually affects the chart
+      newBudget += newPerDay;
+      const toAdd = Math.floor(newBudget);
+      newBudget -= toAdd;
+      for (let n = 0; n < toAdd; n++) {
+        items.push({ stability: INITIAL_STABILITY, dueInDays: day + INITIAL_STABILITY });
+      }
+
       const due = items.filter((it) => it.dueInDays <= day);
       dailyQueueSize.push(due.length);
 
