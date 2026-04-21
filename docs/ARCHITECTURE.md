@@ -355,3 +355,59 @@ Entry point is the `DeleteAccountButton` in the nav. Button opens a modal ([`src
 ## Design System
 
 The previous design system document ([archived](archived/DESIGN_SYSTEM.md)) described a shadcn-style neutral palette that predates the current Aurora "Lavender Nebula" rebrand and is no longer accurate. Colors and component styles are currently defined directly in [`src/app/globals.css`](../src/app/globals.css). A replacement doc will be written once the visual system stabilizes.
+
+---
+
+## Dashboard Layout System
+
+The dashboard uses a **bounded-height flex chain** to keep both columns within the viewport without page scroll. Understanding this chain is critical before touching any layout-related code on the dashboard.
+
+### Height Chain
+
+```
+<body>  (min-h-screen)
+  <main class="py-8">              ← 2rem top + 2rem bottom padding
+    <DashboardClient>
+      <div class="lg:h-[calc(100dvh-7.5rem)]">   ← NAV (3.5rem) + py-8 (4rem) = 7.5rem
+        <div class="flex flex-col h-full lg:min-h-0">
+          <div class="grid lg:grid-cols-12 lg:grid-rows-1 lg:flex-1 lg:min-h-0">
+            <div class="lg:col-span-6 lg:h-full lg:min-h-0">  ← LEFT COLUMN
+              <section class="flex flex-col lg:flex-1 lg:min-h-0">
+                <div class="overflow-y-auto flex-1 min-h-0">  ← scrollable list
+                  {items}
+                </div>
+                <div class="shrink-0">  ← Deferred section, always visible
+              </section>
+            </div>
+            <div class="lg:col-span-6 lg:h-full lg:min-h-0">  ← RIGHT COLUMN
+              <div class="flex flex-col gap-3 overflow-y-auto flex-1 min-h-0">
+                {widgets}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </DashboardClient>
+  </main>
+```
+
+### Rules
+
+1. **The outer height must account for ALL vertical space consumed above it.** Currently: nav (3.5rem) + `main` `py-8` (2rem top + 2rem bottom = 4rem) = **7.5rem total**. If you change `main`'s padding in `layout.tsx`, update `calc(100dvh-7.5rem)` accordingly.
+
+2. **Grid children need `lg:h-full` to establish a definite height.** CSS Grid tracks give children a stretched height, but that height is not "definite" for descendant flex resolution without an explicit `height`. Without `lg:h-full` on the column divs, inner `flex-1` children can't properly bound themselves and will overflow.
+
+3. **Every flex container in the chain needs `min-h-0`.** Flex items have `min-height: auto` by default, which prevents shrinking below content size. `min-h-0` overrides this and allows the flex item to shrink so `overflow-y-auto` can activate.
+
+4. **Scrollable lists use `flex-1 min-h-0 overflow-y-auto`.** The `flex-1` fills available space; `min-h-0` allows it to shrink; `overflow-y-auto` scrolls. Do not add `max-h` constraints to these lists — they should grow/shrink relative to the bounded parent.
+
+5. **`shrink-0` elements (Deferred section, headers) are always visible** because they don't participate in flex shrinking. As long as the list above them uses `flex-1 min-h-0`, the `shrink-0` elements will always get their natural height.
+
+### Common Pitfalls
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Page scrolls vertically | Outer height formula wrong | Recalculate `calc(100dvh - Xrem)`: sum nav height + `main` padding |
+| Deferred pushed off screen | `flex-1` list not bounded | Ensure column div has `lg:h-full`; all ancestors have `min-h-0` |
+| Right-column content extends past viewport | Grid child missing `lg:h-full` | Add `lg:h-full` to the column div |
+| Setup Guide pre-blocks overflow panel | Flex content wrapper missing `min-w-0` | Add `min-w-0` to any `flex-1` wrapper containing `overflow-x-auto` children |

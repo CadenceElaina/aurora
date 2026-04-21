@@ -1672,8 +1672,17 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
         {/* Queue Forecast */}
         <section className="rounded-lg border border-border bg-muted p-3 shrink-0">
           <div className="flex items-center justify-between w-full">
-            <p className="text-sm font-semibold text-foreground">Queue Forecast</p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <p className="text-sm font-semibold text-foreground shrink-0">Queue Forecast</p>
+              {(() => {
+                const hProj = forecastMode === "actual" ? queueProjection : queueProjectionGoals;
+                if (!hProj) return null;
+                return hProj.clearDay !== null
+                  ? <span className="text-[11px] font-medium text-green-500 truncate">Clears in ~{hProj.clearDay}d</span>
+                  : <span className="text-[11px] font-medium text-amber-500 truncate">Won&apos;t clear in 30d</span>;
+              })()}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
               <div className="flex rounded-md border border-border p-0.5 gap-0.5">
                 {(["actual", "goals"] as const).map((m) => (
                   <button
@@ -1733,11 +1742,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                   )}
                   <span>{proj.reviewsPerDay} rev/d · {proj.newPerDay} new/d · <span className="text-muted-foreground/60">+30d</span></span>
                 </div>
-                {proj.clearDay !== null ? (
-                  <p className="text-xs font-semibold text-green-500 text-center">Clears in ~{proj.clearDay} day{proj.clearDay !== 1 ? "s" : ""}</p>
-                ) : (
-                  <p className="text-xs font-semibold text-amber-500 text-center">Won&apos;t fully clear in 30d — lowest: {proj.minSize} items (day {proj.minDay})</p>
-                )}
+
               </div>
             );
           })()}
