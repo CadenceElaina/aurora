@@ -19,29 +19,22 @@ export default function InfoClient() {
   const [activeSection, setActiveSection] = useState("core-idea");
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        // Pick the topmost intersecting section (smallest offsetTop wins)
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort(
-            (a, b) =>
-              (a.target as HTMLElement).offsetTop -
-              (b.target as HTMLElement).offsetTop,
-          );
-        if (visible.length > 0) {
-          setActiveSection(visible[0].target.id);
-        }
-      },
-      { rootMargin: "0px 0px -75% 0px", threshold: 0 },
-    );
+    function onScroll() {
+      // Find the section whose heading is closest to (but still above) 1/4 down the viewport
+      const threshold = window.innerHeight * 0.25;
+      let best = SECTIONS[0].id;
+      for (const { id } of SECTIONS) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        const top = el.getBoundingClientRect().top;
+        if (top <= threshold) best = id;
+      }
+      setActiveSection(best);
+    }
 
-    SECTIONS.forEach(({ id }) => {
-      const el = document.getElementById(id);
-      if (el) observer.observe(el);
-    });
-
-    return () => observer.disconnect();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll(); // run once on mount
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   return (
