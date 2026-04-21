@@ -1317,20 +1317,20 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
             </div>
           </div>
 
-          {/* Days left + status chip */}
-          <div className="flex items-end justify-between gap-3 mb-1">
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold tabular-nums leading-none">{countdown.daysLeft}</span>
-              <span className="text-sm text-muted-foreground">days left</span>
-            </div>
+          {/* Days left */}
+          <div className="flex items-baseline gap-2 mb-1">
+            <span className="text-3xl font-bold tabular-nums leading-none">{countdown.daysLeft}</span>
+            <span className="text-sm text-muted-foreground">days left</span>
+          </div>
+          <div className="flex items-center gap-2 mb-2">
+            <p className="text-xs text-muted-foreground">
+              {targetCount} problems by {new Date(targetDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            </p>
             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${countdown.onTrack ? "bg-green-500/15 text-green-500" : "bg-orange-500/15 text-orange-500"}`}>
               <span className={`h-1.5 w-1.5 rounded-full ${countdown.onTrack ? "bg-green-500" : "bg-orange-500"}`} />
               {countdown.onTrack ? "On track" : `Need ${countdown.neededPerDay.toFixed(1)}/day`}
             </span>
           </div>
-          <p className="text-xs text-muted-foreground mb-2">
-            {targetCount} problems by {new Date(targetDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-          </p>
 
           {/* Progress bar */}
           <div className="h-2 overflow-hidden rounded-full bg-background">
