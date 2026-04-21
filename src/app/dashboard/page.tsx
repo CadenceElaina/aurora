@@ -388,7 +388,7 @@ export default async function DashboardPage() {
   }));
 
   // Mastery: problems with stability >= 30 days
-  const MASTERY_THRESHOLD = 30;
+  const MASTERY_THRESHOLD = 45;
   const masteryData = userStates
     .map((s) => {
       const p = allProblems.find((prob) => prob.id === s.problemId);

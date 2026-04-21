@@ -96,7 +96,7 @@ The dashboard projects how many unique problems you'll cover by your target date
 3. **Available for new** = `capacity − review_load` (floored at 0)
 4. Each simulated day: new problems enter the learning pool, increasing future review load
 5. Stability grows over time as reviews strengthen retention, gradually reducing review frequency
-6. Problems "graduate" to mastered (stability ≥ 30d), freeing capacity
+6. Problems "graduate" to mastered (stability ≥ 45d), freeing capacity
 
 This captures the key dynamic: as you learn more problems, reviews consume more of your daily budget, naturally slowing the rate of new problem acquisition — then mastery gradually frees capacity back up.
 

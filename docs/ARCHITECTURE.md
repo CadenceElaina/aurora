@@ -208,7 +208,7 @@ Day-by-day forward simulation accounting for review load growth:
 3. **Available for new** = `capacity − review_load` (floored at 0)
 4. Each day: new problems enter the learning pool, increasing future review load
 5. Stability grows as reviews strengthen retention, reducing review frequency
-6. Problems graduate to mastered (stability ≥ 30d), freeing capacity
+6. Problems graduate to mastered (stability ≥ 45d), freeing capacity
 
 This captures the key dynamic: more learning → more reviews → less capacity for new → plateau → mastery frees capacity → growth resumes.
 

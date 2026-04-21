@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const MASTERY_THRESHOLD = 30;
+  const MASTERY_THRESHOLD = 45;
   return NextResponse.json({
     id: attempt.id,
     srs: {

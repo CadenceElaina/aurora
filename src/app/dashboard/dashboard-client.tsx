@@ -424,7 +424,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
     // Each day, review load from learning problems eats into daily capacity.
     // Remaining capacity goes to new problems. New problems enter learning pool.
     const dailyCapacity = data.avgPerDay;
-    const MASTERY_THRESHOLD = 30;
+    const MASTERY_THRESHOLD = 45;
 
     // Compute average stability of learning problems (used for review frequency estimate)
     const avgLearningStability = data.learningList.length > 0
@@ -442,7 +442,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
 
     for (let day = 0; day < daysLeft; day++) {
       // Daily reviews needed: each learning problem needs a review every ~stability days
-      // Mastered problems rarely need review (every 30+ days)
+      // Mastered problems rarely need review (every 45+ days)
       const dailyReviews = (learning > 0 ? learning / Math.max(1, currentAvgStability) : 0)
         + (mastered > 0 ? mastered / MASTERY_THRESHOLD : 0);
       const availableForNew = Math.max(0, dailyCapacity - dailyReviews);
@@ -1291,8 +1291,8 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
       </div>
 
       {/* ── Right Column ── */}
-      <div className="flex flex-col lg:col-span-6 lg:min-h-0 lg:h-full overflow-x-hidden" data-onboarding="stats">
-        <div className="flex flex-col gap-3 overflow-y-auto overflow-x-hidden flex-1 min-h-0">
+      <div className="flex flex-col lg:col-span-6 lg:min-h-0 lg:h-full overflow-hidden" data-onboarding="stats">
+        <div className="flex flex-col gap-3 overflow-y-auto flex-1 min-h-0">
         {!showStatsDetail && (<>
         {/* Countdown */}
         <section className="rounded-lg border border-border bg-muted p-3">
@@ -1487,7 +1487,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
           </div>
           )}
         </section>        {/* Mastery Progress */}
-        <section className="rounded-lg border border-border bg-muted p-3 lg:flex-1 lg:min-h-0 lg:flex lg:flex-col">
+        <section className="rounded-lg border border-border bg-muted p-3">
           <button
             onClick={() => toggleWidget("mastery")}
             className="flex items-center justify-between w-full"
@@ -1500,7 +1500,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                 content={
                   <div className="space-y-1.5">
                     <p className="font-medium">Problem Mastery</p>
-                    <p>A problem is <span className="text-green-400 font-medium">mastered</span> when its stability reaches 30+ days — meaning the SRS won&apos;t schedule it again for at least a month.</p>
+                    <p>A problem is <span className="text-green-400 font-medium">mastered</span> when its stability reaches 45+ days — meaning the SRS won&apos;t schedule it again for at least six weeks. This typically requires 4+ successful independent solves.</p>
                     <p><span className="text-accent font-medium">Learning</span> problems have been attempted but haven&apos;t reached that threshold yet.</p>
                     <p className="text-[11px] text-muted-foreground pt-1">Mastered problems only need occasional confirmation to verify retention, especially before interviews.</p>
                   </div>
@@ -2145,7 +2145,7 @@ function InfoTooltip({ content }: { content: React.ReactNode }) {
 
 /* ── Mastery Progress ── */
 
-const MASTERY_THRESHOLD = 30; // stability in days
+const MASTERY_THRESHOLD = 45; // stability in days
 
 function MasteryProgress({
   mastered,
