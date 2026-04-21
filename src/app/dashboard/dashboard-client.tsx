@@ -287,7 +287,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
   const [pendingItems, setPendingItems] = useState<PendingItem[]>(data.pendingSubmissions);
   const [logModalProblem, setLogModalProblem] = useState<LogModalProblem | null>(null);
   const [collapsedWidgets, setCollapsedWidgets] = useState<Record<string, boolean>>({});
-  const [activityViewMode, setActivityViewMode] = useState<"14d" | "monthly">("14d");
+  const [activityViewMode, setActivityViewMode] = useState<"14d" | "monthly" | "heatmap">("14d");
   const [activityPage, setActivityPage] = useState(0);
   const [deferredItems, setDeferredItems] = useState(data.deferredProblems);
   const [autoDeferHards, setAutoDeferHards] = useState(data.autoDeferHards);
@@ -1539,9 +1539,9 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
               <p className="text-sm font-semibold text-foreground">Activity</p>
             </button>
             <div className="flex items-center gap-1.5">
-              {/* Mode toggle: 14d / Monthly */}
+              {/* Mode toggle: 14d / Monthly / Heatmap */}
               <div className="flex rounded-md border border-border p-0.5 gap-0.5">
-                {(["14d", "monthly"] as const).map((m) => (
+                {(["14d", "monthly", "heatmap"] as const).map((m) => (
                   <button
                     key={m}
                     onClick={() => { setActivityViewMode(m); setActivityPage(0); }}
@@ -1551,7 +1551,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    {m === "14d" ? "14d" : "Monthly"}
+                    {m === "14d" ? "14d" : m === "monthly" ? "Monthly" : "Heatmap"}
                   </button>
                 ))}
               </div>
@@ -1651,7 +1651,10 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                 </div>
               </div>
 
-              <ActivityChart history={activityData} mode={activityViewMode === "monthly" ? "monthly" : "auto"} />
+              {activityViewMode === "heatmap"
+                ? <ActivityHeatmap history={data.fullAttemptHistory} />
+                : <ActivityChart history={activityData} mode={activityViewMode === "monthly" ? "monthly" : "auto"} />
+              }
 
             </div>
           )}
@@ -1744,6 +1747,123 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
     </div>
     </div>
     </>
+  );
+}
+
+/* ── Activity Heatmap ── */
+
+function ActivityHeatmap({ history }: { history: AttemptDay[] }) {
+  // Build a map of date → day data
+  const dayMap = useMemo(() => {
+    const m = new Map<string, AttemptDay>();
+    for (const d of history) m.set(d.date, d);
+    return m;
+  }, [history]);
+
+  // Generate last 91 days (13 weeks), Sunday-aligned grid
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  // Walk back to the most recent Sunday
+  const gridEnd = new Date(today);
+  gridEnd.setDate(gridEnd.getDate() + (6 - gridEnd.getDay())); // end on next Saturday
+  const gridStart = new Date(gridEnd);
+  gridStart.setDate(gridStart.getDate() - 90);
+
+  const weeks: { date: string; count: number; newCount: number; reviewCount: number }[][] = [];
+  let week: { date: string; count: number; newCount: number; reviewCount: number }[] = [];
+  const cursor = new Date(gridStart);
+  while (cursor <= gridEnd) {
+    const dateStr = cursor.toISOString().slice(0, 10);
+    const d = dayMap.get(dateStr);
+    week.push({ date: dateStr, count: d?.count ?? 0, newCount: d?.newCount ?? 0, reviewCount: d?.reviewCount ?? 0 });
+    if (cursor.getDay() === 6) { // Saturday = end of week
+      weeks.push(week);
+      week = [];
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  if (week.length > 0) weeks.push(week);
+
+  const maxCount = Math.max(...history.map(d => d.count), 1);
+
+  function cellColor(count: number, newCount: number) {
+    if (count === 0) return "#1f2937"; // empty
+    const intensity = Math.min(count / Math.max(maxCount * 0.6, 3), 1);
+    const reviewRatio = count > 0 ? newCount / count : 0;
+    // Blend green (new) and purple (review) based on mix, with intensity
+    if (reviewRatio >= 0.7) {
+      // Mostly new — green
+      const g = Math.round(100 + intensity * 105);
+      return `rgb(${Math.round(20 + intensity * 14)},${g},${Math.round(30 + intensity * 46)})`;
+    } else if (reviewRatio <= 0.3) {
+      // Mostly review — purple/accent
+      const v = Math.round(80 + intensity * 110);
+      return `rgb(${Math.round(80 + intensity * 80)},${Math.round(40 + intensity * 30)},${v})`;
+    } else {
+      // Mixed — teal
+      const b = Math.round(100 + intensity * 100);
+      return `rgb(${Math.round(20 + intensity * 20)},${Math.round(100 + intensity * 80)},${b})`;
+    }
+  }
+
+  const monthLabels: { label: string; col: number }[] = [];
+  weeks.forEach((week, wi) => {
+    const firstDay = week.find(d => d.date);
+    if (!firstDay) return;
+    const d = new Date(firstDay.date + "T12:00:00Z");
+    if (d.getUTCDate() <= 7 || wi === 0) {
+      const month = d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+      if (!monthLabels.length || monthLabels[monthLabels.length - 1].label !== month) {
+        monthLabels.push({ label: month, col: wi });
+      }
+    }
+  });
+
+  const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  return (
+    <div className="overflow-x-auto">
+      {/* Month labels */}
+      <div className="flex pl-7 mb-0.5" style={{ gap: "2px" }}>
+        {weeks.map((_, wi) => {
+          const ml = monthLabels.find(m => m.col === wi);
+          return (
+            <div key={wi} className="flex-1 text-[9px] text-muted-foreground leading-none">
+              {ml ? ml.label : ""}
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex" style={{ gap: "2px" }}>
+        {/* Day-of-week labels */}
+        <div className="flex flex-col" style={{ gap: "2px", width: "24px", flexShrink: 0 }}>
+          {DAY_LABELS.map((d, i) => (
+            <div key={d} className="text-[8px] text-muted-foreground leading-none flex items-center" style={{ height: "10px" }}>
+              {i % 2 === 1 ? d.slice(0, 1) : ""}
+            </div>
+          ))}
+        </div>
+        {/* Weeks */}
+        {weeks.map((week, wi) => (
+          <div key={wi} className="flex flex-col flex-1" style={{ gap: "2px" }}>
+            {week.map((day) => (
+              <div
+                key={day.date}
+                title={`${day.date}: ${day.count > 0 ? `${day.newCount} new · ${day.reviewCount} review` : "no activity"}`}
+                style={{ height: "10px", borderRadius: "2px", backgroundColor: cellColor(day.count, day.newCount) }}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-3 mt-1.5 justify-end">
+        <span className="text-[10px] text-muted-foreground">Less</span>
+        {[0, 0.25, 0.5, 0.75, 1].map(v => (
+          <span key={v} className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: v === 0 ? "#1f2937" : `rgb(${Math.round(20+v*14)},${Math.round(100+v*105)},${Math.round(30+v*46)})` }} />
+        ))}
+        <span className="text-[10px] text-muted-foreground">More</span>
+      </div>
+    </div>
   );
 }
 
@@ -2103,7 +2223,7 @@ function SolvedDonut({ breakdown, totalSolved, totalTarget }: { breakdown: Diffi
   return (
     <div className="flex items-center gap-2.5 shrink-0">
       <svg width="72" height="72" viewBox="0 0 72 72">
-        <circle cx={36} cy={36} r={r} fill="none" strokeWidth={6} stroke="hsl(var(--background))" />
+        <circle cx={36} cy={36} r={r} fill="none" strokeWidth={6} stroke="#374151" />
         {segs.map(({ color, len, start }) => (
           <circle
             key={color} cx={36} cy={36} r={r} fill="none"
@@ -2113,8 +2233,8 @@ function SolvedDonut({ breakdown, totalSolved, totalTarget }: { breakdown: Diffi
             transform={`rotate(${-90 + (start / C) * 360} 36 36)`}
           />
         ))}
-        <text x={36} y={36} textAnchor="middle" dominantBaseline="central" fill="currentColor" fontSize="18" fontWeight="700">{totalSolved}</text>
-        <text x={36} y={51} textAnchor="middle" dominantBaseline="central" fill="hsl(var(--muted-foreground))" fontSize="9">/{totalTarget}</text>
+        <text x={36} y={36} textAnchor="middle" dominantBaseline="central" fill="#f9fafb" fontSize="18" fontWeight="700">{totalSolved}</text>
+        <text x={36} y={51} textAnchor="middle" dominantBaseline="central" fill="#9ca3af" fontSize="9">/{totalTarget}</text>
       </svg>
       <div className="flex flex-col gap-1.5 text-xs">
         <div className="flex items-center gap-1">
