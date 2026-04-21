@@ -30,11 +30,13 @@ function CopyButton({ text }: { text: string }) {
 
 function Block({ children }: { children: string }) {
   return (
-    <div className="relative group my-2 min-w-0">
-      <pre className="rounded-lg border border-border/60 bg-background/60 p-3 pr-14 font-mono text-[12px] text-foreground/90 overflow-x-auto whitespace-pre leading-[1.7]">
+    <div className="my-2 rounded-lg border border-border/60 overflow-hidden">
+      <div className="flex items-center justify-end px-2 py-1 bg-background/80 border-b border-border/40">
+        <CopyButton text={children} />
+      </div>
+      <pre className="bg-background/60 px-3 py-2.5 font-mono text-[12px] text-foreground/90 overflow-x-auto whitespace-pre leading-[1.7]">
         {children}
       </pre>
-      <CopyButton text={children} />
     </div>
   );
 }

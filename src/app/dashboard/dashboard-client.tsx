@@ -404,6 +404,16 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
     return () => clearTimeout(timer);
   }, [srsBanner]);
 
+  // ESC to close demo sign-in overlay
+  useEffect(() => {
+    if (!showDemoSignIn) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setShowDemoSignIn(false);
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [showDemoSignIn]);
+
   function saveSettings(date: string, count: number, title: string) {
     setTargetDate(date);
     setTargetCount(count);

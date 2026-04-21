@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { signOut } from "next-auth/react";
 
@@ -9,18 +9,21 @@ export function DeleteAccountModal({ open, onClose }: { open: boolean; onClose: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const matches = confirmation.trim().toLowerCase() === "delete my account";
-
-  function reset() {
+  const matches = confirmation.trim().toLowerCase() === "delete my account";\n\n  const handleClose = useCallback(() => {
+    if (loading) return;
     setConfirmation("");
     setError(null);
-  }
-
-  function handleClose() {
-    if (loading) return;
-    reset();
     onClose();
-  }
+  }, [loading, onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") handleClose();
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [open, handleClose]);
 
   async function handleDelete() {
     if (!matches || loading) return;
