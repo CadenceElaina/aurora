@@ -7,7 +7,7 @@ export default function SignInPage() {
     <div className="flex flex-col items-center justify-center py-24">
       <div className="w-full max-w-sm space-y-6 text-center">
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold text-foreground">Welcome to Aurora</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Welcome to Aurora</h1>
           <p className="text-sm text-muted-foreground">
             Sign in to track your progress and schedule reviews.
           </p>

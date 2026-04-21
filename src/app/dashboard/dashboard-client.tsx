@@ -1563,27 +1563,16 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
           </div>
           {!collapsedWidgets.activity && (
             <div className="mt-2 space-y-2">
-              {/* Pace — compact inline rows */}
+              {/* Pace — compact single-row (edit inline, no height change) */}
               {editingPace ? (
-                <div className="flex flex-col gap-1.5 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="text-green-500 font-medium w-12">New</span>
-                    <span className="text-muted-foreground text-[11px]">goal</span>
-                    <input type="number" min="0" step="0.5" value={plannedNewPerDay} onChange={(e) => setPlannedNewPerDay(parseFloat(e.target.value) || 0)} className="rounded border border-border bg-background px-1.5 py-0.5 text-right text-[11px] tabular-nums focus:outline-none focus:ring-1 focus:ring-accent w-16" />
-                    <span className="text-muted-foreground text-[11px]">actual</span>
-                    <span className={`font-medium tabular-nums ${data.avgNewPerDay >= plannedNewPerDay ? "text-green-500" : "text-orange-500"}`}>{data.avgNewPerDay.toFixed(1)}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-accent font-medium w-12">Review</span>
-                    <span className="text-muted-foreground text-[11px]">goal</span>
-                    <input type="number" min="0" step="0.5" value={plannedReviewPerDay} onChange={(e) => setPlannedReviewPerDay(parseFloat(e.target.value) || 0)} className="rounded border border-border bg-background px-1.5 py-0.5 text-right text-[11px] tabular-nums focus:outline-none focus:ring-1 focus:ring-accent w-16" />
-                    <span className="text-muted-foreground text-[11px]">actual</span>
-                    <span className={`font-medium tabular-nums ${data.avgReviewPerDay >= plannedReviewPerDay ? "text-green-500" : "text-orange-500"}`}>{data.avgReviewPerDay.toFixed(1)}</span>
-                  </div>
-                  <div className="flex gap-1.5 mt-0.5">
-                    <button onClick={() => setEditingPace(false)} className="inline-flex h-6 items-center rounded border border-border px-2 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground">Cancel</button>
-                    <button onClick={() => { localStorage.setItem("aurora_planned_new_per_day", String(plannedNewPerDay)); localStorage.setItem("aurora_planned_review_per_day", String(plannedReviewPerDay)); setEditingPace(false); }} className="inline-flex h-6 items-center rounded bg-accent px-2 text-[10px] text-accent-foreground hover:opacity-90">Save</button>
-                  </div>
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="text-green-500 font-medium">New</span>
+                  <input type="number" min="0" step="0.5" value={plannedNewPerDay} onChange={(e) => setPlannedNewPerDay(parseFloat(e.target.value) || 0)} className="rounded border border-border bg-background px-1.5 py-0.5 text-[11px] tabular-nums focus:outline-none focus:ring-1 focus:ring-accent w-12 text-center" />
+                  <span className="text-border">·</span>
+                  <span className="text-accent font-medium">Review</span>
+                  <input type="number" min="0" step="0.5" value={plannedReviewPerDay} onChange={(e) => setPlannedReviewPerDay(parseFloat(e.target.value) || 0)} className="rounded border border-border bg-background px-1.5 py-0.5 text-[11px] tabular-nums focus:outline-none focus:ring-1 focus:ring-accent w-12 text-center" />
+                  <button onClick={() => { localStorage.setItem("aurora_planned_new_per_day", String(plannedNewPerDay)); localStorage.setItem("aurora_planned_review_per_day", String(plannedReviewPerDay)); setEditingPace(false); }} className="ml-1 inline-flex h-5 items-center rounded bg-accent px-2 text-[10px] text-accent-foreground hover:opacity-90">Save</button>
+                  <button onClick={() => setEditingPace(false)} className="inline-flex h-5 items-center rounded border border-border px-2 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground">✕</button>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 text-xs">
@@ -1794,16 +1783,17 @@ function ActivityHeatmap({ history }: { history: AttemptDay[] }) {
                 ? `${new Date(day.date + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })} — ${day.newCount > 0 ? `${day.newCount} new` : ""}${day.newCount > 0 && day.reviewCount > 0 ? " · " : ""}${day.reviewCount > 0 ? `${day.reviewCount} review` : ""}`
                 : new Date(day.date + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
               return (
-                <div
+                <Link
                   key={day.date}
-                  className="relative group/cell"
+                  href={`/activity?date=${day.date}`}
+                  className="relative group/cell block"
                   style={{ height: "10px" }}
                 >
                   <div style={{ height: "10px", borderRadius: "2px", backgroundColor: cellColor(day.count, day.newCount) }} />
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 rounded bg-background border border-border px-2 py-1 text-[10px] whitespace-nowrap opacity-0 pointer-events-none group-hover/cell:opacity-100 transition-opacity z-50 shadow-md">
                     {label}
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>

@@ -32,7 +32,7 @@ function SetupGuide({ error }: { error: string }) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-2xl font-semibold text-foreground">
             {isDbError ? "Database Setup Needed" : "Welcome! Let\u2019s get you set up."}
           </h1>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
