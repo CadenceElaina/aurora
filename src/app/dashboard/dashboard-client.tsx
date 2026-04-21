@@ -786,11 +786,11 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
         ]);
       }
     }} />
-    <div className="relative lg:h-[calc(100dvh-120px)]">
+    <div className="relative lg:h-[calc(100dvh-3.5rem)]">
     {/* Subtle ambient starfield — fixed, full-viewport, behind all content */}
     <SkyCanvas />
     {/* All interactive content above the starfield */}
-    <div className="relative z-[1] flex flex-col lg:h-[calc(100dvh-3.5rem-4rem)] lg:min-h-0">
+    <div className="relative z-[1] flex flex-col h-full lg:min-h-0">
     {/* Demo sign-in prompt */}
     {showDemoSignIn && (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowDemoSignIn(false)}>
@@ -1575,7 +1575,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
           {!collapsedWidgets.activity && (
             <div className="mt-2 space-y-3">
               {/* 2-column stats row: Streak | Pace comparison */}
-              <div className="grid grid-cols-2 gap-3 text-xs border border-border/50 rounded-lg bg-background/40">
+              <div className="grid grid-cols-2 gap-3 text-xs border border-border/50 rounded-lg bg-background">
                 {/* Col 1: Streak */}
                 <div className="flex flex-col gap-2 p-3">
                   <p className="text-xs font-semibold text-foreground mb-1">Streak</p>
