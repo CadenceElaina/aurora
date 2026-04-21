@@ -30,7 +30,7 @@ function CopyButton({ text }: { text: string }) {
 
 function Block({ children }: { children: string }) {
   return (
-    <div className="relative group my-2">
+    <div className="relative group my-2 min-w-0">
       <pre className="rounded-lg border border-border/60 bg-background/60 p-3 pr-14 font-mono text-[12px] text-foreground/90 overflow-x-auto whitespace-pre leading-[1.7]">
         {children}
       </pre>
@@ -367,25 +367,32 @@ function GuideContent({ activeIdx, setActiveIdx }: { activeIdx: number; setActiv
 
   return (
     <>
-      <div ref={contentRef} className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
+      <div ref={contentRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5 py-4">
         {SECTIONS[activeIdx].content()}
       </div>
 
-      <div className="shrink-0 border-t border-border/40 px-5 py-2.5 flex items-center justify-between bg-background/20">
+      <div className="shrink-0 border-t border-border/40 px-4 py-2.5 grid grid-cols-3 items-center gap-2 bg-background/20">
+        {/* Left: prev */}
         <div>
           {activeIdx > 0 && (
-            <button onClick={() => setActiveIdx(activeIdx - 1)} className="text-[11px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-              ← {SECTIONS[activeIdx - 1].label}
+            <button onClick={() => setActiveIdx(activeIdx - 1)} className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 max-w-full">
+              <span className="shrink-0">←</span>
+              <span className="truncate">{SECTIONS[activeIdx - 1].label}</span>
             </button>
           )}
         </div>
-        <div className="flex items-center gap-3">
-          <a href={GITHUB_README} target="_blank" rel="noopener noreferrer" className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors">
+        {/* Center: Full README */}
+        <div className="flex justify-center">
+          <a href={GITHUB_README} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors whitespace-nowrap">
             Full README ↗
           </a>
+        </div>
+        {/* Right: next */}
+        <div className="flex justify-end">
           {activeIdx < SECTIONS.length - 1 && (
-            <button onClick={() => setActiveIdx(activeIdx + 1)} className="text-[11px] text-accent hover:opacity-80 transition-opacity flex items-center gap-1">
-              {SECTIONS[activeIdx + 1].label} →
+            <button onClick={() => setActiveIdx(activeIdx + 1)} className="text-xs text-accent hover:opacity-80 transition-opacity flex items-center gap-1 max-w-full">
+              <span className="truncate">{SECTIONS[activeIdx + 1].label}</span>
+              <span className="shrink-0">→</span>
             </button>
           )}
         </div>
@@ -525,7 +532,17 @@ export function SetupGuide({ trigger }: SetupGuideProps = {}) {
     }
   }, [pos, mode]);
 
-  const open = useCallback(() => { setMode(isDesktop ? "float" : "modal"); }, [isDesktop]);
+  const open = useCallback(() => {
+    if (isDesktop) {
+      try {
+        if (!localStorage.getItem(POS_KEY)) {
+          // Default: top-right, below nav — near where the Setup Guide button lives
+          setPos({ x: Math.max(0, window.innerWidth - FLOAT_W - 16), y: 72 });
+        }
+      } catch { /* ignore */ }
+    }
+    setMode(isDesktop ? "float" : "modal");
+  }, [isDesktop]);
   const close = useCallback(() => setMode("closed"), []);
 
   useEffect(() => {
