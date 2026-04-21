@@ -1301,7 +1301,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
 
           {/* Main body: left info + right donut */}
           <div className="flex items-start gap-3 mt-1">
-            {/* Left: days + date + badge + projected */}
+            {/* Left: days + date + chips + streak */}
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-bold tabular-nums leading-none">{countdown.daysLeft}</span>
@@ -1310,13 +1310,38 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
               <p className="text-xs text-muted-foreground mt-0.5">
                 {targetCount} problems by {new Date(targetDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
               </p>
-              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold mt-1.5 ${countdown.onTrack ? "bg-green-500/15 text-green-500" : "bg-orange-500/15 text-orange-500"}`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${countdown.onTrack ? "bg-green-500" : "bg-orange-500"}`} />
-                {countdown.onTrack ? "On track" : `Need ${countdown.neededPerDay.toFixed(1)}/day`}
-              </span>
-              <p className="text-xs text-muted-foreground mt-2">
-                Projected <span className="font-medium text-foreground">{countdown.projectedRaw}/{targetCount}</span>
-              </p>
+              {/* Chip row: on-track + projected */}
+              <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${countdown.onTrack ? "bg-green-500/15 text-green-500" : "bg-orange-500/15 text-orange-500"}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${countdown.onTrack ? "bg-green-500" : "bg-orange-500"}`} />
+                  {countdown.onTrack ? "On track" : `Need ${countdown.neededPerDay.toFixed(1)}/day`}
+                </span>
+                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${countdown.projectedRaw >= targetCount ? "bg-green-500/15 text-green-500" : "bg-orange-500/15 text-orange-500"}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${countdown.projectedRaw >= targetCount ? "bg-green-500" : "bg-orange-500"}`} />
+                  Proj {countdown.projectedRaw}/{targetCount}
+                </span>
+              </div>
+              {/* Streak + confidence row */}
+              <div className="flex items-center gap-3 mt-2 text-xs">
+                <span className="flex items-center gap-1">
+                  <span className="text-muted-foreground">Streak</span>
+                  <span className="font-semibold tabular-nums">
+                    {data.currentStreak === 0 ? <>{data.currentStreak}<span className="ml-0.5">❄️</span></> : <>{data.currentStreak}<span className="ml-0.5">🔥</span></>}
+                  </span>
+                </span>
+                <span className="text-border">·</span>
+                <span className="flex items-center gap-1">
+                  <span className="text-muted-foreground">Best</span>
+                  <span className="font-semibold tabular-nums">{data.bestStreak}</span>
+                </span>
+                {data.avgConfidence > 0 && (<>
+                  <span className="text-border">·</span>
+                  <span className="flex items-center gap-1">
+                    <span className="text-muted-foreground">Conf</span>
+                    <span className="font-semibold tabular-nums">{data.avgConfidence.toFixed(1)}/5</span>
+                  </span>
+                </>)}
+              </div>
             </div>
             {/* Right: donut */}
             <SolvedDonut breakdown={data.difficultyBreakdown} totalSolved={data.attemptedCount} totalTarget={targetCount} />
@@ -1559,34 +1584,9 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
           </div>
           {!collapsedWidgets.activity && (
             <div className="mt-2 space-y-3">
-              {/* 2-column stats row: Streak | Pace comparison */}
-              <div className="grid grid-cols-2 gap-2 text-xs border border-border/50 rounded-lg bg-background">
-                {/* Col 1: Streak */}
+              {/* Pace — full width now that streak moved to countdown */}
+              <div className="text-xs border border-border/50 rounded-lg bg-background">
                 <div className="flex flex-col gap-1.5 p-2">
-                  <p className="text-xs font-semibold text-foreground">Streak</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Current</span>
-                    <span className="font-semibold text-sm tabular-nums flex items-center gap-0.5">
-                      {data.currentStreak === 0 ? (
-                        <><span>{data.currentStreak}</span><span>❄️</span></>
-                      ) : (
-                        <><span>{data.currentStreak}</span><span>🔥</span></>
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Best</span>
-                    <span className="font-semibold text-sm tabular-nums">{data.bestStreak}</span>
-                  </div>
-                  {data.avgConfidence > 0 && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Confidence</span>
-                      <span className="font-medium text-sm tabular-nums">{data.avgConfidence.toFixed(1)}/5</span>
-                    </div>
-                  )}
-                </div>
-                {/* Col 2: Goal vs Actual comparison table */}
-                <div className="flex flex-col gap-1.5 p-2 border-l border-border/40">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-semibold text-foreground">Pace</p>
                     {!editingPace && (
