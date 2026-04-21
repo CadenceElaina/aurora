@@ -39,8 +39,9 @@ const BASE_MULTIPLIERS: Record<string, number> = {
   "YES:SUBOPTIMAL": 2.0,
   "YES:BRUTE_FORCE": 1.5,
   "YES:NONE": 1.0,
-  // solved=PARTIAL — needed help, quality is irrelevant
+  // solved=PARTIAL — needed help, quality is irrelevant (all map to 1.1)
   "PARTIAL:OPTIMAL": 1.1,
+  "PARTIAL:SUBOPTIMAL": 1.1,
   "PARTIAL:BRUTE_FORCE": 1.1,
   "PARTIAL:NONE": 1.0,
   // solved=NO
