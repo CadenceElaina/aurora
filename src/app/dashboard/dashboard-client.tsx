@@ -1448,7 +1448,7 @@ export function DashboardClient({ data, isDemo = false, userId }: { data: Dashbo
                 <button onClick={() => setCategoryView("all")} className={`text-[10px] px-1.5 py-0.5 rounded ${categoryView === "all" ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"}`}>All</button>
               </div>
             </div>
-            <div className="space-y-1.5 h-[160px] overflow-y-auto pr-2">
+            <div className="space-y-1.5 h-[118px] overflow-y-auto pr-2">
               {displayCategories.map((cat) => (
                 <Link key={cat.category} href={`/problems?category=${encodeURIComponent(cat.category)}`} className="flex items-center gap-2 group/cat cursor-pointer">
                   <span className="text-xs w-24 shrink-0 truncate group-hover/cat:text-foreground transition-colors" title={cat.category}>{cat.category}</span>
