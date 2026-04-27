@@ -39,3 +39,4 @@ drizzle/
 .vercel
 
 src/db/schema.js
+.env*.local
