@@ -170,6 +170,37 @@ type DashboardData = {
   mockCandidates: MockCandidate[];
 };
 
+type QueueProjection = {
+  currentSize: number;
+  dailyQueueSize: number[];
+  clearDay: number | null;
+  reviewsPerDay: number;
+  newPerDay: number;
+};
+
+type QueueStability = {
+  avg14: number;
+  max14: number;
+  end14: number;
+  growth14: number;
+  slope14: number;
+  firstWeekSlope: number;
+  secondWeekSlope: number;
+  acceleration: number;
+  avgLoadDays: number;
+  peakLoadDays: number;
+};
+
+type PracticeRecommendation = {
+  tone: "neutral" | "good" | "watch" | "danger";
+  title: string;
+  body: string;
+  reason: string;
+  actionLabel: string;
+  actionMode: ListMode;
+  metrics?: QueueStability;
+};
+
 const TIER_COLORS: Record<string, string> = {
   S: "bg-violet-500 text-white",
   A: "bg-blue-500 text-white",
@@ -266,6 +297,155 @@ function getDefaultTargetDate(): string {
   return `${year}-09-01`;
 }
 
+function avg(values: number[]): number {
+  if (values.length === 0) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function queueStability(projection: QueueProjection): QueueStability {
+  const days = projection.dailyQueueSize;
+  const first14 = days.slice(0, 14);
+  const firstWeek = days.slice(0, 7);
+  const secondWeek = days.slice(7, 14);
+  const start = days[0] ?? 0;
+  const end14 = first14[first14.length - 1] ?? start;
+  const firstWeekSlope = firstWeek.length > 1 ? (firstWeek[firstWeek.length - 1] - firstWeek[0]) / (firstWeek.length - 1) : 0;
+  const secondWeekSlope = secondWeek.length > 1 ? (secondWeek[secondWeek.length - 1] - secondWeek[0]) / (secondWeek.length - 1) : 0;
+  const slope14 = first14.length > 1 ? (end14 - start) / (first14.length - 1) : 0;
+  const avg14 = avg(first14);
+  const max14 = Math.max(...first14, 0);
+  const reviewsPerDay = Math.max(1, projection.reviewsPerDay);
+
+  return {
+    avg14,
+    max14,
+    end14,
+    growth14: end14 - start,
+    slope14,
+    firstWeekSlope,
+    secondWeekSlope,
+    acceleration: secondWeekSlope - firstWeekSlope,
+    avgLoadDays: avg14 / reviewsPerDay,
+    peakLoadDays: max14 / reviewsPerDay,
+  };
+}
+
+function computePracticeRecommendation({
+  data,
+  countdown,
+  goalType,
+  actualProjection,
+}: {
+  data: DashboardData;
+  countdown: { daysLeft: number; remaining: number; onTrack: boolean; neededPerDay: number };
+  goalType: "blind75" | "neetcode150" | "none";
+  actualProjection: QueueProjection | null;
+}): PracticeRecommendation {
+  const targetLabel = goalType === "blind75" ? "Blind 75" : goalType === "neetcode150" ? "NeetCode 150" : "your log";
+  const requiredNewPerDay = countdown.daysLeft > 0 ? countdown.remaining / countdown.daysLeft : countdown.remaining;
+  const behindCoverage = goalType !== "none" && countdown.remaining > 0 && requiredNewPerDay > Math.max(0.1, data.avgNewPerDay) * 1.25;
+  const retentionRisk = data.readinessBreakdown.retention < 0.5 && data.attemptedCount >= 5;
+  const weakCategoryRisk = data.readinessBreakdown.categoryBalance < 0.45 && data.attemptedCount >= 8;
+  const dataLight = data.attemptedCount < 5;
+
+  if (goalType === "none") {
+    return {
+      tone: "neutral",
+      title: "Recommendation: track freely",
+      body: "No target is selected, so Aurora will keep scheduling future reviews without pushing coverage pace.",
+      reason: "Use this mode when you mainly want logging and long-term review timing.",
+      actionLabel: "Browse problems",
+      actionMode: "new",
+    };
+  }
+
+  if (data.attemptedCount === 0) {
+    return {
+      tone: "neutral",
+      title: "Recommendation: start with new coverage",
+      body: `Aurora needs a few logged attempts before it can judge review load for ${targetLabel}.`,
+      reason: "Start with an Easy or familiar Medium, then log honestly so the forecast has signal.",
+      actionLabel: "Browse new",
+      actionMode: "new",
+    };
+  }
+
+  if (!actualProjection) {
+    return {
+      tone: behindCoverage ? "watch" : "good",
+      title: behindCoverage ? "Recommendation: push coverage" : "Recommendation: maintain pace",
+      body: behindCoverage
+        ? `Reviews are light, but ${targetLabel} needs about ${requiredNewPerDay.toFixed(1)} new/day from here.`
+        : "Your review queue is light. Add new problems when you have real focus time, or review weak categories.",
+      reason: retentionRisk ? "Retention is still low, so log confidence carefully after each attempt." : "No due-review backlog is currently competing with new coverage.",
+      actionLabel: behindCoverage ? "Browse new" : "View done",
+      actionMode: behindCoverage ? "new" : "completed",
+    };
+  }
+
+  const metrics = queueStability(actualProjection);
+  const queueCritical = metrics.peakLoadDays > 4 || metrics.slope14 >= 2 || (metrics.acceleration >= 1.25 && metrics.secondWeekSlope > 1);
+  const queueGrowing = metrics.peakLoadDays > 2.5 || metrics.slope14 >= 0.75 || metrics.growth14 >= 8 || metrics.acceleration >= 0.75;
+  const queueStable = Math.abs(metrics.slope14) < 0.5 && metrics.peakLoadDays <= 2.5;
+  const activeLoadHigh = data.learningCount / Math.max(1, actualProjection.reviewsPerDay) > 14;
+  const avgQueueLabel = metrics.avg14.toFixed(metrics.avg14 >= 10 ? 0 : 1);
+  const peakQueueLabel = metrics.max14.toFixed(0);
+
+  if (queueCritical) {
+    return {
+      tone: "danger",
+      title: "Recommendation: protect retention",
+      body: "Your projected review load is compounding. Pause new problems until the forecast returns to a stable band.",
+      reason: `At your current pace, the next 14 days average ${avgQueueLabel} due reviews and peak near ${peakQueueLabel}.`,
+      actionLabel: "Review first",
+      actionMode: "review",
+      metrics,
+    };
+  }
+
+  if (queueGrowing || activeLoadHigh || retentionRisk) {
+    return {
+      tone: "watch",
+      title: "Recommendation: review-biased",
+      body: "Keep new problems optional until the review forecast flattens. The goal is a sustainable queue, not an empty one.",
+      reason: activeLoadHigh
+        ? `You have ${data.learningCount} active learning problems, which is a lot for ${actualProjection.reviewsPerDay.toFixed(1)} reviews/day.`
+        : retentionRisk
+          ? "Retention is below 50%, so adding coverage now may make the queue noisier before it gets useful."
+          : `The forecast is growing by about ${metrics.slope14.toFixed(1)} reviews/day over the next two weeks.`,
+      actionLabel: "Review queue",
+      actionMode: "review",
+      metrics,
+    };
+  }
+
+  if (queueStable && behindCoverage) {
+    return {
+      tone: "good",
+      title: "Recommendation: add coverage carefully",
+      body: `Your review load looks stable, and ${targetLabel} needs about ${requiredNewPerDay.toFixed(1)} new/day from here.`,
+      reason: weakCategoryRisk
+        ? "Prefer a weak or under-covered category so coverage improves without hiding a blind spot."
+        : `Projected due reviews average ${avgQueueLabel}, which is within your recent review capacity.`,
+      actionLabel: "Browse new",
+      actionMode: "new",
+      metrics,
+    };
+  }
+
+  return {
+    tone: dataLight ? "neutral" : "good",
+    title: "Recommendation: keep current pace",
+    body: dataLight
+      ? "Aurora has limited history, but your current queue does not look unstable yet."
+      : "Your queue is active without accelerating. Review what is due, then add new only when you have focus time.",
+    reason: `Projected due reviews average ${avgQueueLabel} and peak near ${peakQueueLabel} over the next 14 days.`,
+    actionLabel: actualProjection.currentSize > 0 ? "Review queue" : "Browse new",
+    actionMode: actualProjection.currentSize > 0 ? "review" : "new",
+    metrics,
+  };
+}
+
 /* ── Main Component ── */
 
 export function DashboardClient({ data, isDemo = false, userId, onboardingComplete = false }: { data: DashboardData; isDemo?: boolean; userId?: string; onboardingComplete?: boolean }) {
@@ -306,6 +486,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
   const [mockLoggedIds, setMockLoggedIds] = useState<Set<number>>(new Set());
   const [editingPace, setEditingPace] = useState(false);
   const [showQueueForecast, setShowQueueForecast] = useState(true);
+  const [showPracticeRecommendation, setShowPracticeRecommendation] = useState(true);
   const [forecastMode, setForecastMode] = useState<"actual" | "goals">("actual");
   const [countdownTitle, setCountdownTitle] = useState("Fall Recruiting Countdown");
   const [forecastReviewPerDay, setForecastReviewPerDay] = useState(2);
@@ -364,6 +545,8 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     } else if (reviewItems.length === 0) {
       setForecastMode("goals");
     }
+    const savedRecommendation = localStorage.getItem("aurora_show_practice_recommendation");
+    if (savedRecommendation === "0") setShowPracticeRecommendation(false);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persist active tab (don't persist mock — always start fresh on load)
@@ -588,6 +771,13 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
       newPerDay: Math.round(newPerDay * 10) / 10,
     };
   }, [reviewItems, forecastReviewPerDay, forecastNewPerDay]);
+
+  const practiceRecommendation = useMemo(() => computePracticeRecommendation({
+    data,
+    countdown,
+    goalType,
+    actualProjection: queueProjection,
+  }), [data, countdown, goalType, queueProjection]);
 
   const weakCategories = useMemo(() =>
     [...data.categoryStats].sort((a, b) => {
@@ -834,6 +1024,16 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
         window.location.reload();
       }
     }} />}
+    {showPracticeRecommendation && (
+      <PracticeRecommendationPanel
+        recommendation={practiceRecommendation}
+        onAction={(mode) => setListMode(mode)}
+        onDismiss={() => {
+          setShowPracticeRecommendation(false);
+          localStorage.setItem("aurora_show_practice_recommendation", "0");
+        }}
+      />
+    )}
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:flex-1 lg:min-h-0 lg:grid-rows-1">
       {/* ── Combined Problem Queue ── */}
       <div className="flex flex-col lg:min-h-0 lg:h-full lg:col-span-6" data-onboarding="queue">
@@ -1375,6 +1575,11 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
               onCancel={() => setShowSettings(false)}
               autoDeferHards={autoDeferHards}
               onToggleAutoDeferHards={(v) => demoGuard(() => handleToggleAutoDeferHards(v))}
+              showPracticeRecommendation={showPracticeRecommendation}
+              onTogglePracticeRecommendation={(v) => {
+                setShowPracticeRecommendation(v);
+                localStorage.setItem("aurora_show_practice_recommendation", v ? "1" : "0");
+              }}
             />
           )}
         </section>
@@ -2087,6 +2292,82 @@ function StatusDot({
   );
 }
 
+/* ── Practice Recommendation ── */
+
+function PracticeRecommendationPanel({
+  recommendation,
+  onAction,
+  onDismiss,
+}: {
+  recommendation: PracticeRecommendation;
+  onAction: (mode: ListMode) => void;
+  onDismiss: () => void;
+}) {
+  const toneClass: Record<PracticeRecommendation["tone"], string> = {
+    neutral: "border-border bg-muted",
+    good: "border-green-500/25 bg-green-500/5",
+    watch: "border-amber-500/30 bg-amber-500/5",
+    danger: "border-red-500/30 bg-red-500/5",
+  };
+  const dotClass: Record<PracticeRecommendation["tone"], string> = {
+    neutral: "bg-accent",
+    good: "bg-green-500",
+    watch: "bg-amber-500",
+    danger: "bg-red-500",
+  };
+
+  return (
+    <section className={`mb-3 rounded-lg border px-3 py-2.5 ${toneClass[recommendation.tone]}`} aria-label="Practice recommendation">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className={`h-2 w-2 rounded-full shrink-0 ${dotClass[recommendation.tone]}`} />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <p className="text-sm font-semibold text-foreground">{recommendation.title}</p>
+            <p className="text-xs text-muted-foreground">{recommendation.body}</p>
+          </div>
+          <p className="mt-0.5 text-[11px] text-muted-foreground/80">{recommendation.reason}</p>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {recommendation.metrics && (
+            <InfoTooltip
+              content={
+                <div className="space-y-1.5">
+                  <p className="font-medium">Review load forecast</p>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                    <span className="text-muted-foreground">Avg due</span>
+                    <span className="text-right tabular-nums">{recommendation.metrics.avg14.toFixed(1)}</span>
+                    <span className="text-muted-foreground">Peak due</span>
+                    <span className="text-right tabular-nums">{recommendation.metrics.max14.toFixed(0)}</span>
+                    <span className="text-muted-foreground">Growth/day</span>
+                    <span className="text-right tabular-nums">{recommendation.metrics.slope14.toFixed(1)}</span>
+                    <span className="text-muted-foreground">Peak load</span>
+                    <span className="text-right tabular-nums">{recommendation.metrics.peakLoadDays.toFixed(1)}d</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground pt-1 border-t border-border/60">Healthy does not mean empty. Aurora flags the queue when it grows faster than recent review capacity can absorb.</p>
+                </div>
+              }
+            />
+          )}
+          <button
+            onClick={() => onAction(recommendation.actionMode)}
+            className="inline-flex h-7 items-center rounded-md bg-accent px-3 text-xs font-medium text-accent-foreground transition-colors hover:opacity-90"
+          >
+            {recommendation.actionLabel}
+          </button>
+          <button
+            onClick={onDismiss}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/50 hover:text-foreground"
+            aria-label="Hide recommendation"
+            title="Hide recommendation"
+          >
+            x
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ── Settings Panel ── */
 
 function SettingsPanel({
@@ -2097,6 +2378,8 @@ function SettingsPanel({
   onCancel,
   autoDeferHards,
   onToggleAutoDeferHards,
+  showPracticeRecommendation,
+  onTogglePracticeRecommendation,
 }: {
   date: string;
   count: number;
@@ -2105,6 +2388,8 @@ function SettingsPanel({
   onCancel: () => void;
   autoDeferHards: boolean;
   onToggleAutoDeferHards: (enabled: boolean) => void;
+  showPracticeRecommendation: boolean;
+  onTogglePracticeRecommendation: (enabled: boolean) => void;
 }) {
   const [d, setD] = useState(date);
   const [c, setC] = useState(count);
@@ -2172,6 +2457,20 @@ function SettingsPanel({
         </label>
         <p className="text-[10px] text-muted-foreground/60 mt-0.5 ml-5">
           Hards are excluded from reviews until you master the easier problems in each category
+        </p>
+      </div>
+      <div className="pt-1 border-t border-border">
+        <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showPracticeRecommendation}
+            onChange={(e) => onTogglePracticeRecommendation(e.target.checked)}
+            className="rounded border-border"
+          />
+          Show strategy recommendation
+        </label>
+        <p className="text-[10px] text-muted-foreground/60 mt-0.5 ml-5">
+          Optional guidance based on goal pace, review load stability, and retention health
         </p>
       </div>
       <div className="flex justify-end gap-2 pt-1">
