@@ -354,7 +354,7 @@ export function AttemptForm({ problemId, problemTitle, leetcodeNumber, problemCa
 
       <button
         type="submit"
-        disabled={submitting || !outcome || (showQuality && !quality)}
+        disabled={submitting || !outcome || (showQuality && !peeked && !quality)}
         className="inline-flex h-9 items-center rounded-md bg-accent px-4 text-sm text-accent-foreground transition-colors duration-150 hover:opacity-90 disabled:opacity-50"
       >
         {submitting ? "Saving…" : "Save Attempt"}
