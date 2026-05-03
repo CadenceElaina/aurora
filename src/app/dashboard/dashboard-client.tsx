@@ -2410,15 +2410,15 @@ function PracticeRecommendationPanel({
   };
   const toneClass: Record<PracticeRecommendation["tone"], string> = {
     neutral: "border-accent/20 bg-accent/10 text-accent",
-    good: "border-green-500/20 bg-green-500/10 text-green-400",
-    watch: "border-amber-500/25 bg-amber-500/10 text-amber-300",
-    danger: "border-red-500/25 bg-red-500/10 text-red-300",
+    good: "border-green-600/30 bg-green-500/10 text-green-600",
+    watch: "border-amber-600/35 bg-amber-500/10 text-amber-600",
+    danger: "border-red-600/35 bg-red-500/10 text-red-600",
   };
   const toneBannerClass: Record<PracticeRecommendation["tone"], string> = {
-    neutral: "border-accent/35",
-    good: "border-green-500/40",
-    watch: "border-amber-500/45",
-    danger: "border-red-500/45",
+    neutral: "border-accent/50",
+    good: "border-green-600/50",
+    watch: "border-amber-600/55",
+    danger: "border-red-600/55",
   };
   const trendLabel = recommendation.metrics
     ? recommendation.metrics.slope14 >= 0.75
