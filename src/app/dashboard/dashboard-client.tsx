@@ -1488,6 +1488,18 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                             {item.daysUntilReview}d
                           </span>
                         ) : null}
+                        <button
+                          onClick={() => demoGuard(() => setLogModalProblem({
+                            problemId: item.problemId,
+                            title: item.title,
+                            leetcodeNumber: item.leetcodeNumber,
+                            difficulty: item.difficulty,
+                            isReview: true,
+                          }))}
+                          className="inline-flex h-7 items-center rounded-md bg-accent px-3 text-xs text-accent-foreground transition-colors hover:opacity-90"
+                        >
+                          Log
+                        </button>
                       </div>
                     </div>
                   ))}
