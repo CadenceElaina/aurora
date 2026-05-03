@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback, memo } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, Target, X } from "lucide-react";
+import { X } from "lucide-react";
 import { DifficultyBadge } from "@/components/difficulty-badge";
 import { ImportClient } from "@/app/import/import-client";
 import { LogAttemptModal, type LogModalProblem, type LogModalResult } from "@/components/log-attempt-modal";
@@ -1076,7 +1076,6 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     {showPracticeRecommendation && (
       <PracticeRecommendationPanel
         recommendation={practiceRecommendation}
-        onAction={(mode) => setListMode(mode)}
         onDismiss={() => {
           setShowPracticeRecommendation(false);
           localStorage.setItem("aurora_show_practice_recommendation", "0");
@@ -2362,11 +2361,9 @@ function StatusDot({
 
 function PracticeRecommendationPanel({
   recommendation,
-  onAction,
   onDismiss,
 }: {
   recommendation: PracticeRecommendation;
-  onAction: (mode: ListMode) => void;
   onDismiss: () => void;
 }) {
   const toneLabel: Record<PracticeRecommendation["tone"], string> = {
@@ -2381,9 +2378,6 @@ function PracticeRecommendationPanel({
     watch: "border-amber-500/25 bg-amber-500/10 text-amber-300",
     danger: "border-red-500/25 bg-red-500/10 text-red-300",
   };
-  const displayTitle = recommendation.title.startsWith("Recommendation: ")
-    ? recommendation.title.replace(/^Recommendation: /, "Today: ")
-    : `Today: ${recommendation.title}`;
   const trendLabel = recommendation.metrics
     ? recommendation.metrics.slope14 >= 0.75
       ? "Trend rising"
@@ -2393,67 +2387,41 @@ function PracticeRecommendationPanel({
     : null;
 
   return (
-    <section className="mb-3 rounded-lg border border-border bg-muted/80 px-3 py-3" aria-label="Practice recommendation">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 gap-3">
-          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-background/50 text-accent">
-            <Target size={15} strokeWidth={2.2} aria-hidden="true" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-semibold text-foreground">{displayTitle}</p>
-              <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${toneClass[recommendation.tone]}`}>
-                {toneLabel[recommendation.tone]}
-              </span>
-              {recommendation.metrics && <InfoTooltip
-                content={
-                  <div className="space-y-1.5">
-                    <p className="font-medium">Review load forecast</p>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
-                      <span className="text-muted-foreground">Avg due</span>
-                      <span className="text-right tabular-nums">{recommendation.metrics.avg14.toFixed(1)}</span>
-                      <span className="text-muted-foreground">Peak due</span>
-                      <span className="text-right tabular-nums">{recommendation.metrics.max14.toFixed(0)}</span>
-                      <span className="text-muted-foreground">Growth/day</span>
-                      <span className="text-right tabular-nums">{recommendation.metrics.slope14.toFixed(1)}</span>
-                      <span className="text-muted-foreground">Peak load</span>
-                      <span className="text-right tabular-nums">{recommendation.metrics.peakLoadDays.toFixed(1)}d</span>
-                    </div>
-                    <p className="border-t border-border/60 pt-1 text-[11px] text-muted-foreground">Aurora flags the queue when it grows faster than recent review capacity can absorb.</p>
-                  </div>
-                }
-              />}
-            </div>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{recommendation.body}</p>
-            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground/80">{recommendation.reason}</p>
+    <div className="mb-3 flex items-center gap-2 rounded-lg border border-border bg-muted/80 px-3 py-2" role="status" aria-label="Practice recommendation">
+      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${toneClass[recommendation.tone]}`}>
+        {toneLabel[recommendation.tone]}
+      </span>
+      <p className="flex-1 min-w-0 truncate text-xs text-muted-foreground">{recommendation.reason || recommendation.body}</p>
+      <InfoTooltip
+        content={
+          <div className="space-y-2 max-w-[260px]">
+            <p className="font-medium text-foreground">{recommendation.title}</p>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">{recommendation.body}</p>
+            {recommendation.reason && <p className="text-[11px] text-muted-foreground/80 leading-relaxed">{recommendation.reason}</p>}
             {recommendation.metrics && (
-              <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
-                <span className="rounded-md border border-border bg-background/40 px-2 py-1 tabular-nums">Avg due {recommendation.metrics.avg14.toFixed(1)}</span>
-                <span className="rounded-md border border-border bg-background/40 px-2 py-1 tabular-nums">Peak {recommendation.metrics.max14.toFixed(0)}</span>
-                {trendLabel && <span className="rounded-md border border-border bg-background/40 px-2 py-1">{trendLabel}</span>}
+              <div className="border-t border-border/60 pt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                <span className="text-muted-foreground">Avg due</span>
+                <span className="text-right tabular-nums">{recommendation.metrics.avg14.toFixed(1)}</span>
+                <span className="text-muted-foreground">Peak due</span>
+                <span className="text-right tabular-nums">{recommendation.metrics.max14.toFixed(0)}</span>
+                <span className="text-muted-foreground">Trend</span>
+                <span className="text-right">{trendLabel}</span>
+                <span className="text-muted-foreground">Peak load</span>
+                <span className="text-right tabular-nums">{recommendation.metrics.peakLoadDays.toFixed(1)}d</span>
               </div>
             )}
+            <p className="border-t border-border/60 pt-1 text-[10px] text-muted-foreground/60 leading-relaxed">Aurora flags when the queue grows faster than your recent review pace can absorb.</p>
           </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5 self-start sm:pt-0.5">
-          <button
-            onClick={() => onAction(recommendation.actionMode)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-accent/25 bg-accent/15 px-3 text-xs font-semibold text-accent transition-colors hover:bg-accent/20"
-          >
-            {recommendation.actionLabel}
-            <ArrowRight size={13} strokeWidth={2.2} aria-hidden="true" />
-          </button>
-          <button
-            onClick={onDismiss}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/50 hover:text-foreground"
-            aria-label="Hide recommendation"
-            title="Hide recommendation"
-          >
-            <X size={14} strokeWidth={2.2} aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-    </section>
+        }
+      />
+      <button
+        onClick={onDismiss}
+        className="shrink-0 flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
+        aria-label="Hide recommendation"
+      >
+        <X size={12} strokeWidth={2} aria-hidden="true" />
+      </button>
+    </div>
   );
 }
 
