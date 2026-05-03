@@ -503,7 +503,7 @@ export default function InfoClient() {
                 <tr className="border-b border-border">
                   <td className="py-2 pr-4 font-mono">0–34</td>
                   <td className="py-2 pr-4">
-                    <span className="rounded bg-zinc-400 px-2 py-0.5 text-white text-xs font-medium">D</span>
+                    <span className="rounded bg-zinc-500 px-2 py-0.5 text-white text-xs font-medium">D</span>
                   </td>
                 </tr>
               </tbody>

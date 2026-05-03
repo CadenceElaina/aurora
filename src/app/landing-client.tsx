@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { SkyCanvas } from "@/components/sky-canvas";
+import { useTheme } from "@/components/theme";
 
 /* ── Types ── */
 
@@ -69,7 +70,7 @@ const NODE_W = 140;
 const NODE_H = 34;
 const NODE_DELAY = 1200; // ms between node reveals
 
-function ConstellationMap() {
+function ConstellationMap({ isDark }: { isDark: boolean }) {
   const [revealedNodes, setRevealedNodes] = useState<Set<number>>(new Set());
   const [revealedEdges, setRevealedEdges] = useState<Set<string>>(new Set());
   const [latestNode, setLatestNode] = useState<number | null>(null);
@@ -142,7 +143,7 @@ function ConstellationMap() {
             y1={MAP_NODES[a].y + NODE_H / 2}
             x2={MAP_NODES[b].x + NODE_W / 2}
             y2={MAP_NODES[b].y + NODE_H / 2}
-            stroke={active ? "rgba(167, 139, 250, 0.7)" : "rgba(124, 58, 237, 0.08)"}
+            stroke={active ? "rgba(167, 139, 250, 0.7)" : isDark ? "rgba(124, 58, 237, 0.08)" : "rgba(124, 58, 237, 0.18)"}
             strokeWidth={active ? "2" : "0.5"}
             filter={active ? "url(#glow)" : undefined}
             style={{
@@ -199,7 +200,7 @@ function ConstellationMap() {
               y={NODE_H / 2 + 4.5}
               textAnchor="middle"
               fontSize="13"
-              fill={active ? "rgba(237,233,246,0.95)" : "rgba(167,139,250,0.15)"}
+              fill={active ? (isDark ? "rgba(237,233,246,0.95)" : "rgba(26,16,37,0.9)") : "rgba(167,139,250,0.15)"}
               fontFamily="system-ui, sans-serif"
               fontWeight={isHovered ? 500 : undefined}
             >
@@ -269,6 +270,8 @@ function FeatureCard({ icon, title, desc }: { icon: string; title: string; desc:
 /* ── Main Landing Page ── */
 
 export function LandingPage({ totalProblems, categories, isAuthenticated, authConfigured }: LandingPageProps) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   // Start at 0 for SSR, randomize on client mount to avoid hydration mismatch
   const [headlineIdx, setHeadlineIdx] = useState(0);
   const [visible, setVisible] = useState(true);
@@ -306,7 +309,7 @@ export function LandingPage({ totalProblems, categories, isAuthenticated, authCo
           <div className="w-full max-w-lg shrink-0 space-y-2 sm:space-y-3">
             <p className="text-xs sm:text-sm font-medium uppercase tracking-widest text-accent">Spaced repetition for LeetCode</p>
 
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight leading-tight min-h-[4rem] sm:min-h-[4.5rem] text-white" style={{ textShadow: "0 2px 24px rgba(0,0,0,0.9), 0 0 60px rgba(0,0,0,0.6)" }}>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight leading-tight min-h-[4rem] sm:min-h-[4.5rem] text-foreground">
               <span
                 className="inline-block"
                 style={{
@@ -423,7 +426,7 @@ export function LandingPage({ totalProblems, categories, isAuthenticated, authCo
           {/* Constellation — hidden below lg */}
           <div className="hidden lg:flex items-center justify-center shrink-0">
             <div className="w-[480px] xl:w-[540px] aspect-[10/9]" style={{ filter: "drop-shadow(0 0 50px rgba(167, 139, 250, 0.08))" }}>
-              <ConstellationMap />
+              <ConstellationMap isDark={isDark} />
             </div>
           </div>
         </div>

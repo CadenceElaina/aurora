@@ -209,7 +209,7 @@ const TIER_COLORS: Record<string, string> = {
   A: "bg-blue-500 text-white",
   B: "bg-emerald-500 text-white",
   C: "bg-amber-500 text-white",
-  D: "bg-zinc-400 text-white",
+  D: "bg-zinc-500 text-white",
 };
 
 const DIFF_COLORS: Record<string, string> = {
