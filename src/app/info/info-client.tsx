@@ -15,6 +15,65 @@ const SECTIONS = [
   { id: "further-reading", label: "Further Reading" },
 ];
 
+function ForgettingCurveChart() {
+  return (
+    <div className="rounded-lg border border-border bg-muted/20 p-3 mt-4">
+      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
+        Forgetting Curve — retrievability over time
+      </p>
+      <svg viewBox="0 0 480 200" className="w-full" aria-hidden="true">
+        {/* Y grid lines */}
+        <line x1="48" y1="38" x2="464" y2="38" stroke="currentColor" strokeOpacity="0.08" strokeWidth="1" />
+        <line x1="48" y1="83" x2="464" y2="83" stroke="currentColor" strokeOpacity="0.08" strokeWidth="1" />
+        <line x1="48" y1="127" x2="464" y2="127" stroke="currentColor" strokeOpacity="0.08" strokeWidth="1" />
+        <line x1="48" y1="172" x2="464" y2="172" stroke="currentColor" strokeOpacity="0.08" strokeWidth="1" />
+        {/* X grid lines */}
+        <line x1="187" y1="16" x2="187" y2="172" stroke="currentColor" strokeOpacity="0.08" strokeWidth="1" />
+        <line x1="325" y1="16" x2="325" y2="172" stroke="currentColor" strokeOpacity="0.08" strokeWidth="1" />
+        {/* Axes */}
+        <line x1="48" y1="16" x2="48" y2="172" stroke="currentColor" strokeOpacity="0.2" strokeWidth="1" />
+        <line x1="48" y1="172" x2="464" y2="172" stroke="currentColor" strokeOpacity="0.2" strokeWidth="1" />
+        {/* Y labels */}
+        <text x="43" y="19" textAnchor="end" fontSize="9" fill="currentColor" fillOpacity="0.45">100%</text>
+        <text x="43" y="41" textAnchor="end" fontSize="9" fill="currentColor" fillOpacity="0.45">90%</text>
+        <text x="43" y="86" textAnchor="end" fontSize="9" fill="currentColor" fillOpacity="0.45">70%</text>
+        <text x="43" y="130" textAnchor="end" fontSize="9" fill="currentColor" fillOpacity="0.45">50%</text>
+        <text x="43" y="175" textAnchor="end" fontSize="9" fill="currentColor" fillOpacity="0.45">30%</text>
+        {/* X labels */}
+        <text x="48" y="185" textAnchor="middle" fontSize="9" fill="currentColor" fillOpacity="0.45">0d</text>
+        <text x="187" y="185" textAnchor="middle" fontSize="9" fill="currentColor" fillOpacity="0.45">7d</text>
+        <text x="325" y="185" textAnchor="middle" fontSize="9" fill="currentColor" fillOpacity="0.45">14d</text>
+        <text x="464" y="185" textAnchor="middle" fontSize="9" fill="currentColor" fillOpacity="0.45">21d</text>
+        {/* 30% floor dashed line */}
+        <line x1="48" y1="172" x2="464" y2="172" stroke="#f97316" strokeOpacity="0.25" strokeWidth="1" strokeDasharray="4 3" />
+        {/* S=2 days — decays to floor ~day 2.4 */}
+        <polyline points="48,16 58,65 68,104 78,134 88,157 96,172 464,172"
+          fill="none" stroke="#f97316" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        {/* S=7 days — decays to floor ~day 8.5 */}
+        <polyline points="48,16 68,46 88,71 127,113 187,157 216,172 464,172"
+          fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        {/* S=30 days — still at 50% at day 21 */}
+        <polyline points="48,16 107,37 187,63 246,79 325,99 405,117 464,128"
+          fill="none" stroke="#10b981" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+      <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2 text-[11px] text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-0.5 rounded" style={{ backgroundColor: "#f97316" }} />
+          S = 2 days (early stage)
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-0.5 rounded" style={{ backgroundColor: "#f59e0b" }} />
+          S = 7 days
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-0.5 rounded" style={{ backgroundColor: "#10b981" }} />
+          S = 30 days (well-practiced)
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function InfoClient() {
   const [activeSection, setActiveSection] = useState("core-idea");
 
@@ -104,8 +163,8 @@ export default function InfoClient() {
             Two Sum is strong enough to last about 7 days before it starts fading significantly.
           </p>
           <p>After each attempt, stability is updated:</p>
-          <div className="rounded-lg border border-border bg-muted/30 p-4 font-mono text-xs">
-            new stability = old stability × (base multiplier + modifiers)
+          <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 font-mono text-sm text-center text-foreground">
+            S′ = S × (base multiplier + modifiers)
           </div>
           <ul className="list-disc pl-5 space-y-1">
             <li>
@@ -150,9 +209,16 @@ export default function InfoClient() {
             Retrievability answers:{" "}
             <em>&ldquo;If I sat down to solve this right now, what&apos;s the chance I could do it?&rdquo;</em>
           </p>
-          <div className="rounded-lg border border-border bg-muted/30 p-4 font-mono text-xs">
-            R = e<sup>−days_since_review / stability</sup>
+          <div className="rounded-lg border border-accent/25 bg-accent/5 px-6 py-4 text-center space-y-1">
+            <div className="font-mono text-xl text-foreground">
+              R = e<sup className="text-base">−t / S</sup>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              R = retrievability &nbsp;·&nbsp; t = days since review &nbsp;·&nbsp; S = stability
+            </p>
           </div>
+
+          <ForgettingCurveChart />
 
           <h3 className="text-sm font-semibold pt-2">Why this formula?</h3>
           <p>
@@ -386,8 +452,8 @@ export default function InfoClient() {
         <section id="review-queue" className="space-y-3">
           <h2 className="text-lg font-semibold">Review Queue Priority</h2>
           <p>When multiple problems are due, which do you review first? The queue sorts by priority:</p>
-          <div className="rounded-lg border border-border bg-muted/30 p-4 font-mono text-xs">
-            priority = (1 − retrievability) × weight
+          <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 font-mono text-sm text-center text-foreground">
+            priority = (1 − R) × weight
           </div>
           <p>
             Problems you&apos;re most likely to have forgotten score highest. A problem at 30% retrievability gets
