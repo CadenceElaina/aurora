@@ -68,7 +68,7 @@ Last updated: 2026-05-03 — merged root + docs queues after multi-agent audit
 
 | ID | Agent | Description |
 |----|-------|-------------|
-| T-003 | Claude (session 2026-05-03) | NO:OPTIMAL / NO:SUBOPTIMAL missing multipliers |
+| —  | —     | —           |
 
 ---
 
