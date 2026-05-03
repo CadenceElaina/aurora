@@ -42,10 +42,10 @@ export function CheatsheetDrawer({
   if (!active) return null;
 
   return (
-    <div className="fixed inset-0 z-[52] pointer-events-none">
-      {/* Backdrop — transparent so dashboard remains visible */}
+    <div className="fixed inset-0 z-[52] pointer-events-none [will-change:transform]">
+      {/* Backdrop — near-transparent; bg forces GPU compositing layer above scroll containers */}
       <div
-        className="absolute inset-0 pointer-events-auto"
+        className="absolute inset-0 pointer-events-auto bg-black/[0.01]"
         aria-hidden="true"
       />
 
@@ -58,10 +58,12 @@ export function CheatsheetDrawer({
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border/60 px-4 py-3 shrink-0">
-          <span className="text-sm font-medium text-foreground">
-            Today&apos;s patterns
-            <span className="ml-1.5 text-xs text-muted-foreground">({sheets.length})</span>
-          </span>
+          <div>
+            <span className="text-sm font-medium text-foreground">Pattern cheatsheets</span>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Quick references for your {sheets.length} review {sheets.length === 1 ? "category" : "categories"} today
+            </p>
+          </div>
           <button
             onClick={onClose}
             className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"

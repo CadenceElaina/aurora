@@ -1251,13 +1251,14 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                 return (
                   <button
                     onClick={() => setSheetDrawerOpen((o) => !o)}
+                    title="Pattern cheatsheets for today's review categories"
                     className={`h-8 shrink-0 rounded border px-2.5 text-xs transition-colors ${
                       sheetDrawerOpen
                         ? "border-accent bg-accent/10 text-accent"
                         : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                   >
-                    Patterns ({todaySheets.length})
+                    Cheatsheets ({todaySheets.length})
                   </button>
                 );
               })()}
