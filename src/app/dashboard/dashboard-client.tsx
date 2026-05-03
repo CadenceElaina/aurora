@@ -2378,6 +2378,12 @@ function PracticeRecommendationPanel({
     watch: "border-amber-500/25 bg-amber-500/10 text-amber-300",
     danger: "border-red-500/25 bg-red-500/10 text-red-300",
   };
+  const toneBannerClass: Record<PracticeRecommendation["tone"], string> = {
+    neutral: "border-accent/35",
+    good: "border-green-500/40",
+    watch: "border-amber-500/45",
+    danger: "border-red-500/45",
+  };
   const trendLabel = recommendation.metrics
     ? recommendation.metrics.slope14 >= 0.75
       ? "Trend rising"
@@ -2387,7 +2393,7 @@ function PracticeRecommendationPanel({
     : null;
 
   return (
-    <div className="mb-3 flex items-center gap-2 rounded-lg border border-border bg-muted/80 px-3 py-2" role="status" aria-label="Practice recommendation">
+    <div className={`mb-3 flex items-center gap-2 rounded-lg border bg-muted/80 px-3 py-2 ${toneBannerClass[recommendation.tone]}`} role="status" aria-label="Practice recommendation">
       <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${toneClass[recommendation.tone]}`}>
         {toneLabel[recommendation.tone]}
       </span>
