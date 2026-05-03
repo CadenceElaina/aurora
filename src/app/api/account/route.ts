@@ -17,6 +17,17 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  if (body.action === "toggle-analytics-opt-out") {
+    const [user] = await db
+      .select({ analyticsOptOut: users.analyticsOptOut })
+      .from(users)
+      .where(eq(users.id, session.user.id))
+      .limit(1);
+    const next = !user?.analyticsOptOut;
+    await db.update(users).set({ analyticsOptOut: next }).where(eq(users.id, session.user.id));
+    return NextResponse.json({ analyticsOptOut: next });
+  }
+
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
 }
 

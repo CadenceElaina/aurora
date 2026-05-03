@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { users, attempts, userProblemStates, problems } from "@/db/schema";
-import { eq, like, notLike, count, asc } from "drizzle-orm";
+import { eq, and, like, notLike, count, asc } from "drizzle-orm";
 import {
   computeCohortStats,
   computeCategoryStats,
@@ -75,7 +75,7 @@ export default async function AdminPage() {
       .from(attempts)
       .innerJoin(users,    eq(attempts.userId,    users.id))
       .innerJoin(problems, eq(attempts.problemId, problems.id))
-      .where(notLike(users.email!, DEMO_SUFFIX)),
+      .where(and(notLike(users.email!, DEMO_SUFFIX), eq(users.analyticsOptOut, false))),
 
     // All states for real users
     db
@@ -90,7 +90,7 @@ export default async function AdminPage() {
       })
       .from(userProblemStates)
       .innerJoin(users, eq(userProblemStates.userId, users.id))
-      .where(notLike(users.email!, DEMO_SUFFIX)),
+      .where(and(notLike(users.email!, DEMO_SUFFIX), eq(users.analyticsOptOut, false))),
 
     db.select({ id: problems.id, title: problems.title, difficulty: problems.difficulty, category: problems.category }).from(problems),
   ]);

@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { attempts, userProblemStates, problems, pendingSubmissions } from "@/db/schema";
 import { eq, and, gte, lt } from "drizzle-orm";
+import { checkRateLimit } from "@/lib/rate-limit";
 import {
   computeNewStability,
   computeInitialStability,
@@ -53,6 +54,11 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { allowed } = checkRateLimit(`attempts:${session.user.id}`, 10, 60_000);
+  if (!allowed) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
   const body = await req.json();

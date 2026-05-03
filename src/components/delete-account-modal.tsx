@@ -96,6 +96,24 @@ export function DeleteAccountModal({ open, onClose }: { open: boolean; onClose: 
             </ul>
           </div>
 
+          <div className="rounded-lg border border-border bg-background/50 p-3 flex items-start gap-3">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0 text-muted-foreground">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Before you delete, consider downloading your data — all attempts, SRS state, and notes in a single JSON file.
+              </p>
+              <a
+                href="/api/export"
+                download
+                className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-accent-foreground hover:underline"
+              >
+                Download my data
+              </a>
+            </div>
+          </div>
+
           <div>
             <label htmlFor="delete-confirm" className="block text-xs text-muted-foreground mb-1.5">
               Type <span className="font-semibold text-foreground">delete my account</span> to confirm

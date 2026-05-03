@@ -99,7 +99,7 @@ function useGreeting(userName?: string): string | null {
   return greeting;
 }
 
-export function Nav({ isAuthenticated = false, authConfigured = true, isDemo = false, isAdmin = false, userName, userEmail, userImage }: { isAuthenticated?: boolean; authConfigured?: boolean; isDemo?: boolean; isAdmin?: boolean; userName?: string; userEmail?: string; userImage?: string }) {
+export function Nav({ isAuthenticated = false, authConfigured = true, isDemo = false, isAdmin = false, userName, userEmail, userImage, analyticsOptOut = false }: { isAuthenticated?: boolean; authConfigured?: boolean; isDemo?: boolean; isAdmin?: boolean; userName?: string; userEmail?: string; userImage?: string; analyticsOptOut?: boolean }) {
   const pathname = usePathname();
   const [logoHovered, setLogoHovered] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -190,7 +190,7 @@ export function Nav({ isAuthenticated = false, authConfigured = true, isDemo = f
           <span className="hidden sm:inline text-sm text-muted-foreground">{greeting}</span>
         )}
         {isAuthenticated ? (
-          <UserMenu userName={userName} userEmail={userEmail} userImage={userImage} />
+          <UserMenu userName={userName} userEmail={userEmail} userImage={userImage} analyticsOptOut={analyticsOptOut} />
         ) : authConfigured ? (
           <div className="flex items-center gap-1.5">
             {isDemo && !isLanding && (
@@ -254,10 +254,25 @@ export function Nav({ isAuthenticated = false, authConfigured = true, isDemo = f
 
 /* ── User Menu ── Signed-in avatar dropdown with sign-out + destructive actions */
 
-function UserMenu({ userName, userEmail, userImage }: { userName?: string; userEmail?: string; userImage?: string }) {
+function UserMenu({ userName, userEmail, userImage, analyticsOptOut: initialOptOut }: { userName?: string; userEmail?: string; userImage?: string; analyticsOptOut?: boolean }) {
   const [open, setOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [optOut, setOptOut] = useState(initialOptOut ?? false);
   const ref = useRef<HTMLDivElement>(null);
+
+  async function toggleOptOut() {
+    const next = !optOut;
+    setOptOut(next);
+    try {
+      await fetch("/api/account", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "toggle-analytics-opt-out" }),
+      });
+    } catch {
+      setOptOut(!next);
+    }
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -343,6 +358,27 @@ function UserMenu({ userName, userEmail, userImage }: { userName?: string; userE
             <Download className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             <span>Export Data</span>
           </a>
+          <button
+            role="menuitem"
+            onClick={toggleOptOut}
+            className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted"
+          >
+            <span className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full border transition-colors ${optOut ? "bg-accent border-accent/80" : "bg-muted-foreground/30 border-muted-foreground/20"}`}>
+              <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${optOut ? "translate-x-3" : "translate-x-0.5"}`} />
+            </span>
+            <span className="flex-1">Opt out of analytics</span>
+          </button>
+          <Link
+            role="menuitem"
+            href="/privacy"
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <span>Privacy</span>
+          </Link>
           <div className="my-1.5 h-px bg-border/60" />
           <button
             role="menuitem"

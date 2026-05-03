@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users, problems, pendingSubmissions, userProblemStates } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import crypto from "crypto";
+import { decryptWebhookSecret } from "@/lib/webhook-crypto";
 
 /**
  * GitHub webhook endpoint for NeetCode submission sync.
@@ -49,8 +50,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing signature" }, { status: 401 });
   }
 
+  const plaintextSecret = decryptWebhookSecret(user.githubWebhookSecret);
   const expected = "sha256=" + crypto
-    .createHmac("sha256", user.githubWebhookSecret)
+    .createHmac("sha256", plaintextSecret)
     .update(rawBody)
     .digest("hex");
 

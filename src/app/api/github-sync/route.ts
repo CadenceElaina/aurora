@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
+import { encryptWebhookSecret } from "@/lib/webhook-crypto";
 
 /**
  * GET  — get current GitHub sync settings.
@@ -46,14 +47,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid repo format. Use 'owner/repo-name'" }, { status: 400 });
   }
 
-  // Generate a webhook secret for HMAC verification
+  // Generate a webhook secret for HMAC verification, store encrypted
   const secret = crypto.randomBytes(32).toString("hex");
+  const encryptedSecret = encryptWebhookSecret(secret);
 
   await db
     .update(users)
     .set({
       githubRepo: repo,
-      githubWebhookSecret: secret,
+      githubWebhookSecret: encryptedSecret,
       githubConnectedAt: new Date(),
       updatedAt: new Date(),
     })

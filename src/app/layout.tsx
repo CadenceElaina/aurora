@@ -3,6 +3,9 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme";
 import { Nav } from "@/components/nav";
 import { auth, isAuthConfigured } from "@/auth";
+import { db } from "@/db";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export const metadata: Metadata = {
   title: "Aurora",
@@ -30,6 +33,7 @@ export default async function RootLayout({
   let userName: string | undefined;
   let userEmail: string | undefined;
   let userImage: string | undefined;
+  let analyticsOptOut = false;
   if (isAuthConfigured) {
     try {
       const session = await auth();
@@ -38,6 +42,14 @@ export default async function RootLayout({
       userEmail = session?.user?.email ?? undefined;
       userImage = session?.user?.image ?? undefined;
       isAdmin = !!(userEmail && process.env.ADMIN_EMAIL && userEmail === process.env.ADMIN_EMAIL);
+      if (session?.user?.id) {
+        const [row] = await db
+          .select({ analyticsOptOut: users.analyticsOptOut })
+          .from(users)
+          .where(eq(users.id, session.user.id))
+          .limit(1);
+        analyticsOptOut = row?.analyticsOptOut ?? false;
+      }
     } catch {
       // Auth call failed — treat as unauthenticated
     }
@@ -59,6 +71,7 @@ export default async function RootLayout({
             userName={userName}
             userEmail={userEmail}
             userImage={userImage}
+            analyticsOptOut={analyticsOptOut}
           />
           <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
         </ThemeProvider>
