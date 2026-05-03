@@ -11,8 +11,8 @@ const SECTIONS = [
   { id: "review-queue", label: "Review Queue Priority" },
   { id: "readiness", label: "Readiness Score" },
   { id: "mastery", label: "Mastery" },
-  { id: "glossary", label: "Glossary" },
-  { id: "further-reading", label: "Further Reading" },
+  { id: "glossary", label: "Glossary", rightPanelOnly: true },
+  { id: "further-reading", label: "Further Reading", rightPanelOnly: true },
 ];
 
 function ForgettingCurveChart() {
@@ -44,15 +44,15 @@ function ForgettingCurveChart() {
         <text x="187" y="185" textAnchor="middle" fontSize="9" fill="currentColor" fillOpacity="0.45">7d</text>
         <text x="325" y="185" textAnchor="middle" fontSize="9" fill="currentColor" fillOpacity="0.45">14d</text>
         <text x="464" y="185" textAnchor="middle" fontSize="9" fill="currentColor" fillOpacity="0.45">21d</text>
-        {/* 30% floor dashed line */}
+        {/* 30% floor */}
         <line x1="48" y1="172" x2="464" y2="172" stroke="#f97316" strokeOpacity="0.25" strokeWidth="1" strokeDasharray="4 3" />
-        {/* S=2 days — decays to floor ~day 2.4 */}
+        {/* S=2 days */}
         <polyline points="48,16 58,65 68,104 78,134 88,157 96,172 464,172"
           fill="none" stroke="#f97316" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-        {/* S=7 days — decays to floor ~day 8.5 */}
+        {/* S=7 days */}
         <polyline points="48,16 68,46 88,71 127,113 187,157 216,172 464,172"
           fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-        {/* S=30 days — still at 50% at day 21 */}
+        {/* S=30 days */}
         <polyline points="48,16 107,37 187,63 246,79 325,99 405,117 464,128"
           fill="none" stroke="#10b981" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
       </svg>
@@ -79,7 +79,6 @@ export default function InfoClient() {
 
   useEffect(() => {
     function onScroll() {
-      // Find the section whose heading is closest to (but still above) 1/4 down the viewport
       const threshold = window.innerHeight * 0.25;
       let best = SECTIONS[0].id;
       for (const { id } of SECTIONS) {
@@ -92,27 +91,29 @@ export default function InfoClient() {
     }
 
     window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll(); // run once on mount
+    onScroll();
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   return (
     <div className="flex gap-12">
-      {/* ── Sticky sidebar TOC ── */}
+      {/* ── Left TOC ── */}
       <aside className="hidden lg:block w-48 shrink-0">
         <div className="sticky top-20">
           <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-3">
             On this page
           </p>
           <nav className="space-y-0.5">
-            {SECTIONS.map(({ id, label }) => (
+            {SECTIONS.map(({ id, label, rightPanelOnly }) => (
               <a
                 key={id}
                 href={`#${id}`}
-                className={`block text-sm py-1 transition-colors rounded ${
+                className={`block text-sm py-1 transition-colors rounded pl-3 ${
+                  rightPanelOnly ? "xl:hidden" : ""
+                } ${
                   activeSection === id
-                    ? "text-foreground font-medium pl-3 border-l-2 border-accent"
-                    : "text-muted-foreground hover:text-foreground pl-3"
+                    ? "text-foreground font-medium border-l-2 border-accent"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {label}
@@ -122,7 +123,7 @@ export default function InfoClient() {
         </div>
       </aside>
 
-      {/* ── Main content ── */}
+      {/* ── Main article ── */}
       <article className="flex-1 min-w-0 max-w-[720px] space-y-12 text-sm leading-relaxed text-foreground">
         <header className="space-y-2">
           <h1 className="text-2xl font-semibold">How Aurora Works</h1>
@@ -141,12 +142,8 @@ export default function InfoClient() {
           </p>
           <p>Aurora tracks two things for every problem you&apos;ve attempted:</p>
           <ul className="list-disc pl-5 space-y-1">
-            <li>
-              <strong>Stability</strong> — how durable your memory is (measured in days)
-            </li>
-            <li>
-              <strong>Retrievability</strong> — the probability you can solve it right now (0–100%)
-            </li>
+            <li><strong>Stability</strong> — how durable your memory is (measured in days)</li>
+            <li><strong>Retrievability</strong> — the probability you can solve it right now (0–100%)</li>
           </ul>
           <p>
             Stability goes up when you solve problems well. Retrievability decays over time, which is what triggers
@@ -167,12 +164,8 @@ export default function InfoClient() {
             S′ = S × (base multiplier + modifiers)
           </div>
           <ul className="list-disc pl-5 space-y-1">
-            <li>
-              Multiplier <strong>above 1.0</strong> → stability grows → your next review is scheduled further out
-            </li>
-            <li>
-              Multiplier <strong>below 1.0</strong> → stability shrinks → you review sooner
-            </li>
+            <li>Multiplier <strong>above 1.0</strong> → stability grows → your next review is scheduled further out</li>
+            <li>Multiplier <strong>below 1.0</strong> → stability shrinks → you review sooner</li>
           </ul>
 
           <h3 className="text-sm font-semibold pt-2">Example</h3>
@@ -196,7 +189,6 @@ export default function InfoClient() {
             cost of coding reviews (15–30 min each): daily recall is counterproductive and builds queue debt faster
             than it can be cleared.
           </p>
-
           <p className="text-xs text-muted-foreground">
             Stability is clamped between 0.5 days (minimum) and 365 days (maximum).
           </p>
@@ -439,12 +431,8 @@ export default function InfoClient() {
 
           <h3 className="text-sm font-semibold pt-2">Special scheduling rules</h3>
           <ul className="list-disc pl-5 space-y-1">
-            <li>
-              <strong>Could not solve</strong> → review is scheduled immediately (due now)
-            </li>
-            <li>
-              <strong>Partial + confidence ≤ 2</strong> → review forced to 1 day, regardless of stability math
-            </li>
+            <li><strong>Could not solve</strong> → review is scheduled immediately (due now)</li>
+            <li><strong>Partial + confidence ≤ 2</strong> → review forced to 1 day, regardless of stability math</li>
           </ul>
         </section>
 
@@ -459,13 +447,9 @@ export default function InfoClient() {
             Problems you&apos;re most likely to have forgotten score highest. A problem at 30% retrievability gets
             urgency 0.7; one at 80% gets 0.2.
           </p>
-          <p>
-            The <strong>weight</strong> adjusts for importance:
-          </p>
+          <p>The <strong>weight</strong> adjusts for importance:</p>
           <ul className="list-disc pl-5 space-y-1">
-            <li>
-              <strong>Difficulty</strong>: Hard 1.1×, Medium 1.0×, Easy 0.8×
-            </li>
+            <li><strong>Difficulty</strong>: Hard 1.1×, Medium 1.0×, Easy 0.8×</li>
             <li>
               <strong>Blind 75</strong>: +0.2 bonus — these are the most commonly asked interview problems, so they
               get a small tiebreaker when urgency is similar
@@ -509,23 +493,17 @@ export default function InfoClient() {
                 <tr className="border-b border-border">
                   <td className="py-2 pr-4 font-medium">Retention</td>
                   <td className="py-2 pr-4 font-mono">40%</td>
-                  <td className="py-2 pr-4">
-                    Percentage of attempted problems with retrievability &gt; 70%
-                  </td>
+                  <td className="py-2 pr-4">Percentage of attempted problems with retrievability &gt; 70%</td>
                 </tr>
                 <tr className="border-b border-border">
                   <td className="py-2 pr-4 font-medium">Category Balance</td>
                   <td className="py-2 pr-4 font-mono">20%</td>
-                  <td className="py-2 pr-4">
-                    Your worst category&apos;s average retention — penalizes big blind spots
-                  </td>
+                  <td className="py-2 pr-4">Your worst category&apos;s average retention — penalizes big blind spots</td>
                 </tr>
                 <tr className="border-b border-border">
                   <td className="py-2 pr-4 font-medium">Consistency</td>
                   <td className="py-2 pr-4 font-mono">10%</td>
-                  <td className="py-2 pr-4">
-                    Percentage of scheduled reviews completed in the last 14 days
-                  </td>
+                  <td className="py-2 pr-4">Percentage of scheduled reviews completed in the last 14 days</td>
                 </tr>
               </tbody>
             </table>
@@ -544,33 +522,23 @@ export default function InfoClient() {
               <tbody>
                 <tr className="border-b border-border">
                   <td className="py-2 pr-4 font-mono">90–100</td>
-                  <td className="py-2 pr-4">
-                    <span className="rounded bg-violet-500 px-2 py-0.5 text-white text-xs font-medium">S</span>
-                  </td>
+                  <td className="py-2 pr-4"><span className="rounded bg-violet-500 px-2 py-0.5 text-white text-xs font-medium">S</span></td>
                 </tr>
                 <tr className="border-b border-border">
                   <td className="py-2 pr-4 font-mono">75–89</td>
-                  <td className="py-2 pr-4">
-                    <span className="rounded bg-blue-500 px-2 py-0.5 text-white text-xs font-medium">A</span>
-                  </td>
+                  <td className="py-2 pr-4"><span className="rounded bg-blue-500 px-2 py-0.5 text-white text-xs font-medium">A</span></td>
                 </tr>
                 <tr className="border-b border-border">
                   <td className="py-2 pr-4 font-mono">55–74</td>
-                  <td className="py-2 pr-4">
-                    <span className="rounded bg-emerald-500 px-2 py-0.5 text-white text-xs font-medium">B</span>
-                  </td>
+                  <td className="py-2 pr-4"><span className="rounded bg-emerald-500 px-2 py-0.5 text-white text-xs font-medium">B</span></td>
                 </tr>
                 <tr className="border-b border-border">
                   <td className="py-2 pr-4 font-mono">35–54</td>
-                  <td className="py-2 pr-4">
-                    <span className="rounded bg-amber-500 px-2 py-0.5 text-white text-xs font-medium">C</span>
-                  </td>
+                  <td className="py-2 pr-4"><span className="rounded bg-amber-500 px-2 py-0.5 text-white text-xs font-medium">C</span></td>
                 </tr>
                 <tr className="border-b border-border">
                   <td className="py-2 pr-4 font-mono">0–34</td>
-                  <td className="py-2 pr-4">
-                    <span className="rounded bg-zinc-500 px-2 py-0.5 text-white text-xs font-medium">D</span>
-                  </td>
+                  <td className="py-2 pr-4"><span className="rounded bg-zinc-500 px-2 py-0.5 text-white text-xs font-medium">D</span></td>
                 </tr>
               </tbody>
             </table>
@@ -645,19 +613,29 @@ export default function InfoClient() {
           </p>
         </section>
 
-        {/* ── Glossary ── */}
-        <section id="glossary" className="space-y-3">
+        {/* ── Glossary — hidden on xl (shown in right panel) ── */}
+        <section id="glossary" className="space-y-3 xl:hidden">
           <h2 className="text-lg font-semibold">Glossary</h2>
           <dl className="space-y-4">
             <div>
-              <dt className="font-semibold">Spaced Repetition</dt>
+              <dt className="font-semibold">
+                <a href="https://en.wikipedia.org/wiki/Spaced_repetition" target="_blank" rel="noopener noreferrer"
+                  className="hover:text-accent transition-colors">
+                  Spaced Repetition ↗
+                </a>
+              </dt>
               <dd className="text-muted-foreground">
                 A learning technique where reviews are scheduled at increasing intervals. Each successful review pushes
                 the next one further out. Based on the finding that memory consolidates with well-timed recall practice.
               </dd>
             </div>
             <div>
-              <dt className="font-semibold">FSRS (Free Spaced Repetition Scheduler)</dt>
+              <dt className="font-semibold">
+                <a href="https://github.com/open-spaced-repetition/fsrs4anki/wiki" target="_blank" rel="noopener noreferrer"
+                  className="hover:text-accent transition-colors">
+                  FSRS (Free Spaced Repetition Scheduler) ↗
+                </a>
+              </dt>
               <dd className="text-muted-foreground">
                 An open-source spaced repetition algorithm by Jarrett Ye. Aurora uses a modified version adapted for
                 coding problems — multi-signal scoring (outcome + solution quality + confidence + timing) replaces
@@ -665,36 +643,51 @@ export default function InfoClient() {
               </dd>
             </div>
             <div>
-              <dt className="font-semibold">Stability</dt>
+              <dt className="font-semibold">
+                <a href="#stability" className="hover:text-accent transition-colors">Stability</a>
+              </dt>
               <dd className="text-muted-foreground">
                 How durable your memory of a problem is, measured in days. Higher stability = slower forgetting =
                 longer intervals between reviews. Clamped between 0.5 and 365 days.
               </dd>
             </div>
             <div>
-              <dt className="font-semibold">Retrievability</dt>
+              <dt className="font-semibold">
+                <a href="#retrievability" className="hover:text-accent transition-colors">Retrievability</a>
+              </dt>
               <dd className="text-muted-foreground">
                 The estimated probability (0–100%) that you could solve a problem right now without help. Decays
                 exponentially over time since your last review. Has a floor of 30%.
               </dd>
             </div>
             <div>
-              <dt className="font-semibold">Mastery</dt>
+              <dt className="font-semibold">
+                <a href="#mastery" className="hover:text-accent transition-colors">Mastery</a>
+              </dt>
               <dd className="text-muted-foreground">
                 A problem is mastered when its stability reaches 45 days or more. Mastered problems are reviewed
                 infrequently — roughly once every 1–3 months — as a retention check rather than active learning.
               </dd>
             </div>
             <div>
-              <dt className="font-semibold">Exponential Decay</dt>
+              <dt className="font-semibold">
+                <a href="https://en.wikipedia.org/wiki/Exponential_decay" target="_blank" rel="noopener noreferrer"
+                  className="hover:text-accent transition-colors">
+                  Exponential Decay ↗
+                </a>
+              </dt>
               <dd className="text-muted-foreground">
                 A pattern where something decreases by a consistent proportion over equal time periods. Memory follows
-                this shape: fast loss early, slowing over time. The formula R = e
-                <sup className="text-[10px]">−t/S</sup> captures this.
+                this shape: fast loss early, slowing over time. The formula R = e<sup className="text-[10px]">−t/S</sup> captures this.
               </dd>
             </div>
             <div>
-              <dt className="font-semibold">Forgetting Curve</dt>
+              <dt className="font-semibold">
+                <a href="https://en.wikipedia.org/wiki/Forgetting_curve" target="_blank" rel="noopener noreferrer"
+                  className="hover:text-accent transition-colors">
+                  Forgetting Curve ↗
+                </a>
+              </dt>
               <dd className="text-muted-foreground">
                 The graph of retrievability over time. First described by Hermann Ebbinghaus in 1885 through
                 experiments on memorizing nonsense syllables. The exponential decay model fits his data and has been
@@ -702,10 +695,15 @@ export default function InfoClient() {
               </dd>
             </div>
             <div>
-              <dt className="font-semibold">NeetCode 150</dt>
+              <dt className="font-semibold">
+                <a href="https://neetcode.io/roadmap" target="_blank" rel="noopener noreferrer"
+                  className="hover:text-accent transition-colors">
+                  NeetCode 150 ↗
+                </a>
+              </dt>
               <dd className="text-muted-foreground">
                 A curated list of 150 LeetCode problems covering all major algorithms and data structures needed for
-                coding interviews. Organized into categories like Arrays & Hashing, Two Pointers, Stack, etc.
+                coding interviews. Organized into categories like Arrays &amp; Hashing, Two Pointers, Stack, etc.
               </dd>
             </div>
             <div>
@@ -717,7 +715,9 @@ export default function InfoClient() {
               </dd>
             </div>
             <div>
-              <dt className="font-semibold">Readiness Score</dt>
+              <dt className="font-semibold">
+                <a href="#readiness" className="hover:text-accent transition-colors">Readiness Score</a>
+              </dt>
               <dd className="text-muted-foreground">
                 A 0–100 composite score estimating interview preparedness. Combines coverage (how many problems
                 you&apos;ve seen), retention (how many you remember), category balance (no blind spots), and
@@ -727,99 +727,222 @@ export default function InfoClient() {
           </dl>
         </section>
 
-        {/* ── Further Reading ── */}
-        <section id="further-reading" className="space-y-3">
+        {/* ── Further Reading — hidden on xl (shown in right panel) ── */}
+        <section id="further-reading" className="space-y-3 xl:hidden">
           <h2 className="text-lg font-semibold">Further Reading</h2>
           <ul className="list-disc pl-5 space-y-2">
             <li>
-              <a
-                href="https://github.com/open-spaced-repetition/fsrs4anki/wiki"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent hover:underline"
-              >
+              <a href="https://github.com/open-spaced-repetition/fsrs4anki/wiki" target="_blank" rel="noopener noreferrer"
+                className="text-accent hover:underline">
                 FSRS Algorithm Wiki
               </a>
-              <span className="text-muted-foreground">
-                {" "}
-                — the research behind modern spaced repetition scheduling
-              </span>
+              <span className="text-muted-foreground"> — the research behind modern spaced repetition scheduling</span>
             </li>
             <li>
-              <a
-                href="https://en.wikipedia.org/wiki/Forgetting_curve"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent hover:underline"
-              >
+              <a href="https://en.wikipedia.org/wiki/Forgetting_curve" target="_blank" rel="noopener noreferrer"
+                className="text-accent hover:underline">
                 Forgetting Curve (Wikipedia)
               </a>
-              <span className="text-muted-foreground">
-                {" "}
-                — Ebbinghaus&apos;s original research and subsequent confirmations
-              </span>
+              <span className="text-muted-foreground"> — Ebbinghaus&apos;s original research and subsequent confirmations</span>
             </li>
             <li>
-              <a
-                href="https://en.wikipedia.org/wiki/Spaced_repetition"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent hover:underline"
-              >
+              <a href="https://en.wikipedia.org/wiki/Spaced_repetition" target="_blank" rel="noopener noreferrer"
+                className="text-accent hover:underline">
                 Spaced Repetition (Wikipedia)
               </a>
               <span className="text-muted-foreground"> — overview of the learning technique and its evidence base</span>
             </li>
             <li>
-              <a
-                href="https://neetcode.io/roadmap"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent hover:underline"
-              >
+              <a href="https://neetcode.io/roadmap" target="_blank" rel="noopener noreferrer"
+                className="text-accent hover:underline">
                 NeetCode Roadmap
               </a>
-              <span className="text-muted-foreground">
-                {" "}
-                — the NeetCode 150 problem list and category structure
-              </span>
+              <span className="text-muted-foreground"> — the NeetCode 150 problem list and category structure</span>
             </li>
             <li>
-              <Link href="/problems" className="text-accent hover:underline">
-                Problem List
-              </Link>
-              <span className="text-muted-foreground">
-                {" "}
-                — browse all 150 problems with optimal complexity and links
-              </span>
+              <Link href="/problems" className="text-accent hover:underline">Problem List</Link>
+              <span className="text-muted-foreground"> — browse all 150 problems with optimal complexity and links</span>
             </li>
           </ul>
         </section>
 
-        <footer className="border-t border-border pt-6 text-xs text-muted-foreground">
+        {/* Footer — hidden on xl (source links shown in right panel) */}
+        <footer className="border-t border-border pt-6 text-xs text-muted-foreground xl:hidden">
           <p>
             The algorithm source code is in{" "}
-            <a
-              href="https://github.com/CadenceElaina/aurora/blob/main/src/lib/srs.ts"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent hover:underline"
-            >
+            <a href="https://github.com/CadenceElaina/aurora/blob/main/src/lib/srs.ts" target="_blank" rel="noopener noreferrer"
+              className="text-accent hover:underline">
               src/lib/srs.ts
             </a>
             . Full design rationale is in{" "}
-            <a
-              href="https://github.com/CadenceElaina/aurora/blob/main/docs/ARCHITECTURE.md"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent hover:underline"
-            >
+            <a href="https://github.com/CadenceElaina/aurora/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener noreferrer"
+              className="text-accent hover:underline">
               docs/ARCHITECTURE.md
             </a>
             .
           </p>
         </footer>
       </article>
+
+      {/* ── Right reference panel (xl+) ── */}
+      <aside className="hidden xl:block w-56 shrink-0">
+        <div className="sticky top-20 space-y-7 max-h-[calc(100vh-5rem)] overflow-y-auto scrollbar-none pr-1">
+
+          {/* Glossary */}
+          <div>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+              Glossary
+            </p>
+            <dl className="space-y-3">
+              <div>
+                <dt className="text-xs font-semibold text-foreground leading-snug">
+                  <a href="https://en.wikipedia.org/wiki/Spaced_repetition" target="_blank" rel="noopener noreferrer"
+                    className="hover:text-accent transition-colors">
+                    Spaced Repetition ↗
+                  </a>
+                </dt>
+                <dd className="text-[11px] leading-snug text-muted-foreground mt-0.5">
+                  Reviews at increasing intervals; each success pushes the next further out.
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold text-foreground leading-snug">
+                  <a href="https://github.com/open-spaced-repetition/fsrs4anki/wiki" target="_blank" rel="noopener noreferrer"
+                    className="hover:text-accent transition-colors">
+                    FSRS ↗
+                  </a>
+                </dt>
+                <dd className="text-[11px] leading-snug text-muted-foreground mt-0.5">
+                  Open-source SRS algorithm; Aurora adapts it for multi-signal coding-problem scoring.
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold text-foreground leading-snug">
+                  <a href="#stability" className="hover:text-accent transition-colors">Stability</a>
+                </dt>
+                <dd className="text-[11px] leading-snug text-muted-foreground mt-0.5">
+                  How durable your memory is, in days. Higher = slower forgetting.
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold text-foreground leading-snug">
+                  <a href="#retrievability" className="hover:text-accent transition-colors">Retrievability</a>
+                </dt>
+                <dd className="text-[11px] leading-snug text-muted-foreground mt-0.5">
+                  Probability you can solve right now (0–100%). Decays over time; floor 30%.
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold text-foreground leading-snug">
+                  <a href="#mastery" className="hover:text-accent transition-colors">Mastery</a>
+                </dt>
+                <dd className="text-[11px] leading-snug text-muted-foreground mt-0.5">
+                  Stability ≥ 45 days. Reviewed every 1–3 months as a retention check.
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold text-foreground leading-snug">
+                  <a href="https://en.wikipedia.org/wiki/Exponential_decay" target="_blank" rel="noopener noreferrer"
+                    className="hover:text-accent transition-colors">
+                    Exponential Decay ↗
+                  </a>
+                </dt>
+                <dd className="text-[11px] leading-snug text-muted-foreground mt-0.5">
+                  Fast loss early, slower over time. The shape of human forgetting.
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold text-foreground leading-snug">
+                  <a href="https://en.wikipedia.org/wiki/Forgetting_curve" target="_blank" rel="noopener noreferrer"
+                    className="hover:text-accent transition-colors">
+                    Forgetting Curve ↗
+                  </a>
+                </dt>
+                <dd className="text-[11px] leading-snug text-muted-foreground mt-0.5">
+                  Retrievability plotted over time. First measured by Ebbinghaus, 1885.
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold text-foreground leading-snug">
+                  <a href="https://neetcode.io/roadmap" target="_blank" rel="noopener noreferrer"
+                    className="hover:text-accent transition-colors">
+                    NeetCode 150 ↗
+                  </a>
+                </dt>
+                <dd className="text-[11px] leading-snug text-muted-foreground mt-0.5">
+                  150 curated LeetCode problems covering all major interview categories.
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold text-foreground leading-snug">Blind 75</dt>
+                <dd className="text-[11px] leading-snug text-muted-foreground mt-0.5">
+                  75 most-asked interview problems; given a priority bonus in the review queue.
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold text-foreground leading-snug">
+                  <a href="#readiness" className="hover:text-accent transition-colors">Readiness Score</a>
+                </dt>
+                <dd className="text-[11px] leading-snug text-muted-foreground mt-0.5">
+                  0–100 composite: coverage 30%, retention 40%, balance 20%, consistency 10%.
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          {/* Further Reading */}
+          <div>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+              Further Reading
+            </p>
+            <ul className="space-y-2 text-[11px]">
+              <li>
+                <a href="https://github.com/open-spaced-repetition/fsrs4anki/wiki" target="_blank" rel="noopener noreferrer"
+                  className="text-accent hover:underline leading-snug">
+                  FSRS Algorithm Wiki ↗
+                </a>
+              </li>
+              <li>
+                <a href="https://en.wikipedia.org/wiki/Forgetting_curve" target="_blank" rel="noopener noreferrer"
+                  className="text-accent hover:underline leading-snug">
+                  Forgetting Curve (Wikipedia) ↗
+                </a>
+              </li>
+              <li>
+                <a href="https://en.wikipedia.org/wiki/Spaced_repetition" target="_blank" rel="noopener noreferrer"
+                  className="text-accent hover:underline leading-snug">
+                  Spaced Repetition (Wikipedia) ↗
+                </a>
+              </li>
+              <li>
+                <a href="https://neetcode.io/roadmap" target="_blank" rel="noopener noreferrer"
+                  className="text-accent hover:underline leading-snug">
+                  NeetCode Roadmap ↗
+                </a>
+              </li>
+              <li>
+                <Link href="/problems" className="text-accent hover:underline leading-snug">
+                  Aurora Problem List
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Source */}
+          <div className="border-t border-border pt-4 space-y-2 text-[11px]">
+            <p className="font-semibold text-muted-foreground uppercase tracking-widest text-[11px]">Source</p>
+            <a href="https://github.com/CadenceElaina/aurora/blob/main/src/lib/srs.ts" target="_blank" rel="noopener noreferrer"
+              className="block text-accent hover:underline leading-snug">
+              src/lib/srs.ts ↗
+            </a>
+            <a href="https://github.com/CadenceElaina/aurora/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener noreferrer"
+              className="block text-accent hover:underline leading-snug">
+              docs/ARCHITECTURE.md ↗
+            </a>
+          </div>
+
+        </div>
+      </aside>
     </div>
   );
 }
