@@ -107,6 +107,11 @@ export function Nav({ isAuthenticated = false, authConfigured = true, isDemo = f
 
   // On the landing page, show a minimal nav
   const isLanding = pathname === "/";
+  const isDemoRoute = isDemo && !isLanding && (
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/insights") ||
+    pathname.startsWith("/activity")
+  );
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -184,8 +189,7 @@ export function Nav({ isAuthenticated = false, authConfigured = true, isDemo = f
             )}
           </button>
         )}
-        {!isAuthenticated && <SetupGuide />}
-        {isDemo && !isLanding && <DemoGitHubBadge />}
+        {isDemoRoute && <DemoGitHubBadge />}
         {greeting && !isLanding && (
           <span className="hidden sm:inline text-sm text-muted-foreground">{greeting}</span>
         )}
@@ -193,7 +197,7 @@ export function Nav({ isAuthenticated = false, authConfigured = true, isDemo = f
           <UserMenu userName={userName} userEmail={userEmail} userImage={userImage} analyticsOptOut={analyticsOptOut} />
         ) : authConfigured ? (
           <div className="flex items-center gap-1.5">
-            {isDemo && !isLanding && (
+            {isDemoRoute && (
               <span className="hidden sm:inline-flex items-center rounded-md border border-accent/40 bg-accent/10 px-2 py-1 text-xs font-medium text-accent">
                 DEMO
               </span>

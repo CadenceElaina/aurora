@@ -47,6 +47,7 @@ const LOG_STEPS = [
 ];
 
 type Rect = { top: number; left: number; width: number; height: number };
+const DEMO_ONBOARDING_KEY = "aurora_demo_onboarding_complete";
 
 /* ── Step definitions (3 slides) ── */
 const STEPS = [
@@ -103,7 +104,8 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
   }, []);
 
   useEffect(() => {
-    if (!isDemo && !onboardingComplete) {
+    const demoComplete = isDemo && localStorage.getItem(DEMO_ONBOARDING_KEY) === "1";
+    if (!onboardingComplete && !demoComplete) {
       const t = setTimeout(() => { setShow(true); measure(); }, 400);
       return () => clearTimeout(t);
     }
@@ -147,7 +149,9 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
 
   function finish() {
     const targetCount = selectedGoal === "blind75" ? 75 : selectedGoal === "neetcode150" ? 150 : 0;
-    if (!isDemo) {
+    if (isDemo) {
+      localStorage.setItem(DEMO_ONBOARDING_KEY, "1");
+    } else {
       fetch("/api/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -373,7 +377,13 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
         {/* Title */}
         <div className="px-5 pt-4 pb-1">
           <h2 className="text-base font-semibold mb-1">{current.title}</h2>
-          {current.body && <p className="text-sm text-muted-foreground leading-relaxed">{current.body}</p>}
+          {current.body && (
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {isDemo && step === 0
+                ? "This demo shows a realistic Aurora account with reviews, new problems, GitHub detections, and readiness signals. Explore freely; nothing is saved until you sign in."
+                : current.body}
+            </p>
+          )}
         </div>
 
         {/* ── Step 0: Welcome ── */}
@@ -390,7 +400,9 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
         {step === 1 && (
           <div className="px-5 pb-2 space-y-2">
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Click &quot;Log&quot; on any problem to record your attempt. 4 quick taps and the algorithm recalculates your schedule.
+              {isDemo
+                ? "Click \"Log\" on any problem to see the schedule update instantly in preview mode. A real account keeps that history across sessions."
+                : "Click \"Log\" on any problem to record your attempt. 4 quick taps and the algorithm recalculates your schedule."}
             </p>
             {logFrame >= 5 && (
               <div className="rounded-md bg-green-500/10 border border-green-500/20 p-2 text-center">
@@ -404,7 +416,9 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
         {step === 2 && (
           <div className="px-5 pb-2 space-y-3">
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Pick a problem set and target date. You can change these anytime.
+              {isDemo
+                ? "Pick a problem set and target date for this preview. Sign in when you want Aurora to remember the plan."
+                : "Pick a problem set and target date. You can change these anytime."}
             </p>
             <div className="space-y-2">
               {([

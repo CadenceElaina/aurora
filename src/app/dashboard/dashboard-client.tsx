@@ -206,6 +206,8 @@ type PracticeRecommendation = {
   metrics?: QueueStability;
 };
 
+type DemoCtaReason = "save" | "github" | "mock" | "import" | "generic";
+
 const TIER_COLORS: Record<string, string> = {
   S: "bg-violet-500 text-white",
   A: "bg-blue-500 text-white",
@@ -537,6 +539,11 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
   const [countdownTitle, setCountdownTitle] = useState("Fall Recruiting Countdown");
   const [forecastReviewPerDay, setForecastReviewPerDay] = useState(2);
   const [forecastNewPerDay, setForecastNewPerDay] = useState(2);
+  const [newItems, setNewItems] = useState(data.newProblems);
+  const [completedItems, setCompletedItems] = useState(data.completedProblems);
+  const [showDemoSignIn, setShowDemoSignIn] = useState(false);
+  const [demoCtaReason, setDemoCtaReason] = useState<DemoCtaReason>("generic");
+  const [demoSessionChanged, setDemoSessionChanged] = useState(false);
 
 
   const activityData = useMemo(() => {
@@ -553,6 +560,14 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
   function toggleWidget(key: string) {
     setCollapsedWidgets((prev) => ({ ...prev, [key]: !prev[key] }));
   }
+
+  useEffect(() => {
+    setNewItems(data.newProblems);
+  }, [data.newProblems]);
+
+  useEffect(() => {
+    setCompletedItems(data.completedProblems);
+  }, [data.completedProblems]);
 
   // Load saved settings from localStorage
   useEffect(() => {
@@ -861,13 +876,13 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
   }, [reviewItems, reviewSort]);
 
   const sortedNewProblems = useMemo(() => {
-    let q = goalType === "blind75" ? data.newProblems.filter(p => p.blind75) : [...data.newProblems];
+    let q = goalType === "blind75" ? newItems.filter(p => p.blind75) : [...newItems];
     if (newDifficultyFilter === "easy") q = q.filter(p => p.difficulty === "Easy");
     else if (newDifficultyFilter === "easy-medium") q = q.filter(p => p.difficulty === "Easy" || p.difficulty === "Medium");
     else if (newDifficultyFilter === "medium") q = q.filter(p => p.difficulty === "Medium");
     else if (newDifficultyFilter === "hard") q = q.filter(p => p.difficulty === "Hard");
     return q;
-  }, [data.newProblems, newDifficultyFilter, goalType]);
+  }, [newItems, newDifficultyFilter, goalType]);
 
   const filteredReviewQueue = useMemo(() => {
     if (!queueSearch.trim()) return sortedReviewQueue;
@@ -886,7 +901,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
   }, [sortedNewProblems, queueSearch]);
 
   const sortedCompleted = useMemo(() => {
-    const q = [...data.completedProblems];
+    const q = [...completedItems];
     if (completedSort === "retention") {
       q.sort((a, b) => a.retrievability - b.retrievability); // fading first
     } else if (completedSort === "review-date") {
@@ -895,7 +910,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
       q.sort((a, b) => a.category.localeCompare(b.category) || b.retrievability - a.retrievability);
     }
     return q;
-  }, [data.completedProblems, completedSort]);
+  }, [completedItems, completedSort]);
 
   const filteredCompleted = useMemo(() => {
     if (!queueSearch.trim()) return sortedCompleted;
@@ -925,9 +940,6 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     router.refresh();
   }
 
-  // Demo sign-in prompt overlay
-  const [showDemoSignIn, setShowDemoSignIn] = useState(false);
-
   // ESC to close demo sign-in overlay
   useEffect(() => {
     if (!showDemoSignIn) return;
@@ -938,12 +950,70 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     return () => document.removeEventListener("keydown", handleKey);
   }, [showDemoSignIn]);
 
-  function demoGuard(action: () => void) {
+  function showDemoConversion(reason: DemoCtaReason = "generic") {
+    setDemoCtaReason(reason);
+    setShowDemoSignIn(true);
+  }
+
+  function demoGuard(action: () => void, reason: DemoCtaReason = "generic") {
     if (isDemo) {
-      setShowDemoSignIn(true);
+      showDemoConversion(reason);
       return;
     }
     action();
+  }
+
+  function openLog(problem: LogModalProblem) {
+    if (!isDemo) {
+      setLogModalProblem(problem);
+      return;
+    }
+
+    const now = new Date();
+    const nextReview = new Date(now);
+    nextReview.setDate(nextReview.getDate() + (problem.isReview ? 4 : 2));
+    const oldStability = problem.isReview ? 3.4 : 0;
+    const newStability = problem.isReview ? 7.1 : 2.2;
+
+    setReviewItems((prev) => prev.filter((item) => item.problemId !== problem.problemId));
+    setNewItems((prev) => prev.filter((item) => item.id !== problem.problemId));
+    if (problem.pendingId) {
+      setPendingItems((prev) => prev.filter((item) => item.id !== problem.pendingId));
+    }
+    setCompletedItems((prev) => {
+      const existing = prev.find((item) => item.problemId === problem.problemId);
+      if (existing) {
+        return prev.map((item) => item.problemId === problem.problemId
+          ? { ...item, totalAttempts: item.totalAttempts + 1, retrievability: Math.max(item.retrievability, 0.82), daysUntilReview: 4, isDue: false }
+          : item,
+        );
+      }
+      return [{
+        problemId: problem.problemId,
+        title: problem.title,
+        leetcodeNumber: problem.leetcodeNumber,
+        difficulty: problem.difficulty,
+        category: problem.category ?? "General",
+        totalAttempts: 1,
+        retrievability: 0.88,
+        stability: newStability,
+        lastReviewedAt: now.toISOString(),
+        daysUntilReview: 2,
+        isDue: false,
+        bestQuality: "OPTIMAL",
+      }, ...prev];
+    });
+    setSrsBanner({
+      oldS: oldStability,
+      newS: newStability,
+      next: nextReview.toISOString(),
+      pct: problem.isReview ? 42 : 15,
+      attemptId: `demo-${Date.now()}`,
+      pName: problem.title,
+      pNum: String(problem.leetcodeNumber ?? ""),
+      cat: problem.category ?? "",
+    });
+    setDemoSessionChanged(true);
   }
 
   async function handleDefer(problemId: number, until?: string) {
@@ -1026,6 +1096,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
       if (prefs.targetCount > 0) {
         setTargetCount(prefs.targetCount);
         setTargetDate(prefs.targetDate);
+        localStorage.setItem("srs_target", JSON.stringify({ date: prefs.targetDate, count: prefs.targetCount }));
         setListMode("new");
       }
       setGoalType(prefs.goalType);
@@ -1048,12 +1119,20 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     {showDemoSignIn && (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowDemoSignIn(false)}>
         <div className="rounded-lg border border-border bg-muted p-6 text-center space-y-3 max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
-          <p className="text-sm text-muted-foreground">This is a demo preview</p>
-          <h3 className="text-lg font-semibold text-foreground">Sign in to track your progress</h3>
-          <p className="text-xs text-muted-foreground">All your data will be synced with spaced repetition scheduling.</p>
+          <p className="text-sm text-muted-foreground">Demo preview</p>
+          <h3 className="text-lg font-semibold text-foreground">
+            {demoCtaReason === "github" ? "Connect your own GitHub repo" : demoCtaReason === "mock" ? "Save mock interview results" : demoSessionChanged ? "Keep this progress" : "Create your real Aurora queue"}
+          </h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {demoCtaReason === "github"
+              ? "The demo shows a connected repo with sample submissions. Sign in to configure your own repo and confirm real detected solves."
+              : demoCtaReason === "import"
+                ? "Imports need an account so Aurora can attach attempts to your personal SRS schedule."
+                : "Demo changes are temporary. Sign in to keep attempts, notes, review schedules, goals, and GitHub Sync across sessions."}
+          </p>
           <div className="flex gap-2 justify-center pt-1">
             <Link href="/auth/signin" className="inline-flex h-9 items-center rounded-md bg-accent px-4 text-sm font-medium text-accent-foreground transition-all duration-150 hover:shadow-[0_0_12px_var(--glow)]">
-              Sign in with GitHub
+              Continue with GitHub
             </Link>
             <button onClick={() => setShowDemoSignIn(false)} className="inline-flex h-9 items-center rounded-md border border-border px-4 text-sm text-muted-foreground hover:text-foreground transition-colors">
               Keep exploring
@@ -1072,7 +1151,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     )}
     {/* Cheatsheet drawer */}
     {sheetDrawerOpen && (() => {
-      const todaySheets = [...new Set(data.reviewQueue.map((r) => r.category))]
+      const todaySheets = [...new Set(reviewItems.map((r) => r.category))]
         .map((cat) => CHEATSHEET_MAP.get(cat))
         .filter(Boolean) as import("@/lib/cheatsheets").Cheatsheet[];
       return todaySheets.length > 0
@@ -1082,6 +1161,10 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     {/* SRS Feedback Banner */}
     {srsBanner && <SrsFeedbackBanner {...srsBanner} onDismiss={() => setSrsBanner(null)} onUndo={async () => {
       if (!srsBanner.attemptId) return;
+      if (isDemo) {
+        setSrsBanner(null);
+        return;
+      }
       const res = await fetch(`/api/attempts?id=${srsBanner.attemptId}`, { method: "DELETE" });
       if (res.ok) {
         setSrsBanner(null);
@@ -1111,19 +1194,24 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
           <PendingBanner
             items={pendingItems}
             onConfirm={(item) => {
-              demoGuard(() => setLogModalProblem({
+              openLog({
                 problemId: item.problemId,
                 title: item.problemTitle,
                 leetcodeNumber: item.leetcodeNumber,
                 difficulty: item.difficulty,
+                category: item.category,
                 isReview: item.isReview,
                 attemptDate: item.detectedAt,
                 pendingId: item.id,
                 source: "github",
-              }));
+              });
             }}
             onDismiss={async (item) => {
-              if (isDemo) { setShowDemoSignIn(true); return; }
+              if (isDemo) {
+                setPendingItems((prev) => prev.filter((p) => p.id !== item.id));
+                setDemoSessionChanged(true);
+                return;
+              }
               await fetch("/api/pending", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -1164,9 +1252,9 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                   className={`flex-1 text-center text-sm px-2 py-1.5 rounded transition-colors ${listMode === "completed" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   Completed
-                  {data.completedProblems.length > 0 && (
+                  {completedItems.length > 0 && (
                     <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full ${listMode === "completed" ? "bg-accent-foreground/20" : "bg-muted"}`}>
-                      {data.completedProblems.length}
+                      {completedItems.length}
                     </span>
                   )}
                 </button>
@@ -1244,7 +1332,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
               )}
               {/* Cheatsheets button — only when review queue has items */}
               {(() => {
-                const todaySheets = [...new Set(data.reviewQueue.map((r) => r.category))]
+                const todaySheets = [...new Set(reviewItems.map((r) => r.category))]
                   .map((cat) => CHEATSHEET_MAP.get(cat))
                   .filter(Boolean) as import("@/lib/cheatsheets").Cheatsheet[];
                 if (todaySheets.length === 0) return null;
@@ -1268,7 +1356,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
           {/* Review list */}
           {listMode === "review" && (
             <div className="flex flex-col flex-1 min-h-0 gap-2">
-            {data.reviewQueue.length === 0 ? (
+            {reviewItems.length === 0 ? (
               <div className="rounded-lg border border-border bg-muted p-6 text-center">
                 <p className="text-sm text-muted-foreground">All caught up! No reviews due.</p>
                 <button onClick={() => setListMode("new")} className="mt-2 text-xs text-accent hover:underline">
@@ -1332,14 +1420,14 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                           </span>
                           <DifficultyBadge difficulty={item.difficulty} />
                           <button
-                            onClick={() => demoGuard(() => setLogModalProblem({
+                            onClick={() => openLog({
                               problemId: item.problemId,
                               title: item.title,
                               leetcodeNumber: item.leetcodeNumber,
                               difficulty: item.difficulty,
                               category: item.category,
                               isReview: true,
-                            }))}
+                            })}
                             className="inline-flex h-7 items-center rounded-md bg-accent px-3 text-xs text-accent-foreground transition-colors hover:opacity-90"
                           >
                             Log
@@ -1384,7 +1472,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                               .map((item) => (
                                 <button
                                   key={item.problemId}
-                                  onClick={() => { demoGuard(() => handleDefer(item.problemId)); setDeferSearch(""); }}
+                                  onClick={() => { demoGuard(() => handleDefer(item.problemId), "save"); setDeferSearch(""); }}
                                   className="flex items-center gap-2 w-full px-2.5 py-1.5 text-left hover:bg-muted transition-colors border-b border-border last:border-b-0"
                                 >
                                   <span className="text-[10px] text-muted-foreground tabular-nums w-6 shrink-0">{item.leetcodeNumber}</span>
@@ -1422,7 +1510,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                             <div className="flex items-center gap-1.5 shrink-0">
                               <DifficultyBadge difficulty={item.difficulty} />
                               <button
-                                onClick={() => demoGuard(() => handleUndefer(item.problemId))}
+                                onClick={() => demoGuard(() => handleUndefer(item.problemId), "save")}
                                 className="inline-flex h-6 items-center rounded border border-border px-2 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                               >
                                 Restore
@@ -1441,7 +1529,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
 
           {/* New problems list */}
           {listMode === "new" && (
-            data.newProblems.length === 0 ? (
+            newItems.length === 0 ? (
               <div className="rounded-lg border border-border bg-muted p-6 text-center">
                 <p className="text-sm text-muted-foreground">You&apos;ve attempted every problem!</p>
               </div>
@@ -1472,14 +1560,14 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                       <div className="flex items-center gap-1.5 shrink-0">
                         <DifficultyBadge difficulty={p.difficulty} />
                         <button
-                          onClick={() => demoGuard(() => setLogModalProblem({
+                          onClick={() => openLog({
                             problemId: p.id,
                             title: p.title,
                             leetcodeNumber: p.leetcodeNumber,
                             difficulty: p.difficulty,
                             category: p.category,
                             isReview: false,
-                          }))}
+                          })}
                           className="inline-flex h-7 items-center rounded-md bg-accent px-3 text-xs text-accent-foreground transition-colors hover:opacity-90"
                         >
                           Log
@@ -1494,7 +1582,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
 
           {/* Completed problems list */}
           {listMode === "completed" && (
-            data.completedProblems.length === 0 ? (
+            completedItems.length === 0 ? (
               <div className="rounded-lg border border-border bg-muted p-6 text-center">
                 <p className="text-sm text-muted-foreground">No completed problems yet. Start reviewing!</p>
               </div>
@@ -1531,14 +1619,14 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                           </span>
                         ) : null}
                         <button
-                          onClick={() => demoGuard(() => setLogModalProblem({
+                          onClick={() => openLog({
                             problemId: item.problemId,
                             title: item.title,
                             leetcodeNumber: item.leetcodeNumber,
                             difficulty: item.difficulty,
                             category: item.category,
                             isReview: true,
-                          }))}
+                          })}
                           className="inline-flex h-7 items-center rounded-md bg-accent px-3 text-xs text-accent-foreground transition-colors hover:opacity-90"
                         >
                           Log
@@ -1553,13 +1641,28 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
 
           {/* Import tab */}
           {listMode === "import" && (
-            <ImportClient
-              embedded
-              onDone={() => setListMode("review")}
-              allProblems={data.importProblems}
-              attemptedIds={data.importAttemptedIds}
-              todayAttemptedIds={data.importTodayAttemptedIds}
-            />
+            isDemo ? (
+              <div className="rounded-lg border border-border bg-muted p-6 text-center space-y-3">
+                <p className="text-sm font-medium text-foreground">Import your real history after sign-in</p>
+                <p className="mx-auto max-w-sm text-xs text-muted-foreground leading-relaxed">
+                  The demo uses sample attempts. A real account can import pasted history and turn it into your personal review schedule.
+                </p>
+                <button
+                  onClick={() => showDemoConversion("import")}
+                  className="inline-flex h-9 items-center rounded-md bg-accent px-4 text-sm font-medium text-accent-foreground transition-colors hover:opacity-90"
+                >
+                  Continue with GitHub
+                </button>
+              </div>
+            ) : (
+              <ImportClient
+                embedded
+                onDone={() => setListMode("review")}
+                allProblems={data.importProblems}
+                attemptedIds={data.importAttemptedIds}
+                todayAttemptedIds={data.importTodayAttemptedIds}
+              />
+            )
           )}
 
           {/* ── Mock Interview Panel ── */}
@@ -1678,7 +1781,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
               onSave={saveSettings}
               onCancel={() => setShowSettings(false)}
               autoDeferHards={autoDeferHards}
-              onToggleAutoDeferHards={(v) => demoGuard(() => handleToggleAutoDeferHards(v))}
+              onToggleAutoDeferHards={(v) => demoGuard(() => handleToggleAutoDeferHards(v), "save")}
               showPracticeRecommendation={showPracticeRecommendation}
               onTogglePracticeRecommendation={(v) => {
                 setShowPracticeRecommendation(v);
@@ -2983,7 +3086,7 @@ function MockPanel({
   onReshuffle: () => void;
   onLogged: (id: number) => void;
   onReset: () => void;
-  demoGuard: (fn: () => void) => void;
+  demoGuard: (fn: () => void, reason?: DemoCtaReason) => void;
 }) {
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   const timerColor = timeLeft <= 300 ? "text-destructive" : timeLeft <= 600 ? "text-warning" : "text-foreground";
@@ -3034,7 +3137,7 @@ function MockPanel({
             </div>
             <div className="px-3 py-3 border-t border-border/60 shrink-0">
               <button
-                onClick={() => demoGuard(onStart)}
+                onClick={onStart}
                 className="w-full inline-flex h-9 items-center justify-center rounded-md bg-accent text-sm font-semibold text-accent-foreground transition-colors hover:opacity-90"
               >
                 Start {duration}-min interview
@@ -3129,7 +3232,7 @@ function MockLogRow({ problem, sessionMinutes, numProblems, logged, onLogged, de
   numProblems: number;
   logged: boolean;
   onLogged: (id: number) => void;
-  demoGuard: (fn: () => void) => void;
+  demoGuard: (fn: () => void, reason?: DemoCtaReason) => void;
 }) {
   const [outcome, setOutcome] = useState<"YES" | "PARTIAL" | "NO" | null>(null);
   const [confidence, setConfidence] = useState<number>(3);
@@ -3215,7 +3318,7 @@ function MockLogRow({ problem, sessionMinutes, numProblems, logged, onLogged, de
           ))}
         </div>
         <button
-          onClick={() => demoGuard(submit)}
+          onClick={() => demoGuard(submit, "mock")}
           disabled={!outcome || saving}
           className="inline-flex h-6 items-center rounded px-2.5 bg-accent text-xs text-accent-foreground font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
         >

@@ -41,7 +41,7 @@ Last updated: 2026-05-03 — all tasks complete
 
 | ID  | Agent | Description |
 | --- | ----- | ----------- |
-| —   | —     | —           |
+| T-018 | GitHub Copilot | `ux`: make demo, onboarding tour, and sign-in flow consistent |
 
 ---
 
