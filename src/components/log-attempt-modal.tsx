@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { DifficultyBadge } from "@/components/difficulty-badge";
+import { CHEATSHEET_MAP } from "@/lib/cheatsheets";
 
 type Outcome = "NO_SOLUTION" | "PARTIAL" | "SOLVED";
 
@@ -180,7 +181,20 @@ export function LogAttemptModal({ problem, onClose, onLogged }: Props) {
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-500 font-medium shrink-0">Review</span>
             )}
           </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm ml-2 shrink-0" aria-label="Close">✕</button>
+          <div className="flex items-center gap-2 ml-2 shrink-0">
+            {problem.category && CHEATSHEET_MAP.has(problem.category) && (
+              <a
+                href={`/cheatsheets#${encodeURIComponent(problem.category)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] text-accent hover:underline"
+                title={`Open ${problem.category} pattern reference`}
+              >
+                Refresh pattern →
+              </a>
+            )}
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm" aria-label="Close">✕</button>
+          </div>
         </div>
 
         {/* Body */}

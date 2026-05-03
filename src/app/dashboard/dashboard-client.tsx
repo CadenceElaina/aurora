@@ -1360,7 +1360,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                         : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                   >
-                    Cheatsheets ({todaySheets.length})
+                    Patterns ({todaySheets.length})
                   </button>
                 );
               })()}

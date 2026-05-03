@@ -61,7 +61,7 @@ export function CheatsheetDrawer({
           <div>
             <span className="text-sm font-medium text-foreground">Pattern cheatsheets</span>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Quick references for your {sheets.length} review {sheets.length === 1 ? "category" : "categories"} today
+              Glance before attempting · then solve from memory
             </p>
           </div>
           <button

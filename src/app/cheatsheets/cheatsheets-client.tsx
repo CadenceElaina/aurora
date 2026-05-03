@@ -12,6 +12,7 @@ function CodeBlock({ code }: { code: string }) {
 }
 
 export function CheatsheetExpanded({ sheet }: { sheet: Cheatsheet }) {
+  const [showTemplate, setShowTemplate] = useState(false);
   return (
     <div className="space-y-5 px-5 pb-5 pt-1">
       {/* Triggers */}
@@ -45,19 +46,29 @@ export function CheatsheetExpanded({ sheet }: { sheet: Cheatsheet }) {
 
       {/* Templates */}
       <div>
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {sheet.templates.length > 1 ? "Templates" : "Template"}
-        </p>
-        <div className="space-y-3">
-          {sheet.templates.map((t, i) => (
-            <div key={i}>
-              {sheet.templates.length > 1 && (
-                <p className="mb-1 text-xs text-muted-foreground">{t.label}</p>
-              )}
-              <CodeBlock code={t.code} />
-            </div>
-          ))}
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {sheet.templates.length > 1 ? "Templates" : "Template"}
+          </p>
+          <button
+            onClick={() => setShowTemplate((v) => !v)}
+            className="text-[10px] text-accent hover:underline"
+          >
+            {showTemplate ? "Hide" : "Show template"}
+          </button>
         </div>
+        {showTemplate && (
+          <div className="space-y-3">
+            {sheet.templates.map((t, i) => (
+              <div key={i}>
+                {sheet.templates.length > 1 && (
+                  <p className="mb-1 text-xs text-muted-foreground">{t.label}</p>
+                )}
+                <CodeBlock code={t.code} />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Canonical problems + complexity on one row */}
