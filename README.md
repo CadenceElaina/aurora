@@ -39,12 +39,15 @@ Built around 150 curated LeetCode problems with a modified [FSRS](https://github
 ## Features
 
 - **150 curated problems** — categories, difficulty, LeetCode/NeetCode links, video explanations, verified optimal time & space complexity, Blind 75 flags
-- **Attempt logging** — outcome (solved/partial/no), solution quality, complexity comparison, solve time, rewrite-from-scratch signal, confidence, code, notes
+- **Attempt logging** — outcome (solved/partial/no), solution quality, solve time, rewrite-from-scratch signal, confidence, code, notes; prior attempt shown (collapsed) on review problems to support reflection without undermining retrieval practice
 - **Spaced repetition** — FSRS-based scheduling adapted for coding problems (see [Algorithm](#algorithm) below)
-- **Readiness dashboard** — tier score, coverage, retention, category balance, consistency, capacity-adjusted pace projection toward a configurable target date
+- **Readiness dashboard** — tier score (S–D), coverage, retention, category balance, consistency, capacity-adjusted pace projection toward a configurable target date
+- **Pattern cheatsheets** — inline reference panel during reviews: key concept, trigger phrases, watch-outs, complexity, canonical examples, and code templates for each category in your current queue. Collapsed by default to preserve recall effort; shown per-category with tab navigation.
+- **Insights** — per-user analytics: difficulty and category breakdowns, solve time trends, confidence progression, mastery distribution
 - **Mock interviews** — random medium + hard from weak categories, 45-minute timer
 - **Activity import** — paste activity from neetcode.io to bulk-log problems
 - **GitHub sync** — auto-detect NeetCode submissions via webhook, confirm from dashboard
+- **Light/dark mode** — system preference default with localStorage persistence, toggle in the nav bar
 
 ---
 
@@ -270,19 +273,26 @@ scripts/
   fetch_problems.py            # Data pipeline
   seed.ts                      # Seeds problem metadata into Postgres
 tests/
-  unit/srs.test.ts             # SRS engine unit tests (52 cases)
+  unit/srs.test.ts             # SRS engine unit tests (55 cases)
 src/
-  lib/srs.ts                   # Core SRS engine (stability, retrievability, readiness)
+  lib/
+    srs.ts                     # Core SRS engine (stability, retrievability, readiness)
+    cheatsheets.ts             # Pattern cheatsheet data for all 19 categories
   db/schema.ts                 # Drizzle schema
   app/
     dashboard/                 # Dashboard (queue, stats, readiness, mock interview)
+      cheatsheet-drawer.tsx    # Inline pattern cheatsheet panel (right column)
     problems/                  # Problem list, detail, attempt form
+    insights/                  # Per-user analytics page
+    cheatsheets/               # Standalone cheatsheet browser (/cheatsheets)
+    info/                      # How It Works explainer (/info)
     api/attempts/              # Attempt logging + SRS update
     api/notes/                 # Per-user problem notes
     api/review/                # Review queue + skip endpoint
     api/pending/               # Pending GitHub submissions
     api/github-sync/           # GitHub repo connection settings
     api/webhook/github/        # GitHub push webhook receiver
+    api/export/                # Data export (JSON download)
 ```
 
 ---
