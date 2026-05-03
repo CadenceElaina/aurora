@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { unstable_cache } from "next/cache";
 import { db } from "@/db";
 import { problems, userProblemStates, attempts, pendingSubmissions, users } from "@/db/schema";
 import { auth } from "@/auth";
@@ -7,6 +8,13 @@ import Link from "next/link";
 import { computeRetrievability, computeReadiness } from "@/lib/srs";
 import { DashboardClient } from "./dashboard-client";
 import { DEMO_DASHBOARD_DATA } from "./demo-data";
+
+// Problems are seeded once and never change at runtime — cache indefinitely.
+const getCachedProblems = unstable_cache(
+  () => db.select().from(problems).orderBy(asc(problems.id)),
+  ["all-problems"],
+  { revalidate: false },
+);
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Dashboard — Aurora" };
@@ -31,7 +39,7 @@ export default async function DashboardPage() {
 
   // Parallel data fetching
   const [allProblems, userStates, attemptDateRows, timeRows, pendingRows, todayAttemptRows, userRow, firstAttemptByProblem] = await Promise.all([
-    db.select().from(problems).orderBy(asc(problems.id)),
+    getCachedProblems(),
     db.select().from(userProblemStates).where(eq(userProblemStates.userId, userId)),
     db
       .select({
