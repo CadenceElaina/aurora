@@ -5,14 +5,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { ChevronRight, Download, Github, LogOut, Settings, Trash2 } from "lucide-react";
+import { ChevronRight, Download, Github, LogOut, Moon, Settings, Sun, Trash2 } from "lucide-react";
 import { SetupGuide } from "@/components/setup-guide";
 import { DeleteAccountModal } from "@/components/delete-account-modal";
+import { useTheme } from "@/components/theme";
 
 const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/problems", label: "Problems" },
-  { href: "/info", label: "Info" },
+  { href: "/problems",  label: "Problems" },
+  { href: "/insights",  label: "Insights" },
+  { href: "/info",      label: "Info" },
 ];
 
 /* ── Time-based greeting with localStorage persistence ── */
@@ -97,7 +99,7 @@ function useGreeting(userName?: string): string | null {
   return greeting;
 }
 
-export function Nav({ isAuthenticated = false, authConfigured = true, isDemo = false, userName, userEmail, userImage }: { isAuthenticated?: boolean; authConfigured?: boolean; isDemo?: boolean; userName?: string; userEmail?: string; userImage?: string }) {
+export function Nav({ isAuthenticated = false, authConfigured = true, isDemo = false, isAdmin = false, userName, userEmail, userImage }: { isAuthenticated?: boolean; authConfigured?: boolean; isDemo?: boolean; isAdmin?: boolean; userName?: string; userEmail?: string; userImage?: string }) {
   const pathname = usePathname();
   const [logoHovered, setLogoHovered] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -150,10 +152,23 @@ export function Nav({ isAuthenticated = false, authConfigured = true, isDemo = f
                 {label}
               </Link>
             ))}
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className={`rounded-md px-3 py-1.5 text-sm transition-colors duration-150 ${
+                  pathname.startsWith("/admin")
+                    ? "bg-muted text-foreground font-medium"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                Admin
+              </Link>
+            )}
           </nav>
         )}
       </div>
       <div className="flex items-center gap-2">
+        <ThemeToggle />
         {/* Mobile menu toggle — visible only on small screens when not on landing */}
         {!isLanding && (
           <button
@@ -219,6 +234,18 @@ export function Nav({ isAuthenticated = false, authConfigured = true, isDemo = f
               {label}
             </Link>
           ))}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className={`block rounded-md px-3 py-2.5 text-sm transition-colors duration-150 ${
+                pathname.startsWith("/admin")
+                  ? "bg-muted text-foreground font-medium"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              Admin
+            </Link>
+          )}
         </nav>
       )}
     </header>
@@ -635,5 +662,24 @@ function DemoGitHubBadge() {
         </div>
       )}
     </div>
+  );
+}
+
+/* ── Theme Toggle ── */
+
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+  return (
+    <button
+      onClick={toggleTheme}
+      className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+      aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      title={theme === "dark" ? "Light mode" : "Dark mode"}
+    >
+      {theme === "dark"
+        ? <Sun size={16} strokeWidth={2} aria-hidden="true" />
+        : <Moon size={16} strokeWidth={2} aria-hidden="true" />
+      }
+    </button>
   );
 }
