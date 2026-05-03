@@ -672,14 +672,17 @@ function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
+      suppressHydrationWarning
       className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
       aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
       title={theme === "dark" ? "Light mode" : "Dark mode"}
     >
-      {theme === "dark"
-        ? <Sun size={16} strokeWidth={2} aria-hidden="true" />
-        : <Moon size={16} strokeWidth={2} aria-hidden="true" />
-      }
+      <span suppressHydrationWarning>
+        {theme === "dark"
+          ? <Sun size={16} strokeWidth={2} aria-hidden="true" />
+          : <Moon size={16} strokeWidth={2} aria-hidden="true" />
+        }
+      </span>
     </button>
   );
 }
