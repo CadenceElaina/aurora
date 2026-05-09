@@ -51,7 +51,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No user registered for this repo" }, { status: 404 });
   }
 
-  // Verify HMAC signature
+  // HMAC-SHA256 signature verification.
+  // GitHub signs every webhook payload with the per-user secret stored at setup time.
+  // We recompute the expected digest server-side and compare using timingSafeEqual:
+  // a constant-time comparison that prevents timing attacks — an attacker cannot
+  // measure response latency to learn how many bytes of the signature matched.
+  // Any mismatch (wrong secret, tampered body, replayed request) returns 401 immediately.
   const signature = req.headers.get("x-hub-signature-256");
   if (!signature) {
     return NextResponse.json({ error: "Missing signature" }, { status: 401 });

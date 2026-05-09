@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   const { repo } = body;
 
   // Validate repo format: "owner/repo-name"
-  if (typeof repo !== "string" || !/^[\w.-]+\/[\w.-]+$/.test(repo)) {
+  if (typeof repo !== "string" || repo.length > 200 || !/^[\w.-]+\/[\w.-]+$/.test(repo)) {
     return NextResponse.json({ error: "Invalid repo format. Use 'owner/repo-name'" }, { status: 400 });
   }
 

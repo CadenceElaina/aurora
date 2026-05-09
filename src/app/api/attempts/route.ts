@@ -52,6 +52,13 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(rows);
 }
 
+/**
+ * CSRF protection: all mutations below require a valid NextAuth v5 session via auth().
+ * NextAuth sets __Host-prefixed session cookies (HttpOnly, Secure, SameSite=Lax).
+ * Browsers never attach __Host- cookies on cross-origin requests, so a valid session
+ * implies same-origin. No separate CSRF token is needed — the session check IS the
+ * CSRF check. The __Host- prefix additionally blocks subdomain cookie injection.
+ */
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -80,6 +87,14 @@ export async function POST(req: NextRequest) {
     typeof confidence !== "number" || confidence < 1 || confidence > 5
   ) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  }
+
+  // Length caps on free-text fields
+  if (typeof body.code === "string" && body.code.length > 50_000) {
+    return NextResponse.json({ error: "code exceeds 50,000 character limit" }, { status: 400 });
+  }
+  if (typeof body.notes === "string" && body.notes.length > 2_000) {
+    return NextResponse.json({ error: "notes exceeds 2,000 character limit" }, { status: 400 });
   }
 
   // Complexity fields — no longer user-tracked, always store N/A
@@ -139,28 +154,41 @@ export async function POST(req: NextRequest) {
     ? body.rewroteFromScratch
     : null;
 
-  // Insert attempt
-  const [attempt] = await db
-    .insert(attempts)
-    .values({
-      userId: session.user.id,
-      problemId,
-      solvedIndependently,
-      solutionQuality,
-      userTimeComplexity: finalTimeComplexity,
-      userSpaceComplexity: finalSpaceComplexity,
-      timeComplexityCorrect: null,
-      spaceComplexityCorrect: null,
-      solveTimeMinutes: typeof body.solveTimeMinutes === "number" ? body.solveTimeMinutes : null,
-      studyTimeMinutes: typeof body.studyTimeMinutes === "number" ? body.studyTimeMinutes : null,
-      rewroteFromScratch: rewrote,
-      confidence,
-      code: typeof body.code === "string" ? body.code : null,
-      notes: typeof body.notes === "string" ? body.notes : null,
-      source: body.source === "github" ? "github" : body.source === "import" ? "import" : "manual",
-      ...(attemptDate && { createdAt: attemptDate }),
-    })
-    .returning({ id: attempts.id });
+  // Insert attempt. The unique index on (user_id, problem_id, DATE(created_at)) means a
+  // race between the SELECT duplicate-check above and this INSERT is still safe — the DB
+  // will reject the second insert with a 23505 unique-violation, caught below.
+  let attempt: { id: string };
+  try {
+    [attempt] = await db
+      .insert(attempts)
+      .values({
+        userId: session.user.id,
+        problemId,
+        solvedIndependently,
+        solutionQuality,
+        userTimeComplexity: finalTimeComplexity,
+        userSpaceComplexity: finalSpaceComplexity,
+        timeComplexityCorrect: null,
+        spaceComplexityCorrect: null,
+        solveTimeMinutes: typeof body.solveTimeMinutes === "number" ? body.solveTimeMinutes : null,
+        studyTimeMinutes: typeof body.studyTimeMinutes === "number" ? body.studyTimeMinutes : null,
+        rewroteFromScratch: rewrote,
+        confidence,
+        code: typeof body.code === "string" ? body.code : null,
+        notes: typeof body.notes === "string" ? body.notes : null,
+        source: body.source === "github" ? "github" : body.source === "import" ? "import" : "manual",
+        ...(attemptDate && { createdAt: attemptDate }),
+      })
+      .returning({ id: attempts.id });
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      return NextResponse.json(
+        { error: "duplicate", message: `Already logged ${problem[0].title} today` },
+        { status: 409 },
+      );
+    }
+    throw err;
+  }
 
   // Auto-resolve any pending submissions for this problem —
   // whether the user came from the pending banner or the full form,
@@ -383,5 +411,14 @@ export async function DELETE(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true });
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code: string }).code === "23505"
+  );
 }
 

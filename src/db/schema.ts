@@ -10,7 +10,9 @@ import {
   timestamp,
   date,
   pgEnum,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 /* ── Enums ── */
 
@@ -152,7 +154,16 @@ export const attempts = pgTable("attempt", {
   notes: text("notes"),
   source: attemptSourceEnum("source").notNull().default("manual"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  // Prevents duplicate attempts for the same user+problem on the same calendar day.
+  // This is the DB-level enforcement of the application-level duplicate check above it;
+  // the SELECT check runs first for a friendly error, but this constraint catches races.
+  uniqueIndex("attempts_user_problem_day_unique").on(
+    table.userId,
+    table.problemId,
+    sql`DATE(${table.createdAt})`,
+  ),
+]);
 
 /* ── User Problem State (spaced repetition state) ── */
 
