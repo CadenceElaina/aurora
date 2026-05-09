@@ -20,6 +20,9 @@ out/
 # hidden docs
 hidden-docs/
 
+# research / notes outside project scope — may contain sensitive info
+aurora-research/
+
 # private planning / handoff docs
 HANDOFF.md
 
@@ -33,6 +36,12 @@ scripts/seed-my-history.ts
 *.swo
 .DS_Store
 Thumbs.db
+*.code-workspace
+
+# recordings / large binaries
+*.mp4
+*.mov
+*.webm
 
 # debug / build artifacts
 npm-debug.log*
