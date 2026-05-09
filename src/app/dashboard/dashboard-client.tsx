@@ -352,6 +352,15 @@ function queueStability(projection: QueueProjection): QueueStability {
   };
 }
 
+// Returns the day the queue sustainably clears (day after last non-zero entry).
+// Using findIndex (first zero) is non-monotone: more reviews/day can push items
+// back earlier, filling gaps and delaying the first zero crossing.
+function sustainedClearDay(sizes: number[], maxDays: number): number | null {
+  const last = sizes.findLastIndex((s) => s > 0);
+  if (last === maxDays - 1) return null; // still non-zero at end of window
+  return last + 1; // -1 → 0 (already clear), otherwise day after last non-zero
+}
+
 function queueForecastStatus(projection: QueueProjection): { label: string; className: string } {
   if (projection.clearDay !== null && projection.clearDay >= 0) {
     return {
@@ -779,12 +788,10 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
       }
     }
 
-    const clearDay = dailyQueueSize.findIndex((size) => size === 0);
-
     return {
       currentSize: queue.length,
       dailyQueueSize,
-      clearDay: clearDay === -1 ? null : clearDay,
+      clearDay: sustainedClearDay(dailyQueueSize, MAX_DAYS),
       reviewsPerDay: Math.round(reviewsPerDay * 10) / 10,
       newPerDay: Math.round(newPerDay * 10) / 10,
     };
@@ -831,12 +838,10 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
       }
     }
 
-    const clearDay = dailyQueueSize.findIndex((size) => size === 0);
-
     return {
       currentSize: queue.length,
       dailyQueueSize,
-      clearDay: clearDay === -1 ? null : clearDay,
+      clearDay: sustainedClearDay(dailyQueueSize, MAX_DAYS),
       reviewsPerDay: Math.round(reviewsPerDay * 10) / 10,
       newPerDay: Math.round(newPerDay * 10) / 10,
     };
