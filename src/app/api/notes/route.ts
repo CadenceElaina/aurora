@@ -42,6 +42,10 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
 
+  if (notes.length > 10000) {
+    return NextResponse.json({ error: "Note too long (max 10,000 characters)" }, { status: 400 });
+  }
+
   // Verify problem exists
   const problem = await db
     .select({ id: problems.id })

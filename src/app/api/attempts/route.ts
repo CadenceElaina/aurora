@@ -4,10 +4,12 @@ import { db } from "@/db";
 import { attempts, userProblemStates, problems, pendingSubmissions } from "@/db/schema";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { rankQuality } from "@/lib/quality";
 import {
   computeNewStability,
   computeInitialStability,
   computeNextReviewDate,
+  MASTERY_THRESHOLD,
   type AttemptSignals,
   type SolvedIndependently,
   type SolutionQuality,
@@ -175,6 +177,8 @@ export async function POST(req: NextRequest) {
     );
 
   // Build signals for SRS algorithm
+  // Casts are safe: VALID_SOLVED/VALID_QUALITY guards above narrow these to the same
+  // literal unions that SolvedIndependently/SolutionQuality are defined from.
   const signals: AttemptSignals = {
     solvedIndependently: solvedIndependently as SolvedIndependently,
     solutionQuality: solutionQuality as SolutionQuality,
@@ -250,7 +254,6 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const MASTERY_THRESHOLD = 45;
   return NextResponse.json({
     id: attempt.id,
     srs: {
@@ -382,7 +385,3 @@ export async function DELETE(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
-function rankQuality(q: string | null): number {
-  const ranks: Record<string, number> = { OPTIMAL: 4, SUBOPTIMAL: 3, BRUTE_FORCE: 2, NONE: 1 };
-  return ranks[q ?? ""] ?? 0;
-}

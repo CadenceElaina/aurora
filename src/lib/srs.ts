@@ -23,6 +23,7 @@ export interface AttemptSignals {
 const MIN_STABILITY = 0.5; // days
 const MAX_STABILITY = 365; // days
 const RETRIEVABILITY_FLOOR = 0.3;
+export const MASTERY_THRESHOLD = 45; // stability (days) treated as 100% mastery
 
 // Base for first-attempt stability. Using 2.0 rather than MIN_STABILITY (0.5)
 // because coding problems require ~5-30 min to review — aggressive daily recall

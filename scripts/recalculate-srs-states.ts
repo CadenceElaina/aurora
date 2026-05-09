@@ -25,14 +25,10 @@ import {
   type SolutionQuality,
   type RewroteFromScratch,
 } from "../src/lib/srs";
+import { rankQuality } from "../src/lib/quality";
 
 const client = postgres(process.env.DATABASE_URL!);
 const db = drizzle(client);
-
-function rankQuality(q: string | null): number {
-  const ranks: Record<string, number> = { OPTIMAL: 4, SUBOPTIMAL: 3, BRUTE_FORCE: 2, NONE: 1 };
-  return ranks[q ?? ""] ?? 0;
-}
 
 async function main() {
   console.log("Fetching all attempt records...");

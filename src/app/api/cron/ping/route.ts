@@ -24,6 +24,6 @@ export async function GET(request: Request) {
     return Response.json({ ok: true, ts: new Date().toISOString() });
   } catch (err) {
     console.error("[cron/ping] DB ping failed:", err);
-    return Response.json({ ok: false, error: "DB ping failed" }, { status: 500 });
+    return Response.json({ error: "DB ping failed" }, { status: 500 });
   }
 }
