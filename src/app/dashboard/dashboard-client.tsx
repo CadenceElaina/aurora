@@ -226,6 +226,10 @@ const DIFF_COLORS: Record<string, string> = {
   Hard: "bg-red-500",
 };
 
+const AVG_REVIEW_SESSION_MINUTES = 25;
+const AVG_NEW_SESSION_MINUTES = 45;
+const AVG_EASY_NEW_SESSION_MINUTES = 25;
+
 function retentionColor(r: number): string {
   if (r >= 0.8) return "text-green-500";
   if (r >= 0.6) return "text-emerald-400";
@@ -386,6 +390,22 @@ function queueForecastStatus(projection: QueueProjection): { label: string; clas
   if (backAvg < frontAvg * 0.9) return { label: `↓ Improving · ~${backLabel}/day`, className: "text-green-500", bgClassName: "bg-green-500/10" };
   if (backAvg > frontAvg * 1.1) return { label: `↑ Growing · ~${backLabel}/day`, className: "text-orange-400", bgClassName: "bg-orange-400/10" };
   return { label: `→ Stable · ~${backLabel}/day`, className: "text-amber-500", bgClassName: "bg-amber-500/10" };
+}
+
+function computeCapacity(
+  dailyTimeBudgetMinutes: number,
+  expectedDailyDue: number
+): {
+  reviewCapacity: number;
+  remainingMinutes: number;
+  newCapacity: number;
+  canFitEasy: boolean;
+} {
+  const reviewCapacity = Math.floor(dailyTimeBudgetMinutes / AVG_REVIEW_SESSION_MINUTES);
+  const remainingMinutes = Math.max(0, dailyTimeBudgetMinutes - expectedDailyDue * AVG_REVIEW_SESSION_MINUTES);
+  const newCapacity = Math.floor(remainingMinutes / AVG_NEW_SESSION_MINUTES);
+  const canFitEasy = remainingMinutes >= AVG_EASY_NEW_SESSION_MINUTES;
+  return { reviewCapacity, remainingMinutes, newCapacity, canFitEasy };
 }
 
 function computePracticeRecommendation({
