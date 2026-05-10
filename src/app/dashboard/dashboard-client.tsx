@@ -1871,8 +1871,14 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
             const chartGrowing = chartBackAvg > chartFrontAvg * 1.1;
             const lineColor = chartImproving ? "border-green-500/70" : chartGrowing ? "border-orange-400/70" : "border-amber-500/70";
             const lineLabelColor = chartImproving ? "text-green-500" : chartGrowing ? "text-orange-400" : "text-amber-500";
+            const totalDays = proj.dailyQueueSize.length;
+            const crossingIdx = chartBackAvg > 0
+              ? proj.dailyQueueSize.findIndex((size, i) => i > 0 && size <= chartBackAvg)
+              : -1;
+            // Suppress x-axis labels that are too close together (within 3 bars)
+            const showCrossingLabel = crossingIdx > 2 && crossingIdx < totalDays - 3;
             return (
-              <div className="mt-2 space-y-2">
+              <div className="mt-2 space-y-1">
                 <div className="relative flex items-end gap-px h-36">
                   {chartBackAvg > 0 && forecastMaxSize > 0 && (
                     <div
@@ -1890,12 +1896,32 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                     const height = Math.max(2, (size / forecastMaxSize) * 100);
                     const isToday = i === 0;
                     const inTargetZone = size <= chartBackAvg;
+                    const isCrossing = i === crossingIdx;
                     const barColor = isToday ? "bg-accent" : size === 0 ? "bg-green-500/60" : inTargetZone ? "bg-green-500/60" : "bg-orange-500/60";
                     return (
                       <div key={i} className={`relative flex-1 rounded-t-sm group/bar ${barColor}`} style={{ height: `${height}%` }}>
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 rounded bg-background border border-border px-2 py-1 text-[10px] whitespace-nowrap opacity-0 pointer-events-none group-hover/bar:opacity-100 transition-opacity z-10 shadow-md">
                           {(() => { const d = new Date(); d.setDate(d.getDate() + i); return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }); })()} — {size} due
                         </div>
+                        {isCrossing && (
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 pointer-events-none z-20 flex flex-col items-center gap-px group-hover/bar:opacity-0 transition-opacity">
+                            <span className="text-[8px] font-semibold text-green-500 bg-green-500/10 border border-green-500/30 px-1 rounded-sm leading-tight whitespace-nowrap">↓ Day {crossingIdx}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* X-axis day labels */}
+                <div className="flex gap-px -mt-1">
+                  {proj.dailyQueueSize.map((_, i) => {
+                    const isToday = i === 0;
+                    const isCrossing = i === crossingIdx && showCrossingLabel;
+                    const isLast = i === totalDays - 1;
+                    if (!isToday && !isCrossing && !isLast) return <div key={i} className="flex-1" />;
+                    return (
+                      <div key={i} className={`flex-1 text-center text-[8px] leading-tight font-medium truncate ${isCrossing ? "text-green-500" : "text-muted-foreground/50"}`}>
+                        {isToday ? "Today" : isCrossing ? `Day ${crossingIdx}` : "+30d"}
                       </div>
                     );
                   })}
