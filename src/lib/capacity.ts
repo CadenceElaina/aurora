@@ -196,6 +196,7 @@ export type PracticeRecommendation = {
 export const AVG_REVIEW_SESSION_MINUTES = 25;
 export const AVG_NEW_SESSION_MINUTES = 45;
 export const AVG_EASY_NEW_SESSION_MINUTES = 25;
+export const AVG_PROBLEM_SESSION_MINUTES = 30;
 
 export const QUEUE_GREEN_RATIO  = 0.6;   // freely add new problems
 export const QUEUE_YELLOW_RATIO = 0.85;  // add 1–2 new/day max

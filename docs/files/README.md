@@ -79,12 +79,12 @@ These sections were added or significantly revised on 2026-05-10 based on a desi
 | Time budget selector (onboarding) | **Implemented** | Phase 1 | Step 3 of onboarding flow |
 | Time budget in Settings panel | **Implemented** | Phase 1 | Gear icon on countdown widget |
 | `computeCapacity()` function | **Implemented** | Phase 1 | `src/lib/capacity.ts`; `reviewCapacity` floors at 1 to prevent Phase 2 division-by-zero |
-| Load ratio zones in recommendation engine | Not started | Phase 2 | 5 zones: Green/Yellow/Amber/Orange/Red; replaces ad hoc `peakLoadDays`/`drainRate` checks |
-| Overshoot tracking | Not started | Phase 2 | `OVERSHOOT_TOLERANCE_DAYS=3`, `OVERSHOOT_FIRM_DAYS=5` |
-| Extended forecast horizon (30 → 60 days) | Not started | Phase 2 | `MAX_DAYS = 30` in `dashboard-client.tsx`; see backAvg note in `CONSTANTS.md` |
-| Budget mismatch detection | Not started | Phase 3 | |
-| Goal adherence tracking | Not started | Phase 3 | |
-| Forecast zone coloring | Not started | Phase 4 | |
+| Load ratio zones in recommendation engine | **Implemented** | Phase 2 | `computePracticeRecommendation` in `src/lib/capacity.ts`; `classifyLoadZone` in `src/lib/pacing.ts` |
+| Overshoot tracking | Not started | Phase 2 | `OVERSHOOT_TOLERANCE_DAYS=3`, `OVERSHOOT_FIRM_DAYS=5` — requires per-day streak tracking not yet wired |
+| Extended forecast horizon (30 → 60 days) | **Implemented** | Phase 2 | `MAX_DAYS = 60` in `dashboard-client.tsx`; dynamic `splitIdx`; `+{totalDays}d` label |
+| Budget mismatch detection | **Implemented** | Phase 3 | Mismatch banner in `dashboard-client.tsx`; 14-day dismiss cooldown via localStorage |
+| Goal adherence tracking | Not started | Phase 3 | Time-to-first-warning event logging not yet implemented |
+| Forecast zone coloring | **Implemented** | Phase 4 | Zone-colored bars + capacity reference line in forecast chart |
 | Post-mastery interleaving mode | Not started | Future | |
 | Per-user PDF calibration | Research | Future | EMA volatility near R floor noted |
 | Per-category calibration | Research | Future | |

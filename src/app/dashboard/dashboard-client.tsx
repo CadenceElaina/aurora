@@ -13,10 +13,12 @@ import { SkyCanvas } from "@/components/sky-canvas";
 import { InlinePatternPanel } from "./cheatsheet-drawer";
 import { CHEATSHEET_MAP, type Cheatsheet } from "@/lib/cheatsheets";
 import { MASTERY_THRESHOLD, computeReviewPriority, type PriorityInput } from "@/lib/srs";
+import { classifyLoadZone } from "@/lib/pacing";
 import {
   avg,
   queueStability,
   computeCapacity,
+  AVG_PROBLEM_SESSION_MINUTES,
   computePracticeRecommendation,
   type ListMode,
   type ReviewItem,
@@ -237,6 +239,12 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
   const [showDemoSignIn, setShowDemoSignIn] = useState(false);
   const [demoCtaReason, setDemoCtaReason] = useState<DemoCtaReason>("generic");
   const [demoSessionChanged, setDemoSessionChanged] = useState(false);
+  const [budgetMismatchDismissed, setBudgetMismatchDismissed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const ts = localStorage.getItem("aurora_budget_mismatch_dismissed");
+    if (!ts) return false;
+    return Date.now() - parseInt(ts) < 14 * 24 * 60 * 60 * 1000;
+  });
 
 
   const activityData = useMemo(() => {
@@ -547,6 +555,19 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     actualProjection: queueProjection,
     dailyTimeBudgetMinutes: timeBudget,
   }), [data, countdown, goalType, queueProjection, timeBudget]);
+
+  const budgetMismatch = useMemo(() => {
+    if (isDemo || data.attemptedCount < 5) return null;
+    const observedMinutes = data.avgPerDay * AVG_PROBLEM_SESSION_MINUTES;
+    if (observedMinutes > timeBudget * 1.3) {
+      const label = observedMinutes >= 90 ? "Intensive" : observedMinutes >= 60 ? "Focused" : "Regular";
+      return { direction: "over" as const, observedPerDay: data.avgPerDay, suggestedLabel: label };
+    }
+    if (data.avgPerDay > 0 && observedMinutes < timeBudget * 0.5 && data.attemptedCount >= 10) {
+      return { direction: "under" as const, observedPerDay: data.avgPerDay, suggestedLabel: "Casual" };
+    }
+    return null;
+  }, [isDemo, data.avgPerDay, data.attemptedCount, timeBudget]);
 
   const weakCategories = useMemo(() =>
     [...data.categoryStats].sort((a, b) => {
@@ -890,6 +911,28 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
         window.location.reload();
       }
     }} />}
+    {!isDemo && budgetMismatch && !budgetMismatchDismissed && (
+      <div className="mb-2 flex items-start gap-3 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2.5 text-xs text-amber-600 dark:text-amber-400">
+        <div className="flex-1">
+          <span className="font-medium">Pacing note: </span>
+          {budgetMismatch.direction === "over"
+            ? `You're averaging ${budgetMismatch.observedPerDay.toFixed(1)} problems/day — that's a ${budgetMismatch.suggestedLabel} pace. Consider updating your daily budget in Settings to get more accurate recommendations.`
+            : `You're averaging ${budgetMismatch.observedPerDay.toFixed(1)} problems/day — lower than your budget suggests. Update your budget in Settings if your schedule has changed.`}
+        </div>
+        <button
+          onClick={() => {
+            setBudgetMismatchDismissed(true);
+            localStorage.setItem("aurora_budget_mismatch_dismissed", String(Date.now()));
+          }}
+          className="mt-0.5 shrink-0 text-amber-500/60 hover:text-amber-500 transition-colors"
+          aria-label="Dismiss pacing note"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+    )}
     {showPracticeRecommendation && (
       <PracticeRecommendationPanel
         recommendation={practiceRecommendation}
@@ -1878,9 +1921,23 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
               : -1;
             // Suppress x-axis labels that are too close together (within 3 bars)
             const showCrossingLabel = crossingIdx > 2 && crossingIdx < totalDays - 3;
+            const projReviewCapacity = computeCapacity(timeBudget, 0).reviewCapacity;
+            const ZONE_BAR_COLORS = { green: "bg-green-500/60", yellow: "bg-amber-400/60", amber: "bg-orange-400/60", orange: "bg-orange-500/70", red: "bg-red-500/70" } as const;
             return (
               <div className="mt-2 space-y-1">
                 <div className="relative flex items-end gap-px h-36">
+                  {projReviewCapacity > 0 && forecastMaxSize > 0 && (
+                    <div
+                      className="absolute left-0 right-0 flex items-center pointer-events-none z-20"
+                      style={{ bottom: `${Math.min(96, (projReviewCapacity / forecastMaxSize) * 100)}%` }}
+                      title={`Review capacity: ~${projReviewCapacity}/day`}
+                    >
+                      <div className="flex-1 border-t border-solid border-foreground/20" />
+                      <span className="text-[9px] font-medium text-muted-foreground/60 bg-muted/90 px-1 rounded-sm leading-none shrink-0 -mt-px">
+                        ~{projReviewCapacity}/d cap
+                      </span>
+                    </div>
+                  )}
                   {chartBackAvg > 0 && forecastMaxSize > 0 && (
                     <div
                       className="absolute left-0 right-0 flex items-center pointer-events-none z-10"
@@ -1896,9 +1953,9 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                   {proj.dailyQueueSize.map((size, i) => {
                     const height = Math.max(2, (size / forecastMaxSize) * 100);
                     const isToday = i === 0;
-                    const inTargetZone = size <= chartBackAvg;
                     const isCrossing = i === crossingIdx;
-                    const barColor = isToday ? "bg-accent" : size === 0 ? "bg-green-500/60" : inTargetZone ? "bg-green-500/60" : "bg-orange-500/60";
+                    const zone = classifyLoadZone(size / projReviewCapacity);
+                    const barColor = isToday ? "bg-accent" : ZONE_BAR_COLORS[zone];
                     return (
                       <div key={i} className={`relative flex-1 rounded-t-sm group/bar ${barColor}`} style={{ height: `${height}%` }}>
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 rounded bg-background border border-border px-2 py-1 text-[10px] whitespace-nowrap opacity-0 pointer-events-none group-hover/bar:opacity-100 transition-opacity z-10 shadow-md">

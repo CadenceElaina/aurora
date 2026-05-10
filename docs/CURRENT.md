@@ -1,6 +1,6 @@
 # Current Implementation State — Aurora Ascent
 
-**Last updated: 2026-05-10 — all deferred items resolved; pacing system Phase 2 complete; task queue empty**
+**Last updated: 2026-05-10 — pacing Phases 2–4 complete; pacing test suite (207 tests); task queue empty**
 
 Read this before every work session. Update it after every session.
 
@@ -24,6 +24,9 @@ _None — clean slate._
 
 | Date | Change |
 |---|---|
+| 2026-05-10 | `feat(pacing)`: Phase 3 — budget mismatch detection banner; 14-day dismiss cooldown; `AVG_PROBLEM_SESSION_MINUTES=30` |
+| 2026-05-10 | `feat(pacing)`: Phase 4 — zone-colored forecast bars; capacity reference line (`~N/d cap`) |
+| 2026-05-10 | `feat(pacing)`: `src/lib/pacing.ts` — `classifyLoadZone` + `deriveCapacity`; 20 new unit tests (207 total) |
 | 2026-05-10 | `fix(ui)`: cheatsheet panel `z-10` prevents forecast bar bleed-through; second `+30d` label updated to `+{totalDays}d` |
 | 2026-05-10 | `docs`: ARCHITECTURE.md D1–D10 deferred list marked resolved with audit evidence |
 | 2026-05-10 | `feat(pacing)`: Phase 2 — 5-zone load ratio system; `MAX_DAYS` 30→60; `queueStability` dynamic split index |
@@ -52,7 +55,7 @@ _None — clean slate._
 
 ## Open Tasks
 
-_None — task queue empty. Next meaningful work: Pacing Phase 3 (goal adherence tracking, budget mismatch detection) or Aurora Research feature parity._
+_None — task queue empty. Next meaningful work: Pacing Phase 3 remainder (time-to-first-warning event logging) or Aurora Research feature parity._
 
 ---
 
