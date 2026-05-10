@@ -371,22 +371,22 @@ function sustainedClearDay(sizes: number[], maxDays: number): number | null {
   return last + 1; // -1 → 0 (already clear), otherwise day after last non-zero
 }
 
-function queueForecastStatus(projection: QueueProjection): { label: string; className: string } {
+function queueForecastStatus(projection: QueueProjection): { label: string; className: string; bgClassName: string } {
   if (projection.currentSize === 0) {
-    return { label: "Queue clear", className: "text-green-500" };
+    return { label: "Queue clear", className: "text-green-500", bgClassName: "bg-green-500/10" };
   }
   const days = projection.dailyQueueSize;
-  if (days.length < 2) return { label: "No data", className: "text-muted-foreground" };
+  if (days.length < 2) return { label: "No data", className: "text-muted-foreground", bgClassName: "bg-muted" };
 
   const frontAvg = avg(days.slice(0, 15));
   const back = days.slice(15);
   const backAvg = back.length > 0 ? avg(back) : frontAvg;
   const backLabel = Math.round(backAvg);
 
-  if (frontAvg < 1) return { label: "↓ Nearly clear", className: "text-green-500" };
-  if (backAvg < frontAvg * 0.9) return { label: `↓ Improving · ~${backLabel}/day`, className: "text-green-500" };
-  if (backAvg > frontAvg * 1.1) return { label: `↑ Growing · ~${backLabel}/day`, className: "text-orange-400" };
-  return { label: `→ Stable · ~${backLabel}/day`, className: "text-amber-500" };
+  if (frontAvg < 1) return { label: "↓ Nearly clear", className: "text-green-500", bgClassName: "bg-green-500/10" };
+  if (backAvg < frontAvg * 0.9) return { label: `↓ Improving · ~${backLabel}/day`, className: "text-green-500", bgClassName: "bg-green-500/10" };
+  if (backAvg > frontAvg * 1.1) return { label: `↑ Growing · ~${backLabel}/day`, className: "text-orange-400", bgClassName: "bg-orange-400/10" };
+  return { label: `→ Stable · ~${backLabel}/day`, className: "text-amber-500", bgClassName: "bg-amber-500/10" };
 }
 
 function computePracticeRecommendation({
@@ -472,7 +472,9 @@ function computePracticeRecommendation({
         ? "Your forecast is easing, but the queue is still active. Review what is due before adding more."
         : "Keep new problems optional until the review forecast flattens. The goal is a sustainable queue, not an empty one.",
       reason: queueEasingButHeavy
-        ? `Queue is trending down — averaging ~${Math.round(metrics.backAvg)}/day in the back half of the forecast.`
+        ? metrics.drainRate > 0.5
+          ? `Queue is trending down — averaging ~${Math.round(metrics.backAvg)}/day in the back half of the forecast.`
+          : `Queue is roughly flat at this pace — averaging ~${Math.round(metrics.backAvg)}/day over 30 days.`
         : activeLoadHigh
         ? `You have ${data.learningCount} active learning problems, which is a lot for ${actualProjection.reviewsPerDay.toFixed(1)} reviews/day.`
         : retentionRisk
@@ -2141,7 +2143,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                 const hProj = forecastMode === "actual" ? queueProjection : queueProjectionGoals;
                 if (!hProj) return null;
                 const status = queueForecastStatus(hProj);
-                return <span className={`text-[11px] font-medium truncate ${status.className}`}>{status.label}</span>;
+                return <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full truncate ${status.className} ${status.bgClassName}`}>{status.label}</span>;
               })()}
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -2168,38 +2170,36 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
           {showQueueForecast && (() => {
             const proj = forecastMode === "actual" ? queueProjection : queueProjectionGoals;
             if (!proj) return <p className="text-xs text-muted-foreground mt-2">No items in queue.</p>;
+            const frontSlice = proj.dailyQueueSize.slice(0, 15);
+            const backSlice = proj.dailyQueueSize.slice(15);
+            const chartFrontAvg = frontSlice.length > 0 ? frontSlice.reduce((a, b) => a + b, 0) / frontSlice.length : 0;
+            const chartBackAvg = backSlice.length > 0 ? backSlice.reduce((a, b) => a + b, 0) / backSlice.length : 0;
+            const chartImproving = chartBackAvg < chartFrontAvg * 0.9;
+            const chartGrowing = chartBackAvg > chartFrontAvg * 1.1;
+            const lineColor = chartImproving ? "border-green-500/70" : chartGrowing ? "border-orange-400/70" : "border-amber-500/70";
+            const lineLabelColor = chartImproving ? "text-green-500" : chartGrowing ? "text-orange-400" : "text-amber-500";
             return (
               <div className="mt-2 space-y-2">
                 <div className="relative flex items-end gap-px h-36">
-                  {(() => {
-                    const front = proj.dailyQueueSize.slice(0, 15);
-                    const back = proj.dailyQueueSize.slice(15);
-                    const frontAvg = front.length > 0 ? front.reduce((a, b) => a + b, 0) / front.length : 0;
-                    const backAvg = back.length > 0 ? back.reduce((a, b) => a + b, 0) / back.length : 0;
-                    if (backAvg <= 0 || forecastMaxSize <= 0) return null;
-                    const pct = Math.min(97, (backAvg / forecastMaxSize) * 100);
-                    const improving = backAvg < frontAvg * 0.9;
-                    const growing = backAvg > frontAvg * 1.1;
-                    const lineColor = improving ? "border-green-500/70" : growing ? "border-orange-400/70" : "border-amber-500/70";
-                    const textColor = improving ? "text-green-500" : growing ? "text-orange-400" : "text-amber-500";
-                    return (
-                      <div
-                        className="absolute left-0 right-0 flex items-center pointer-events-none z-10"
-                        style={{ bottom: `${pct}%` }}
-                        title={`Projected steady state: ~${Math.round(backAvg)} due/day (back-half average)`}
-                      >
-                        <div className={`flex-1 border-t border-dashed ${lineColor}`} />
-                        <span className={`text-[9px] font-medium ${textColor} bg-muted/90 px-1 rounded-sm leading-none shrink-0 -mt-px`}>
-                          ~{Math.round(backAvg)}/d
-                        </span>
-                      </div>
-                    );
-                  })()}
+                  {chartBackAvg > 0 && forecastMaxSize > 0 && (
+                    <div
+                      className="absolute left-0 right-0 flex items-center pointer-events-none z-10"
+                      style={{ bottom: `${Math.min(97, (chartBackAvg / forecastMaxSize) * 100)}%` }}
+                      title={`Projected steady state: ~${Math.round(chartBackAvg)} due/day (back-half average)`}
+                    >
+                      <div className={`flex-1 border-t border-dashed ${lineColor}`} />
+                      <span className={`text-[9px] font-medium ${lineLabelColor} bg-muted/90 px-1 rounded-sm leading-none shrink-0 -mt-px`}>
+                        ~{Math.round(chartBackAvg)}/d
+                      </span>
+                    </div>
+                  )}
                   {proj.dailyQueueSize.map((size, i) => {
                     const height = Math.max(2, (size / forecastMaxSize) * 100);
                     const isToday = i === 0;
+                    const inTargetZone = size <= chartBackAvg;
+                    const barColor = isToday ? "bg-accent" : size === 0 ? "bg-green-500/60" : inTargetZone ? "bg-green-500/60" : "bg-orange-500/60";
                     return (
-                      <div key={i} className={`relative flex-1 rounded-t-sm group/bar ${isToday ? "bg-accent" : size === 0 ? "bg-green-500/60" : "bg-orange-500/60"}`} style={{ height: `${height}%` }}>
+                      <div key={i} className={`relative flex-1 rounded-t-sm group/bar ${barColor}`} style={{ height: `${height}%` }}>
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 rounded bg-background border border-border px-2 py-1 text-[10px] whitespace-nowrap opacity-0 pointer-events-none group-hover/bar:opacity-100 transition-opacity z-10 shadow-md">
                           {(() => { const d = new Date(); d.setDate(d.getDate() + i); return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }); })()} — {size} due
                         </div>
