@@ -71,10 +71,17 @@ const STEPS = [
   },
 ];
 
+const ONBOARDING_BUDGET_PRESETS = [
+  { minutes: 30, label: "Light", sub: "30 min" },
+  { minutes: 60, label: "Moderate", sub: "60 min" },
+  { minutes: 90, label: "Focused", sub: "90 min" },
+  { minutes: 120, label: "Intensive", sub: "120+ min" },
+] as const;
+
 export function Onboarding({ isDemo = false, onboardingComplete = false, onPreferences }: {
   isDemo?: boolean;
   onboardingComplete?: boolean;
-  onPreferences?: (prefs: { targetCount: number; targetDate: string; autoDeferHards: boolean; goalType: "blind75" | "neetcode150" | "none" }) => void;
+  onPreferences?: (prefs: { targetCount: number; targetDate: string; autoDeferHards: boolean; goalType: "blind75" | "neetcode150" | "none"; timeBudget: number }) => void;
 }) {
   const [show, setShow] = useState(false);
   const [step, setStep] = useState(0);
@@ -86,6 +93,7 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
   const spotlightFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Preference state for goal step
+  const [selectedTimeBudget, setSelectedTimeBudget] = useState(60);
   const [selectedGoal, setSelectedGoal] = useState<"blind75" | "neetcode150" | "none">("neetcode150");
   const [selectedDate, setSelectedDate] = useState(() => {
     const now = new Date();
@@ -149,6 +157,7 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
 
   function finish() {
     const targetCount = selectedGoal === "blind75" ? 75 : selectedGoal === "neetcode150" ? 150 : 0;
+    localStorage.setItem("aurora_time_budget", String(selectedTimeBudget));
     if (isDemo) {
       localStorage.setItem(DEMO_ONBOARDING_KEY, "1");
     } else {
@@ -162,8 +171,13 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "complete-onboarding" }),
       }).catch(() => {/* ignore */});
+      fetch("/api/user/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dailyTimeBudgetMinutes: selectedTimeBudget }),
+      }).catch(() => {/* ignore */});
     }
-    onPreferences?.({ targetCount, targetDate: selectedDate, autoDeferHards: deferHards, goalType: selectedGoal });
+    onPreferences?.({ targetCount, targetDate: selectedDate, autoDeferHards: deferHards, goalType: selectedGoal, timeBudget: selectedTimeBudget });
     setShow(false);
   }
 
@@ -420,6 +434,28 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
                 ? "Pick a problem set and target date for this preview. Sign in when you want Aurora to remember the plan."
                 : "Pick a problem set and target date. You can change these anytime."}
             </p>
+
+            {/* Time budget selector */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-1.5">How much time can you practice daily?</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {ONBOARDING_BUDGET_PRESETS.map((p) => (
+                  <button
+                    key={p.minutes}
+                    onClick={() => setSelectedTimeBudget(p.minutes)}
+                    className={`text-left rounded-lg border px-3 py-2 transition-all ${
+                      selectedTimeBudget === p.minutes
+                        ? "border-accent bg-accent/10 ring-1 ring-accent/50"
+                        : "border-border hover:border-border/80 hover:bg-muted/50"
+                    }`}
+                  >
+                    <span className="text-sm font-medium block">{p.label}</span>
+                    <span className="text-xs text-muted-foreground">{p.sub}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="space-y-2">
               {([
                 { id: "blind75" as const, label: "Blind 75", desc: "The essential 75 problems", count: 75 },

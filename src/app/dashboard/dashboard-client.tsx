@@ -1215,6 +1215,8 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
           ...reviewItems.filter((r) => r.difficulty === "Hard").map((item) => ({ ...item, deferredUntil: null, isAutoDeferred: true })),
         ]);
       }
+      setTimeBudget(prefs.timeBudget);
+      localStorage.setItem("aurora_time_budget", String(prefs.timeBudget));
     }} />
     <div className="relative md:h-[calc(100dvh-7.5rem)]">
     {/* Subtle ambient starfield — fixed, full-viewport, behind all content */}
@@ -1938,6 +1940,18 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
               onTogglePracticeRecommendation={(v) => {
                 setShowPracticeRecommendation(v);
                 localStorage.setItem("aurora_show_practice_recommendation", v ? "1" : "0");
+              }}
+              dailyTimeBudgetMinutes={timeBudget}
+              onTimeBudgetChange={(minutes) => {
+                setTimeBudget(minutes);
+                localStorage.setItem("aurora_time_budget", String(minutes));
+                if (!isDemo) {
+                  fetch("/api/user/settings", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ dailyTimeBudgetMinutes: minutes }),
+                  }).catch(() => {});
+                }
               }}
             />
           )}
@@ -2753,6 +2767,13 @@ function PracticeRecommendationPanel({
 
 /* ── Settings Panel ── */
 
+const TIME_BUDGET_PRESETS = [
+  { minutes: 30, label: "Light", desc: "30 min" },
+  { minutes: 60, label: "Moderate", desc: "60 min" },
+  { minutes: 90, label: "Focused", desc: "90 min" },
+  { minutes: 120, label: "Intensive", desc: "120+ min" },
+] as const;
+
 function SettingsPanel({
   date,
   count,
@@ -2763,6 +2784,8 @@ function SettingsPanel({
   onToggleAutoDeferHards,
   showPracticeRecommendation,
   onTogglePracticeRecommendation,
+  dailyTimeBudgetMinutes,
+  onTimeBudgetChange,
 }: {
   date: string;
   count: number;
@@ -2773,6 +2796,8 @@ function SettingsPanel({
   onToggleAutoDeferHards: (enabled: boolean) => void;
   showPracticeRecommendation: boolean;
   onTogglePracticeRecommendation: (enabled: boolean) => void;
+  dailyTimeBudgetMinutes: number;
+  onTimeBudgetChange: (minutes: number) => void;
 }) {
   const [d, setD] = useState(date);
   const [c, setC] = useState(count);
@@ -2827,6 +2852,25 @@ function SettingsPanel({
           onChange={(e) => setC(Number(e.target.value))}
           className="h-8 w-full rounded-md border border-border bg-background px-2 text-sm text-foreground"
         />
+      </div>
+      <div className="pt-1 border-t border-border">
+        <p className="text-xs text-muted-foreground mb-1.5">Daily time budget</p>
+        <div className="grid grid-cols-4 gap-1">
+          {TIME_BUDGET_PRESETS.map((p) => (
+            <button
+              key={p.minutes}
+              onClick={() => onTimeBudgetChange(p.minutes)}
+              className={`text-[11px] py-1.5 rounded border transition-colors text-center ${
+                dailyTimeBudgetMinutes === p.minutes
+                  ? "bg-accent text-accent-foreground border-accent"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span className="block font-medium">{p.label}</span>
+              <span className="block text-[10px] opacity-70">{p.desc}</span>
+            </button>
+          ))}
+        </div>
       </div>
       <div className="pt-1 border-t border-border">
         <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
