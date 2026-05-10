@@ -12,6 +12,7 @@ import { Onboarding } from "@/components/onboarding";
 import { SkyCanvas } from "@/components/sky-canvas";
 import { InlinePatternPanel } from "./cheatsheet-drawer";
 import { CHEATSHEET_MAP, type Cheatsheet } from "@/lib/cheatsheets";
+import { MASTERY_THRESHOLD } from "@/lib/srs";
 
 /* ── Types ── */
 
@@ -407,6 +408,14 @@ function computePracticeRecommendation({
   const weakCategoryRisk = data.readinessBreakdown.categoryBalance < 0.45 && data.attemptedCount >= 8;
   const dataLight = data.attemptedCount < 5;
 
+  const lastAttemptEntry = [...data.fullAttemptHistory]
+    .filter((d) => d.count > 0)
+    .sort((a, b) => b.date.localeCompare(a.date))[0];
+  const daysSinceLastAttempt = lastAttemptEntry
+    ? Math.floor((Date.now() - new Date(lastAttemptEntry.date).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const onBreak = daysSinceLastAttempt !== null && daysSinceLastAttempt >= 7 && data.reviewQueue.length >= 1;
+
   if (goalType === "none") {
     return {
       tone: "neutral",
@@ -450,6 +459,19 @@ function computePracticeRecommendation({
   const activeLoadHigh = data.learningCount / Math.max(1, actualProjection.reviewsPerDay) > 14;
   const avgQueueLabel = metrics.avg14.toFixed(metrics.avg14 >= 10 ? 0 : 1);
   const peakQueueLabel = metrics.max14.toFixed(0);
+
+  if (onBreak && (queueCritical || queueGrowing || queueHeavy || activeLoadHigh)) {
+    const warmupTarget = Math.min(data.reviewQueue.length, 10);
+    return {
+      tone: "watch",
+      title: `Welcome back — you've been away ${daysSinceLastAttempt ?? 0} days`,
+      body: "Review what's due before adding anything new.",
+      reason: `Your review queue has built up while you were away. Start with a lighter session to rebuild momentum — aim for ${warmupTarget} reviews today.`,
+      actionLabel: "Review queue",
+      actionMode: "review",
+      metrics,
+    };
+  }
 
   if (queueCritical) {
     return {
@@ -704,7 +726,9 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     // Each day, review load from learning problems eats into daily capacity.
     // Remaining capacity goes to new problems. New problems enter learning pool.
     const dailyCapacity = data.avgPerDay;
-    const MASTERY_THRESHOLD = 45;
+    // Expected stability multiplier for a good review outcome (YES:SUBOPTIMAL base ~2.0 + small modifier).
+    // Derived from the SRS multiplier table in srs.ts; can be refined with real user data.
+    const AVG_REVIEW_MULTIPLIER = 2.2;
 
     // Compute average stability of learning problems (used for review frequency estimate)
     const avgLearningStability = data.learningList.length > 0
@@ -736,20 +760,18 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
       projectedNew += newToday;
       learning += newToday;
 
-      // Stability grows with each review cycle — problems get easier over time
-      // Conservative: avg stability grows ~15% per day of reviews across the pool
+      // Stability grows with each review cycle. Daily growth rate is derived from FSRS:
+      // a problem at stability S is reviewed every S days, and each review multiplies
+      // stability by AVG_REVIEW_MULTIPLIER, so the daily delta = (multiplier - 1) / S.
       if (learning > 0 && dailyReviews > 0) {
-        const reviewedFraction = Math.min(1, dailyReviews / learning);
-        // Each reviewed problem's stability grows by ~2.5x, averaged across pool
-        currentAvgStability += reviewedFraction * (currentAvgStability * 0.15);
+        const dailyStabilityGrowth = (AVG_REVIEW_MULTIPLIER - 1) / Math.max(1, currentAvgStability);
+        currentAvgStability += dailyStabilityGrowth;
         currentAvgStability = Math.min(currentAvgStability, MASTERY_THRESHOLD * 2);
 
-        // Graduate problems to mastered as avg stability grows
+        // Graduate all learning problems once their average stability crosses the mastery threshold
         if (currentAvgStability >= MASTERY_THRESHOLD && learning > 0) {
-          // Estimate fraction that would graduate
-          const graduateRate = Math.min(learning, Math.ceil(learning * 0.05));
-          learning -= graduateRate;
-          mastered += graduateRate;
+          mastered += learning;
+          learning = 0;
         }
       }
     }
@@ -796,7 +818,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
       const reviewing = due.slice(0, toReview);
       for (const item of reviewing) {
         item.stability = Math.min(365, item.stability * AVG_MULTIPLIER);
-        item.dueInDays = day + Math.round(item.stability);
+        item.dueInDays = day + Math.max(1, Math.floor(item.stability));
       }
     }
 
@@ -846,7 +868,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
       const reviewing = due.slice(0, toReview);
       for (const item of reviewing) {
         item.stability = Math.min(365, item.stability * AVG_MULTIPLIER);
-        item.dueInDays = day + Math.round(item.stability);
+        item.dueInDays = day + Math.max(1, Math.floor(item.stability));
       }
     }
 
@@ -2918,7 +2940,6 @@ function InfoTooltip({ content }: { content: React.ReactNode }) {
 
 /* ── Mastery Progress ── */
 
-const MASTERY_THRESHOLD = 45; // stability in days
 
 function MasteryProgress({
   mastered,

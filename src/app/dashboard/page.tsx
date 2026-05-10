@@ -5,7 +5,7 @@ import { problems, userProblemStates, attempts, pendingSubmissions, users } from
 import { auth } from "@/auth";
 import { eq, and, asc, count, sql, sum, avg, gte, lt } from "drizzle-orm";
 import Link from "next/link";
-import { computeRetrievability, computeReadiness } from "@/lib/srs";
+import { computeRetrievability, computeReadiness, MASTERY_THRESHOLD } from "@/lib/srs";
 import { DashboardClient } from "./dashboard-client";
 import { DEMO_DASHBOARD_DATA } from "./demo-data";
 
@@ -403,7 +403,6 @@ export default async function DashboardPage() {
   }));
 
   // Mastery: problems with stability >= 30 days
-  const MASTERY_THRESHOLD = 45;
   const masteryData = userStates
     .map((s) => {
       const p = allProblems.find((prob) => prob.id === s.problemId);
