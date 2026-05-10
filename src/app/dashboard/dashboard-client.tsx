@@ -175,6 +175,7 @@ type DashboardData = {
   importTodayAttemptedIds: number[];
   pendingSubmissions: PendingItem[];
   mockCandidates: MockCandidate[];
+  dailyTimeBudgetMinutes?: number;
 };
 
 type QueueProjection = {
@@ -413,11 +414,13 @@ function computePracticeRecommendation({
   countdown,
   goalType,
   actualProjection,
+  dailyTimeBudgetMinutes,
 }: {
   data: DashboardData;
   countdown: { daysLeft: number; remaining: number; onTrack: boolean; neededPerDay: number };
   goalType: "blind75" | "neetcode150" | "none";
   actualProjection: QueueProjection | null;
+  dailyTimeBudgetMinutes: number;
 }): PracticeRecommendation {
   const targetLabel = goalType === "blind75" ? "Blind 75" : goalType === "neetcode150" ? "NeetCode 150" : "your log";
   const requiredNewPerDay = countdown.daysLeft > 0 ? countdown.remaining / countdown.daysLeft : countdown.remaining;
@@ -477,6 +480,7 @@ function computePracticeRecommendation({
   const activeLoadHigh = data.learningCount / Math.max(1, actualProjection.reviewsPerDay) > 14;
   const avgQueueLabel = metrics.avg14.toFixed(metrics.avg14 >= 10 ? 0 : 1);
   const peakQueueLabel = metrics.max14.toFixed(0);
+  const capacity = computeCapacity(dailyTimeBudgetMinutes, metrics.backAvg);
 
   if (onBreak && (queueCritical || queueGrowing || queueHeavy || activeLoadHigh)) {
     const warmupTarget = Math.min(data.reviewQueue.length, 10);
@@ -527,26 +531,32 @@ function computePracticeRecommendation({
   }
 
   if (queueStable && behindCoverage) {
+    const lostMinutesSuffix = capacity.canFitEasy && capacity.newCapacity === 0
+      ? " Your remaining budget fits one Easy (~25 min)."
+      : "";
     return {
       tone: "good",
       title: "Add coverage carefully",
       body: `Your review load looks stable, and ${targetLabel} needs about ${requiredNewPerDay.toFixed(1)} new/day from here.`,
-      reason: weakCategoryRisk
+      reason: (weakCategoryRisk
         ? "Prefer a weak or under-covered category so coverage improves without hiding a blind spot."
-        : `Projected due reviews average ${avgQueueLabel}, which is within your recent review capacity.`,
+        : `Projected due reviews average ${avgQueueLabel}, which is within your recent review capacity.`) + lostMinutesSuffix,
       actionLabel: "Browse new",
       actionMode: "new",
       metrics,
     };
   }
 
+  const lostMinutesSuffix = capacity.canFitEasy && capacity.newCapacity === 0
+    ? " Your remaining budget fits one Easy (~25 min)."
+    : "";
   return {
     tone: dataLight ? "neutral" : "good",
     title: "Keep current pace",
     body: dataLight
       ? "Aurora has limited history, but your current queue does not look unstable yet."
       : "Your queue is active without accelerating. Review what is due, then add new only when you have focus time.",
-    reason: `Projected due reviews average ${avgQueueLabel} and peak near ${peakQueueLabel} over the next 14 days.`,
+    reason: `Projected due reviews average ${avgQueueLabel} and peak near ${peakQueueLabel} over the next 14 days.` + lostMinutesSuffix,
     actionLabel: actualProjection.currentSize > 0 ? "Review queue" : "Browse new",
     actionMode: actualProjection.currentSize > 0 ? "review" : "new",
     metrics,
@@ -912,6 +922,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     countdown,
     goalType,
     actualProjection: queueProjection,
+    dailyTimeBudgetMinutes: Number(localStorage.getItem("aurora_time_budget") ?? data.dailyTimeBudgetMinutes ?? 60),
   }), [data, countdown, goalType, queueProjection]);
 
   const weakCategories = useMemo(() =>
