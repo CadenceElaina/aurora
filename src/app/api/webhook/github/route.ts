@@ -134,10 +134,16 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
-    // Skip if there's already an unresolved pending for this problem.
-    // One pending per problem is enough — user will confirm/dismiss it.
-    const [unresolvedPending] = await db
-      .select({ id: pendingSubmissions.id })
+    // Handle unresolved pendings for this problem by calendar day:
+    // - Same day as this commit → update the existing pending with the newer commit info.
+    //   The attempts table enforces one row per (user, problem, day), so a second same-day
+    //   pending would dead-end at confirmation anyway. Updating keeps the most recent commit.
+    // - Different day → create a new pending row. These are genuinely distinct retention
+    //   data points (e.g. Day 1 solve sits unconfirmed, Day 3 solve arrives — both matter).
+    const commitDay = new Date(commit.timestamp).toISOString().slice(0, 10);
+
+    const unresolvedPendings = await db
+      .select({ id: pendingSubmissions.id, detectedAt: pendingSubmissions.detectedAt })
       .from(pendingSubmissions)
       .where(
         and(
@@ -145,10 +151,17 @@ export async function POST(req: NextRequest) {
           eq(pendingSubmissions.problemId, problemId),
           eq(pendingSubmissions.status, "pending"),
         ),
-      )
-      .limit(1);
+      );
 
-    if (unresolvedPending) {
+    const sameDayPending = unresolvedPendings.find(
+      (p) => p.detectedAt.toISOString().slice(0, 10) === commitDay,
+    );
+
+    if (sameDayPending) {
+      await db
+        .update(pendingSubmissions)
+        .set({ commitSha: commit.id, detectedAt: new Date(commit.timestamp) })
+        .where(eq(pendingSubmissions.id, sameDayPending.id));
       skipped.push(commit.id);
       continue;
     }

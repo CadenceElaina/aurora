@@ -3056,7 +3056,7 @@ function PendingBanner({
                   {item.problemTitle}
                 </Link>
                 <span className="text-xs text-muted-foreground">
-                  {item.category} · {item.isReview ? "Review" : "First attempt"}
+                  {item.category} · {item.isReview ? "Review" : "First attempt"} · {new Date(item.detectedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                 </span>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
