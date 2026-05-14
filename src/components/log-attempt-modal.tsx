@@ -162,12 +162,6 @@ export function LogAttemptModal({ problem, onClose, onLogged, onDismissed }: Pro
           return;
         }
         if (res.status === 409 && force) {
-          // The DB enforces one attempt per day — this date is truly taken.
-          // If this came from a pending, it's redundant; dismiss it.
-          if (problem.pendingId) {
-            await dismissPending();
-            return;
-          }
           setError("An attempt is already logged for this date. Change the date above to log a new attempt.");
           setSubmitting(false);
           return;
@@ -373,8 +367,13 @@ export function LogAttemptModal({ problem, onClose, onLogged, onDismissed }: Pro
                   <span className="text-amber-500/70"> · GitHub commit at {new Date(problem.attemptDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
                 )}
               </p>
+              {problem.pendingId ? (
+                <p className="text-xs text-amber-500/70 mt-1">
+                  Change the date above to log on a different day, or dismiss this pending.
+                </p>
+              ) : null}
               <div className="flex gap-2 mt-1.5">
-                {problem.pendingId && (
+                {problem.pendingId ? (
                   <button
                     onClick={dismissPending}
                     disabled={submitting}
@@ -382,14 +381,15 @@ export function LogAttemptModal({ problem, onClose, onLogged, onDismissed }: Pro
                   >
                     Dismiss pending
                   </button>
+                ) : (
+                  <button
+                    onClick={() => handleSubmit(true)}
+                    disabled={submitting}
+                    className="text-xs text-amber-500 underline hover:text-amber-400 disabled:opacity-50"
+                  >
+                    Log anyway
+                  </button>
                 )}
-                <button
-                  onClick={() => handleSubmit(true)}
-                  disabled={submitting}
-                  className="text-xs text-amber-500 underline hover:text-amber-400 disabled:opacity-50"
-                >
-                  Log anyway
-                </button>
                 <button
                   onClick={() => setDuplicateWarning(null)}
                   className="text-xs text-muted-foreground hover:text-foreground"
