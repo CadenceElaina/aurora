@@ -931,6 +931,11 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
         problem={logModalProblem}
         onClose={() => setLogModalProblem(null)}
         onLogged={handleLoggedFromModal}
+        onDismissed={logModalProblem.pendingId ? (() => {
+          const pendingId = logModalProblem.pendingId;
+          setPendingItems((prev) => prev.filter((p) => p.id !== pendingId));
+          setLogModalProblem(null);
+        }) : undefined}
       />
     )}
     {/* SRS Feedback Banner */}

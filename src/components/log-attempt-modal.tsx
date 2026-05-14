@@ -39,9 +39,11 @@ type Props = {
   problem: LogModalProblem;
   onClose: () => void;
   onLogged: (result: LogModalResult) => void;
+  /** Called when the modal auto-dismisses a pending submission (e.g. genuine same-day duplicate). */
+  onDismissed?: () => void;
 };
 
-export function LogAttemptModal({ problem, onClose, onLogged }: Props) {
+export function LogAttemptModal({ problem, onClose, onLogged, onDismissed }: Props) {
   const modalRef = useRef<HTMLDivElement>(null);
   const [outcome, setOutcome] = useState<Outcome>("SOLVED");
   const [quality, setQuality] = useState<"OPTIMAL" | "BRUTE_FORCE">("OPTIMAL");
@@ -125,6 +127,17 @@ export function LogAttemptModal({ problem, onClose, onLogged }: Props) {
     };
   }, [outcome, quality, confidence, solveTime, rewrote, notes, customDate, problem]);
 
+  async function dismissPending() {
+    if (!problem.pendingId) return;
+    await fetch("/api/pending", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: problem.pendingId, action: "dismiss" }),
+    }).catch(() => {});
+    onDismissed?.();
+    onClose();
+  }
+
   async function handleSubmit(force = false) {
     setSubmitting(true);
     setError(null);
@@ -148,7 +161,18 @@ export function LogAttemptModal({ problem, onClose, onLogged }: Props) {
           setSubmitting(false);
           return;
         }
-        setError((data as { error?: string }).error || "Something went wrong");
+        if (res.status === 409 && force) {
+          // The DB enforces one attempt per day — this date is truly taken.
+          // If this came from a pending, it's redundant; dismiss it.
+          if (problem.pendingId) {
+            await dismissPending();
+            return;
+          }
+          setError("An attempt is already logged for this date. Change the date above to log a new attempt.");
+          setSubmitting(false);
+          return;
+        }
+        setError("Something went wrong");
         setSubmitting(false);
         return;
       }
@@ -345,6 +369,15 @@ export function LogAttemptModal({ problem, onClose, onLogged }: Props) {
             <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5">
               <p className="text-xs text-amber-500">Already logged today at {duplicateWarning}.</p>
               <div className="flex gap-2 mt-1.5">
+                {problem.pendingId && (
+                  <button
+                    onClick={dismissPending}
+                    disabled={submitting}
+                    className="text-xs text-amber-500 underline hover:text-amber-400 disabled:opacity-50"
+                  >
+                    Dismiss pending
+                  </button>
+                )}
                 <button
                   onClick={() => handleSubmit(true)}
                   disabled={submitting}
