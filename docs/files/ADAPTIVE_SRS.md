@@ -121,28 +121,17 @@ effectiveMultiplier = baseMultiplier * userPDF
 Where `userPDF` is updated after each review:
 
 ```
-// Exponential moving average — recent reviews weighted more heavily
+// Additive residual — bounded update matching FSRS optimizer semantics
 const ALPHA = 0.1; // learning rate
 const predicted = computeRetrievability(stability, daysSince);
-const actual = outcome === "YES" ? 1.0 : 0.0;
-userPDF = userPDF * (1 - ALPHA) + (actual / Math.max(0.1, predicted)) * ALPHA;
+const actual = outcome === "YES" ? 1.0 : outcome === "PARTIAL" ? 0.5 : 0.0;
+userPDF = userPDF + ALPHA * (actual - predicted);
+// then clamp to [0.5, 2.0]
 ```
 
-This gradually adjusts the effective multiplier toward the user's actual retention rate without abrupt changes.
+This is Option A from the [SRS Update Formulations](SRS_UPDATE_FORMULATIONS.md) evaluation. The update is bounded to [−ALPHA, +ALPHA] per review regardless of where R sits, eliminating the volatility problem from the original multiplicative design.
 
-#### Known Issue: EMA Volatility Near the Retrievability Floor
-
-When `predicted` is low (near the 0.3 [retrievability](https://en.wikipedia.org/wiki/Forgetting_curve) floor) and the user succeeds, the ratio `actual / predicted` can be very large: `1.0 / 0.35 ≈ 2.86`. Even at ALPHA = 0.1, this produces a single-step push of +0.186 on the PDF — nearly 20% of the full adjustment range.
-
-The [0.5, 2.0] clamp catches the extreme case, but the PDF will be volatile for users who frequently review near the floor (e.g., returning from a break). This is a known limitation of using a multiplicative ratio in an [EMA](https://en.wikipedia.org/wiki/Moving_average#Exponential_moving_average).
-
-**Mitigations to explore:**
-- Lower ALPHA to 0.05 for users who frequently review near the floor
-- Cap the per-step ratio at 2.0 before applying to the EMA: `Math.min(2.0, actual / Math.max(0.1, predicted))`
-- Switch to an additive formulation: track `actual - predicted` instead of `actual / predicted`, and apply as an offset rather than a scaling factor
-- Use [log-odds](https://en.wikipedia.org/wiki/Logit) space: more stable when predicted R is near 0 or 1
-
-FSRS's own optimizer uses a loss function on the predicted-vs-actual gap (additive), not a ratio (multiplicative). The additive approach is likely more stable but requires a different integration pattern. This is tracked as open research question #5 below.
+The pure function is implemented as `computePDFUpdate` in `src/lib/srs.ts`.
 
 ### Per-Category Extension
 
@@ -261,7 +250,7 @@ The admin dashboard would show:
 
 4. **Does prior exposure (years of experience, CS degree) predict PDF?** If so, we could offer a "prior experience" question during onboarding that initializes PDF closer to the user's likely value, reducing the cold start period.
 
-5. **Should the EMA use a multiplicative ratio or an additive gap?** The current design uses `actual / predicted` (multiplicative), which is volatile when `predicted` is near 0. FSRS's optimizer uses the additive gap `actual - predicted`. The additive approach is more numerically stable but changes the semantics of PDF from a scaling factor to an offset. Evaluate both on real Aurora retention data once Phase 1 data collection is in place.
+5. **EMA update formulation — resolved.** Option A (additive residual) is the production implementation as of 2026-05-14. Option C (Beta-Binomial with decay) is the experimental arm for the 2214 pilot study. Full analysis of all three options (additive, log-odds, Beta-Binomial) with mathematical derivations and research study design: [SRS_UPDATE_FORMULATIONS.md](SRS_UPDATE_FORMULATIONS.md).
 
 ---
 

@@ -139,6 +139,33 @@ export function clampStability(s: number): number {
   return Math.max(MIN_STABILITY, Math.min(MAX_STABILITY, s));
 }
 
+/* ── Personal difficulty factor (PDF) update — Option A: additive residual ── */
+// See docs/files/SRS_UPDATE_FORMULATIONS.md for the full analysis and alternatives.
+
+export const PDF_ALPHA = 0.1;
+export const PDF_CLAMP: readonly [number, number] = [0.5, 2.0];
+export const PDF_DEFAULT = 1.0;
+
+/**
+ * Update the personal difficulty factor after a review.
+ *
+ * Uses an additive residual (actual − predicted) bounded to [−PDF_ALPHA, +PDF_ALPHA]
+ * per review. PDF > 1.0 means the user retains better than predicted (longer intervals);
+ * PDF < 1.0 means they forget faster (shorter intervals).
+ *
+ * Not yet wired to the DB — will be applied in Phase 3 of ADAPTIVE_SRS.md.
+ */
+export function computePDFUpdate(
+  currentPDF: number,
+  predictedR: number,
+  outcome: SolvedIndependently,
+): number {
+  const actual = outcome === "YES" ? 1.0 : outcome === "PARTIAL" ? 0.5 : 0.0;
+  const residual = actual - predictedR;
+  const updated = currentPDF + PDF_ALPHA * residual;
+  return Math.max(PDF_CLAMP[0], Math.min(PDF_CLAMP[1], updated));
+}
+
 /* ── Review queue priority (§6.3) ── */
 
 export interface PriorityInput {
