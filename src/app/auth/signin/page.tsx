@@ -1,10 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { Github, GitBranch, LockKeyhole, Sparkles } from "lucide-react";
 
 export default function SignInPage() {
+  const [loading, setLoading] = useState(false);
+
+  function handleSignIn() {
+    setLoading(true);
+    signIn("github", { callbackUrl: "/dashboard" });
+  }
+
   return (
     <div className="mx-auto flex min-h-[calc(100dvh-10rem)] w-full max-w-4xl items-center justify-center py-10">
       <div className="grid w-full gap-4 md:grid-cols-[1.1fr_0.9fr]">
@@ -22,11 +30,24 @@ export default function SignInPage() {
           </div>
 
           <button
-            onClick={() => signIn("github", { callbackUrl: "/dashboard" })}
-            className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-accent px-4 text-sm font-semibold text-accent-foreground transition-colors hover:opacity-90"
+            onClick={handleSignIn}
+            disabled={loading}
+            className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-accent px-4 text-sm font-semibold text-accent-foreground transition-colors hover:opacity-90 disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            <Github className="h-4 w-4" aria-hidden="true" />
-            Continue with GitHub
+            {loading ? (
+              <>
+                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Redirecting to GitHub…
+              </>
+            ) : (
+              <>
+                <Github className="h-4 w-4" aria-hidden="true" />
+                Continue with GitHub
+              </>
+            )}
           </button>
 
           <div className="mt-4 flex items-center justify-between gap-3 text-xs text-muted-foreground">
