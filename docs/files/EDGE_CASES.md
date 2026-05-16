@@ -193,7 +193,7 @@
 
 **Mitigation (future):** Per-user multiplier calibration after 50–100 reviews. Track predicted R at review time vs. actual outcome, compute calibration error, adjust multipliers. See `computeModelCalibration` in `analytics.ts`.
 
-**When to address:** After Aurora Research pilot provides multi-user retention data. Not before.
+**When to address:** After a pilot deployment provides multi-user retention data. Not before.
 
 ---
 

@@ -60,26 +60,21 @@ _None — clean slate._
 
 ## Open Tasks
 
-_None — task queue empty. Next meaningful work: Pacing Phase 3 remainder (time-to-first-warning event logging) or Aurora Research feature parity._
+_None — task queue empty. Next meaningful work: Pacing Phase 3 remainder (time-to-first-warning event logging)._
 
 ---
 
-## Product Goals (Professor Presentation)
+## Product Goals
 
-**Primary goal:** Email Dr. Wilson mid-summer 2026. Present Aurora Ascent as a working, polished product. Pitch Aurora Research as a Fall 2026 pilot.
+**Goal:** Ship Aurora as a polished, production-ready product — publicly usable, well-documented, and demo-ready for any new user.
 
 **Aurora Ascent (public, this repo):**
 - Public-facing, open-source, fully functional
-- No visible bugs in any flow a professor would click through
+- No visible bugs in any flow a first-time user would notice
 - Algorithm correct and explainable (see ARCHITECTURE.md)
 - Clean professional UI — cheatsheets, insights, readiness dashboard all working
 - Demo mode functional for unauthenticated visitors
-- README and docs are professor-readable
-
-**Aurora Research (separate private repo):**
-- Classroom pilot version — invite-only auth (no GitHub OAuth requirement)
-- Instructor dashboard, cohort analytics, assignment/deadline features
-- Currently behind Ascent — needs to be brought up to feature parity on core SRS + UI
+- README and docs are publicly readable
 
 ---
 

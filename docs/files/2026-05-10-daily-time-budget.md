@@ -43,7 +43,7 @@ Add `daily_time_budget_minutes INTEGER DEFAULT 60` to the `users` table. This is
 - Persists across browsers and devices
 - Available to server-side analytics and admin dashboard
 - Survives localStorage clears
-- Can be used in Aurora Research cohort analysis
+- Available for cohort-level analysis in multi-user deployments
 
 ### 3. Derive capacity from budget
 

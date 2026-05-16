@@ -296,7 +296,7 @@ Fixed multipliers, no per-user or per-category adaptation. This is defensible fo
 
 ### Future Approach (v2 — tracked, not yet designed)
 
-When we have sufficient review data (from Aurora Research pilot or public usage):
+When we have sufficient review data (from extended public usage or a pilot deployment):
 
 1. **Per-user multiplier calibration** — observe actual retention rates at each stability level and adjust the base multiplier to match. If a user forgets faster than expected (R predicted 0.8, actual success 0.6), their effective multiplier should be lower.
 

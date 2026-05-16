@@ -191,49 +191,13 @@ This maps to an **exploration-exploitation tradeoff**: the system accepts a smal
 
 ---
 
-## Research Study Design — Option A vs Option C
-
-The 2214 pilot study (ITSC 2214, UNC Charlotte) will test whether uncertainty-aware scheduling (Option C) produces better quiz and final exam performance than the FSRS-style additive baseline (Option A).
-
-### Hypothesis
-
-Students scheduled by Option C will score higher on quizzes and the cumulative final because uncertainty-aware scheduling allocates more review time to topics where the model is uncertain about mastery, not just topics where the point estimate is low. This matters most for early-semester topics (Arrays, Strings, Search) that must be retained through the cumulative final — they have the longest time for the distributions to diverge between arms.
-
-### Study design
-
-| | Control (Option A) | Experimental (Option C) |
-|---|---|---|
-| Update rule | Additive residual `PDF ← PDF + α × (actual − R)` | Beta-Binomial `Beta(a, b)` with decay γ |
-| Scheduling signal | Mean PDF | Lower 10th-percentile credible bound |
-| State per user | 1 scalar | 2 scalars (a, b) |
-| Hyperparameters | α = 0.1 | γ = 0.95–0.99 (tuned per topic cluster) |
-
-Both arms use the same base multiplier table, same problem set, same review queue priority logic. The only difference is the update and scheduling signal.
-
-### Why this curriculum is ideal
-
-The ITSC 2214 curriculum creates natural conditions for the study:
-- 4 topic clusters with a **cumulative final** — early-semester retention matters
-- Quiz review guides tell students exactly what to study — the scheduling directly competes with students' own judgment
-- The handwritten crib sheet (1 page, both sides) incentivizes selective retention — students who trust the scheduler over their instincts are exposed to a real tradeoff
-
-### Dependent variable
-
-Quiz and final exam scores in CodeWorkout (raw score, since coding questions are auto-graded). Secondary: time-to-first-success per problem (efficiency).
-
-### Key tuning question
-
-What value of γ (decay rate) produces the best retention in a semester-long curriculum? Too low (γ = 0.90) and the model forgets history too fast, reverting toward the uniform prior. Too high (γ = 0.99) and the model barely adapts — nearly identical to a growing-sample-size Beta without decay. The optimal γ likely varies by topic cluster (DP may need faster adaptation than Arrays), making this a natural parameter to report as a research result.
-
----
-
 ## Decision Log
 
 | Date | Decision |
 |------|----------|
 | 2026-05-14 | Adopted Option A (additive residual) as the production PDF update formula, replacing the multiplicative ratio (`actual / predicted`) documented in the original ADAPTIVE_SRS.md Phase 3 design. Rationale: bounded updates, proven in FSRS, no change to storage schema. |
 | 2026-05-14 | Option B (log-odds) evaluated and set aside — suitable if Aurora moves to continuous outcome scoring but adds complexity for no gain over Option A given binary/ternary outcomes. |
-| 2026-05-14 | Option C (Beta-Binomial) designated as experimental arm for 2214 pilot study. Storage schema (a, b per user/category) and decay factor γ to be finalized before study launch. |
+| 2026-05-14 | Option C (Beta-Binomial) designated as a potential future experimental arm. Storage schema (a, b per user/category) and decay factor γ to be finalized before any deployment. |
 
 ---
 

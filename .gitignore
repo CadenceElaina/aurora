@@ -20,7 +20,7 @@ out/
 # hidden docs
 hidden-docs/
 
-# research / notes outside project scope — may contain sensitive info
+# local research workspace — not part of the public project
 aurora-research/
 
 # private planning / handoff docs
@@ -42,6 +42,7 @@ Thumbs.db
 *.mp4
 *.mov
 *.webm
+*.mp3
 
 # debug / build artifacts
 npm-debug.log*
