@@ -47,10 +47,10 @@ function StatCard({
   subColor?: string;
 }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-muted/30 p-5">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
-      {sub && <p className={`mt-1 text-xs ${subColor ?? "text-muted-foreground"}`}>{sub}</p>}
+    <div className="rounded-lg border border-border/60 bg-muted/30 p-3 sm:p-4">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1 text-xl font-semibold text-foreground">{value}</p>
+      {sub && <p className={`mt-0.5 text-xs ${subColor ?? "text-muted-foreground"}`}>{sub}</p>}
     </div>
   );
 }
@@ -61,12 +61,12 @@ export function InsightsClient({ data, isDemo }: { data: InsightsData; isDemo: b
   const hasData = totalAttempts > 0;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Insights</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-xl font-semibold text-foreground">Insights</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
             {hasData
               ? `Based on ${totalAttempts.toLocaleString()} attempts across ${totalProblems} problems`
               : "Start logging attempts to see your analytics"}
@@ -142,72 +142,101 @@ export function InsightsClient({ data, isDemo }: { data: InsightsData; isDemo: b
             />
           </div>
 
-          {/* Model calibration */}
-          <section>
-            <h2 className="mb-1 text-sm font-semibold text-foreground">Model Calibration</h2>
-            <p className="mb-3 text-xs text-muted-foreground">
-              Predicted retrievability (R) vs. actual solve rate per bucket. The dashed line is perfect
-              calibration — bars that match it mean the model&apos;s predictions align with your outcomes.
-            </p>
-            <div className="rounded-lg border border-border/60 bg-muted/30 px-5 py-4">
-              {calibration.n === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No reviews logged yet — predictions are recorded from your first review onward.
-                </p>
-              ) : calibration.buckets.every((b) => b.count === 0) ? (
-                <p className="text-sm text-muted-foreground">
-                  {calibration.n} review{calibration.n === 1 ? "" : "s"} logged — need 20+ across buckets for the chart.
-                </p>
-              ) : (
-                <>
-                  <CalibrationChart buckets={calibration.buckets} />
-                  <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{calibration.n} review predictions</span>
-                    {calibration.mae !== null && (
-                      <span>
-                        MAE{" "}
-                        <span className={`font-semibold tabular-nums ${
-                          calibration.mae < 0.1 ? "text-green-400"
-                          : calibration.mae < 0.2 ? "text-amber-400"
-                          : "text-orange-400"
-                        }`}>
-                          {calibration.mae.toFixed(3)}
+          {/* Calibration + Metacognition row */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {/* Model calibration */}
+            <section>
+              <div className="mb-2 flex items-baseline justify-between gap-2">
+                <h2 className="text-sm font-semibold text-foreground">Model Calibration</h2>
+                <p className="text-[10px] text-muted-foreground">Predicted R vs. actual solve rate</p>
+              </div>
+              <div className="rounded-lg border border-border/60 bg-muted/30 px-4 py-3">
+                {calibration.n === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    No reviews yet — predictions are recorded from your first review onward.
+                  </p>
+                ) : calibration.buckets.every((b) => b.count === 0) ? (
+                  <p className="text-xs text-muted-foreground">
+                    {calibration.n} review{calibration.n === 1 ? "" : "s"} logged — need 20+ across buckets for the chart.
+                  </p>
+                ) : (
+                  <>
+                    <CalibrationChart buckets={calibration.buckets} />
+                    <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{calibration.n} predictions</span>
+                      {calibration.mae !== null && (
+                        <span>
+                          MAE{" "}
+                          <span className={`font-semibold tabular-nums ${
+                            calibration.mae < 0.1 ? "text-green-400"
+                            : calibration.mae < 0.2 ? "text-amber-400"
+                            : "text-orange-400"
+                          }`}>
+                            {calibration.mae.toFixed(3)}
+                          </span>
+                          {" — "}
+                          {calibration.mae < 0.1 ? "excellent" : calibration.mae < 0.2 ? "good" : "fair"}
                         </span>
-                        {" "}—{" "}
-                        {calibration.mae < 0.1 ? "excellent" : calibration.mae < 0.2 ? "good" : "fair"}
-                      </span>
-                    )}
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </section>
+
+            {/* Metacognition detail */}
+            {metacognition.totalAttempts >= 10 && (
+              <section>
+                <h2 className="mb-2 text-sm font-semibold text-foreground">Metacognition</h2>
+                <div className="grid grid-cols-2 gap-3 h-full">
+                  <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Overconfidence</p>
+                    <p className="mt-1 text-xl font-semibold text-foreground">
+                      {pct(metacognition.overconfidenceRate)}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {metacognition.overconfidentAttempts} attempts: confidence ≥4, performed poorly
+                    </p>
                   </div>
-                </>
-              )}
-            </div>
-          </section>
+                  <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Underconfidence</p>
+                    <p className="mt-1 text-xl font-semibold text-foreground">
+                      {pct(metacognition.underconfidenceRate)}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {metacognition.underconfidentAttempts} attempts: confidence ≤2, performed well
+                    </p>
+                  </div>
+                </div>
+              </section>
+            )}
+          </div>
 
           {/* Stuck problems detail */}
           {stuckProblems.length > 0 && (
             <section>
-              <h2 className="mb-3 text-sm font-semibold text-foreground">Stuck Problems</h2>
-              <div className="overflow-hidden rounded-lg border border-border/60">
+              <h2 className="mb-2 text-sm font-semibold text-foreground">Stuck Problems</h2>
+              <div className="overflow-x-auto rounded-lg border border-border/60">
                 <table className="w-full text-sm">
                   <thead className="border-b border-border/60 bg-muted/30">
                     <tr>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Problem</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Difficulty</th>
-                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Attempts</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Best Result</th>
-                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Days Stuck</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Problem</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Difficulty</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Attempts</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Best Result</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Days Stuck</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/40">
                     {stuckProblems.map((p) => (
                       <tr key={p.problemId} className="hover:bg-muted/20">
-                        <td className="px-4 py-2.5 font-medium text-foreground">{p.title}</td>
-                        <td className={`px-4 py-2.5 ${DIFF_COLOR[p.difficulty]}`}>{p.difficulty}</td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{p.totalAttempts}</td>
-                        <td className="px-4 py-2.5 text-muted-foreground">
+                        <td className="px-3 py-2 font-medium text-foreground">{p.title}</td>
+                        <td className={`px-3 py-2 ${DIFF_COLOR[p.difficulty]}`}>{p.difficulty}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{p.totalAttempts}</td>
+                        <td className="px-3 py-2 text-muted-foreground">
                           {QUALITY_LABEL[p.bestQuality ?? "NONE"]}
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
                           {p.daysSinceFirstAttempt}d
                         </td>
                       </tr>
@@ -215,7 +244,7 @@ export function InsightsClient({ data, isDemo }: { data: InsightsData; isDemo: b
                   </tbody>
                 </table>
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-1.5 text-xs text-muted-foreground">
                 More SRS repetition won&apos;t fix these — try a different explanation, solution walkthrough, or ask for help.
               </p>
             </section>
@@ -224,37 +253,39 @@ export function InsightsClient({ data, isDemo }: { data: InsightsData; isDemo: b
           {/* Category breakdown */}
           {categoryStats.length > 0 && (
             <section>
-              <h2 className="mb-3 text-sm font-semibold text-foreground">Category Breakdown</h2>
-              <p className="mb-3 text-xs text-muted-foreground">Sorted by retention — weakest categories first.</p>
-              <div className="overflow-hidden rounded-lg border border-border/60">
+              <div className="mb-2 flex items-baseline justify-between gap-2">
+                <h2 className="text-sm font-semibold text-foreground">Category Breakdown</h2>
+                <p className="text-[10px] text-muted-foreground">Weakest first</p>
+              </div>
+              <div className="overflow-x-auto rounded-lg border border-border/60">
                 <table className="w-full text-sm">
                   <thead className="border-b border-border/60 bg-muted/30">
                     <tr>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Category</th>
-                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Problems</th>
-                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Avg Retention</th>
-                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Stuck</th>
-                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Complexity Acc.</th>
-                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Avg to Optimal</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Category</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Problems</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Avg Retention</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Stuck</th>
+                      <th className="hidden px-3 py-2 text-right text-xs font-medium text-muted-foreground sm:table-cell">Complexity Acc.</th>
+                      <th className="hidden px-3 py-2 text-right text-xs font-medium text-muted-foreground sm:table-cell">Avg to Optimal</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/40">
                     {categoryStats.map((c) => (
                       <tr key={c.category} className="hover:bg-muted/20">
-                        <td className="px-4 py-2.5 font-medium text-foreground">{c.category}</td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                        <td className="px-3 py-2 font-medium text-foreground">{c.category}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
                           {c.attemptedProblems}
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums">
+                        <td className="px-3 py-2 text-right tabular-nums">
                           <RetentionBadge r={c.avgR} />
                         </td>
-                        <td className={`px-4 py-2.5 text-right tabular-nums ${c.stuckCount > 0 ? "text-amber-400" : "text-muted-foreground"}`}>
+                        <td className={`px-3 py-2 text-right tabular-nums ${c.stuckCount > 0 ? "text-amber-400" : "text-muted-foreground"}`}>
                           {c.stuckCount}
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                        <td className="hidden px-3 py-2 text-right tabular-nums text-muted-foreground sm:table-cell">
                           {pct(c.complexityAccuracyRate)}
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                        <td className="hidden px-3 py-2 text-right tabular-nums text-muted-foreground sm:table-cell">
                           {c.avgAttemptsToOptimal != null
                             ? c.avgAttemptsToOptimal.toFixed(1)
                             : "—"}
@@ -263,33 +294,6 @@ export function InsightsClient({ data, isDemo }: { data: InsightsData; isDemo: b
                     ))}
                   </tbody>
                 </table>
-              </div>
-            </section>
-          )}
-
-          {/* Metacognition detail */}
-          {metacognition.totalAttempts >= 10 && (
-            <section>
-              <h2 className="mb-3 text-sm font-semibold text-foreground">Metacognition</h2>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
-                  <p className="text-xs text-muted-foreground">Overconfidence</p>
-                  <p className="mt-1 text-lg font-semibold text-foreground">
-                    {pct(metacognition.overconfidenceRate)}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {metacognition.overconfidentAttempts} attempts: rated confidence ≥4 but performed poorly
-                  </p>
-                </div>
-                <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
-                  <p className="text-xs text-muted-foreground">Underconfidence</p>
-                  <p className="mt-1 text-lg font-semibold text-foreground">
-                    {pct(metacognition.underconfidenceRate)}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {metacognition.underconfidentAttempts} attempts: rated confidence ≤2 but performed well
-                  </p>
-                </div>
               </div>
             </section>
           )}
@@ -339,7 +343,7 @@ function CalibrationChart({ buckets }: { buckets: CalibrationBucket[] }) {
     </div>
     <svg
       viewBox={`0 0 ${W} ${H}`}
-      className="flex-1 min-w-0 text-muted-foreground"
+      className="flex-1 min-w-0 max-h-44 text-muted-foreground"
       aria-label="Calibration curve: predicted R vs actual solve rate"
     >
       {/* Y-axis gridlines + labels */}
