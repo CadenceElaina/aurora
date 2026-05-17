@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback, memo } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { X } from "lucide-react";
+import { Upload, X } from "lucide-react";
 import { DifficultyBadge } from "@/components/difficulty-badge";
 import { ImportClient } from "@/app/import/import-client";
 import { LogAttemptModal, type LogModalProblem, type LogModalResult } from "@/components/log-attempt-modal";
@@ -1210,24 +1210,10 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                 <span className="w-px bg-border my-0.5 shrink-0" />
                 <button
                   onClick={() => setListMode("import")}
-                  className={`text-sm px-3 py-2 rounded transition-colors ${listMode === "import" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                  title="Import"
+                  className={`px-2.5 py-2 rounded transition-colors ${listMode === "import" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
                 >
-                  Import
-                </button>
-                <button
-                  onClick={() => {
-                    if (listMode !== "mock") {
-                      setMockSelectedProblems(pickMockProblems(data.mockCandidates));
-                      if (mockPhase === "finished") { setMockPhase("setup"); setMockLoggedIds(new Set()); }
-                    }
-                    setListMode("mock");
-                  }}
-                  className={`relative text-sm px-3 py-2 rounded transition-colors ${listMode === "mock" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  Mock
-                  {mockPhase === "active" && listMode !== "mock" && (
-                    <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-                  )}
+                  <Upload className="h-4 w-4" />
                 </button>
             </div>
             {/* Row 2: sort control + search */}

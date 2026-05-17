@@ -22,6 +22,7 @@ Last updated: 2026-05-17 — T-027, T-028 complete
 
 | ID    | Tier | Description |
 | ----- | ---- | ----------- |
+| T-029 | P2   | **TBD**: Mock interview tab removed from dashboard tab bar (2026-05-17). UI + state code (`MockPhase`, `pickMockProblems`, mock timer, `MockCandidate`) still present in `dashboard-client.tsx`. Decide: re-surface as a dedicated page/route, keep as hidden feature, or remove entirely. |
 
 ---
 
