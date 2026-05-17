@@ -237,6 +237,8 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
   });
   const [sessionViewMode, setSessionViewMode] = useState<"session" | "queue">("session");
   const [sessionActedOn, setSessionActedOn] = useState(0);
+  const [sessionNewActedOn, setSessionNewActedOn] = useState(0);
+  const [newPerSession, setNewPerSession] = useState(0);
   const [forkChoices, setForkChoices] = useState<ForkChoices>(() => {
     if (typeof window === "undefined") return {};
     try {
@@ -342,6 +344,16 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
         if (prog.date === today) setSessionActedOn(prog.actedOn ?? 0);
       } catch { /* ignore */ }
     }
+    const savedSessionNewProgress = localStorage.getItem("aurora_session_new_progress");
+    if (savedSessionNewProgress) {
+      try {
+        const prog = JSON.parse(savedSessionNewProgress);
+        const today = new Date().toISOString().slice(0, 10);
+        if (prog.date === today) setSessionNewActedOn(prog.newActedOn ?? 0);
+      } catch { /* ignore */ }
+    }
+    const savedNewPerSession = localStorage.getItem("aurora_new_per_session");
+    if (savedNewPerSession !== null) setNewPerSession(Number(savedNewPerSession));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persist active tab (don't persist mock — always start fresh on load)
@@ -671,6 +683,9 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
   }, [timeBudget, reviewItems.length]);
 
   const sessionSizeEffective = sessionSizeOverride ?? sessionSize;
+  // Split session budget between review slots and new-problem slots.
+  const newSlots = Math.min(newPerSession, sessionSizeEffective);
+  const reviewSlots = Math.max(0, sessionSizeEffective - newSlots);
 
   const blind75DifficultyBreakdown = useMemo((): DifficultyBreakdown[] => {
     const b75 = data.importProblems.filter(p => p.blind75);
@@ -687,46 +702,70 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     return data.importAttemptedIds.filter(id => b75ids.has(id)).length;
   }, [data.importProblems, data.importAttemptedIds]);
 
-  const curriculumRec = useMemo(() => computeNextRecommendation({
-    categoryStats: data.categoryStats,
-    newProblems: newItems,
-    autoDeferHards,
-    goalType,
-    forkChoices,
-  }), [data.categoryStats, newItems, autoDeferHards, goalType, forkChoices]);
+  // Compute curriculum recommendations: at least 1 (for the New tab), up to newSlots (for session).
+  // Calls the engine N times, excluding each picked problem from the next call.
+  const curriculumRecs = useMemo(() => {
+    if (newItems.length === 0) return [];
+    const needed = Math.max(1, newSlots);
+    const recs: CurriculumRecommendation[] = [];
+    const excludeIds = new Set<number>();
+    for (let i = 0; i < needed; i++) {
+      const rec = computeNextRecommendation({
+        categoryStats: data.categoryStats,
+        newProblems: newItems.filter(p => !excludeIds.has(p.id)),
+        autoDeferHards,
+        goalType,
+        forkChoices,
+      });
+      if (!rec) break;
+      recs.push(rec);
+      excludeIds.add(rec.problem.id);
+    }
+    return recs;
+  }, [data.categoryStats, newItems, autoDeferHards, goalType, forkChoices, newSlots]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Session-specific slice: only the slots the user reserved, minus already-acted slots.
+  const sessionCurriculumRecs = curriculumRecs.slice(0, newSlots).slice(sessionNewActedOn);
 
   // Persist any new fork choices returned by the curriculum engine
   const prevNewForkKeysRef = useRef<Record<string, string>>({});
   useEffect(() => {
-    if (!curriculumRec) return;
-    const newKeys = curriculumRec.newForkKeys;
-    if (Object.keys(newKeys).length === 0) return;
-    const hasNew = Object.entries(newKeys).some(([k, v]) => prevNewForkKeysRef.current[k] !== v);
+    if (curriculumRecs.length === 0) return;
+    const merged: Record<string, string> = {};
+    for (const rec of curriculumRecs) {
+      if (rec) Object.assign(merged, rec.newForkKeys);
+    }
+    if (Object.keys(merged).length === 0) return;
+    const hasNew = Object.entries(merged).some(([k, v]) => prevNewForkKeysRef.current[k] !== v);
     if (!hasNew) return;
-    prevNewForkKeysRef.current = newKeys;
-    setForkChoices(prev => ({ ...prev, ...newKeys }));
-    for (const [k, v] of Object.entries(newKeys)) {
+    prevNewForkKeysRef.current = merged;
+    setForkChoices(prev => ({ ...prev, ...merged }));
+    for (const [k, v] of Object.entries(merged)) {
       localStorage.setItem(`aurora_fork_${k}`, v);
     }
-  }, [curriculumRec]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [curriculumRecs]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Detect session-complete threshold crossing and fire celebration exactly once per crossing
-  const prevSessionActedOnRef = useRef(sessionActedOn);
+  // Detect session-complete threshold crossing and fire celebration exactly once per crossing.
+  // Session is complete when total actions (reviews + new-problem slots) reach sessionSizeEffective.
+  const prevSessionTotalRef = useRef(0);
   useEffect(() => {
-    const wasBelow = prevSessionActedOnRef.current < sessionSizeEffective;
-    const isNowComplete = sessionActedOn >= sessionSizeEffective && sessionActedOn > 0;
+    const total = sessionActedOn + sessionNewActedOn;
+    const wasBelow = prevSessionTotalRef.current < sessionSizeEffective;
+    const isNowComplete = total >= sessionSizeEffective && total > 0;
     if (wasBelow && isNowComplete && !isDemo && sessionViewMode === "session") {
       playSessionComplete();
     }
     if (!isNowComplete) resetSessionFired();
-    prevSessionActedOnRef.current = sessionActedOn;
-  }, [sessionActedOn, sessionSizeEffective]); // eslint-disable-line react-hooks/exhaustive-deps
+    prevSessionTotalRef.current = total;
+  }, [sessionActedOn, sessionNewActedOn, sessionSizeEffective]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sessionQueue = useMemo(() => {
     if (sessionViewMode !== "session") return filteredReviewQueue;
-    if (sessionActedOn >= sessionSizeEffective) return filteredReviewQueue;
-    return filteredReviewQueue.slice(0, Math.max(0, sessionSizeEffective - sessionActedOn));
-  }, [sessionViewMode, filteredReviewQueue, sessionActedOn, sessionSizeEffective]);
+    const total = sessionActedOn + sessionNewActedOn;
+    // After session complete, show the full queue so user can continue.
+    if (total >= sessionSizeEffective) return filteredReviewQueue;
+    return filteredReviewQueue.slice(0, Math.max(0, reviewSlots - sessionActedOn));
+  }, [sessionViewMode, filteredReviewQueue, sessionActedOn, sessionNewActedOn, sessionSizeEffective, reviewSlots]);
 
   const filteredNewProblems = useMemo(() => {
     if (!queueSearch.trim()) return sortedNewProblems;
@@ -773,6 +812,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
       setPendingItems((prev) => prev.filter((p) => p.id !== problem.pendingId));
     }
     if (problem?.isReview) recordSessionAction();
+    else if (problem?.isSessionNew) recordNewSessionAction();
     recordSubmit();
     playProblemLog();
     router.refresh();
@@ -860,6 +900,16 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
       const next = prev + 1;
       const today = new Date().toISOString().slice(0, 10);
       localStorage.setItem("aurora_session_progress", JSON.stringify({ date: today, actedOn: next }));
+      return next;
+    });
+  }
+
+  function recordNewSessionAction() {
+    if (isDemo) return;
+    setSessionNewActedOn((prev) => {
+      const next = prev + 1;
+      const today = new Date().toISOString().slice(0, 10);
+      localStorage.setItem("aurora_session_new_progress", JSON.stringify({ date: today, newActedOn: next }));
       return next;
     });
   }
@@ -1247,7 +1297,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                 >
                   Today&apos;s Session
                   <span className={`ml-1 text-xs px-1 py-0.5 rounded-full ${sessionViewMode === "session" ? "bg-accent-foreground/20" : "bg-muted"}`}>
-                    {Math.max(0, sessionSize - sessionActedOn)} left
+                    {Math.max(0, sessionSizeEffective - sessionActedOn - sessionNewActedOn)} left
                   </span>
                 </button>
                 <button
@@ -1262,15 +1312,24 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
               </div>
             )}
             {/* Session complete banner */}
-            {sessionViewMode === "session" && sessionActedOn >= sessionSize && reviewItems.length > 0 && (
+            {sessionViewMode === "session" && (sessionActedOn + sessionNewActedOn) >= sessionSizeEffective && (sessionActedOn + sessionNewActedOn) > 0 && (
               <div className="flex items-center justify-between rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 shrink-0">
                 <div>
-                  <p className="text-xs font-medium text-emerald-400">Session complete — {sessionActedOn} reviewed</p>
-                  <p className="text-[10px] text-muted-foreground">{reviewItems.length} more in queue</p>
+                  <p className="text-xs font-medium text-emerald-400">
+                    Session complete —{" "}
+                    {newPerSession > 0
+                      ? `${sessionActedOn} reviewed, ${sessionNewActedOn} new`
+                      : `${sessionActedOn} reviewed`}
+                  </p>
+                  {reviewItems.length > 0 && (
+                    <p className="text-[10px] text-muted-foreground">{reviewItems.length} more in queue</p>
+                  )}
                 </div>
-                <button onClick={() => setSessionViewMode("queue")} className="text-[10px] text-accent hover:underline shrink-0">
-                  Continue →
-                </button>
+                {reviewItems.length > 0 && (
+                  <button onClick={() => setSessionViewMode("queue")} className="text-[10px] text-accent hover:underline shrink-0">
+                    Continue →
+                  </button>
+                )}
               </div>
             )}
             {reviewItems.length === 0 ? (
@@ -1365,42 +1424,43 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                       </div>
                     );
                   })}
-                  {/* Curriculum card — appears when session has capacity for a new problem */}
-                  {sessionViewMode === "session" && reviewItems.length < sessionSizeEffective && curriculumRec && (
-                    <div className="flex items-center gap-3 px-3 py-2.5 border-t-2 border-accent/30 bg-accent/5">
-                      <span className="text-xs text-muted-foreground w-8 shrink-0 tabular-nums">{curriculumRec.problem.leetcodeNumber}</span>
+                  {/* Curriculum slots — shown when user has reserved new-problem slots in settings */}
+                  {sessionViewMode === "session" && sessionCurriculumRecs.map((rec) => (
+                    <div key={rec.problem.id} className="flex items-center gap-3 px-3 py-2.5 border-t-2 border-accent/30 bg-accent/5">
+                      <span className="text-xs text-muted-foreground w-8 shrink-0 tabular-nums">{rec.problem.leetcodeNumber}</span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 mb-0.5">
-                          <span className="text-[10px] font-semibold text-accent uppercase tracking-wide">Capacity available</span>
-                          <span className="text-[10px] text-muted-foreground truncate">· {curriculumRec.reason}</span>
+                          <span className="text-[10px] font-semibold text-accent uppercase tracking-wide">New problem</span>
+                          <span className="text-[10px] text-muted-foreground truncate">· {rec.reason}</span>
                         </div>
-                        {curriculumRec.problem.neetcodeUrl ? (
-                          <a href={curriculumRec.problem.neetcodeUrl} target="_blank" rel="noopener noreferrer" className="text-base font-medium text-foreground hover:text-accent truncate block">
-                            {curriculumRec.problem.title}
+                        {rec.problem.neetcodeUrl ? (
+                          <a href={rec.problem.neetcodeUrl} target="_blank" rel="noopener noreferrer" className="text-base font-medium text-foreground hover:text-accent truncate block">
+                            {rec.problem.title}
                           </a>
                         ) : (
-                          <Link href={`/problems/${curriculumRec.problem.id}`} className="text-base font-medium text-foreground hover:text-accent truncate block">
-                            {curriculumRec.problem.title}
+                          <Link href={`/problems/${rec.problem.id}`} className="text-base font-medium text-foreground hover:text-accent truncate block">
+                            {rec.problem.title}
                           </Link>
                         )}
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs text-muted-foreground">{curriculumRec.category}</span>
-                          <DifficultyBadge difficulty={curriculumRec.problem.difficulty} />
+                          <span className="text-xs text-muted-foreground">{rec.category}</span>
+                          <DifficultyBadge difficulty={rec.problem.difficulty} />
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        {curriculumRec.problem.neetcodeUrl && (
-                          <a href={curriculumRec.problem.neetcodeUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-muted-foreground hover:text-foreground underline">NC</a>
+                        {rec.problem.neetcodeUrl && (
+                          <a href={rec.problem.neetcodeUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-muted-foreground hover:text-foreground underline">NC</a>
                         )}
-                        <a href={curriculumRec.problem.leetcodeUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-muted-foreground hover:text-foreground underline">LC</a>
+                        <a href={rec.problem.leetcodeUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-muted-foreground hover:text-foreground underline">LC</a>
                         <button
                           onClick={() => openLog({
-                            problemId: curriculumRec.problem.id,
-                            title: curriculumRec.problem.title,
-                            leetcodeNumber: curriculumRec.problem.leetcodeNumber,
-                            difficulty: curriculumRec.problem.difficulty,
-                            category: curriculumRec.problem.category,
+                            problemId: rec.problem.id,
+                            title: rec.problem.title,
+                            leetcodeNumber: rec.problem.leetcodeNumber,
+                            difficulty: rec.problem.difficulty,
+                            category: rec.problem.category,
                             isReview: false,
+                            isSessionNew: true,
                           })}
                           className="inline-flex h-7 items-center rounded-md bg-accent px-3 text-xs text-accent-foreground transition-colors hover:opacity-90"
                         >
@@ -1408,7 +1468,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                         </button>
                       </div>
                     </div>
-                  )}
+                  ))}
                 </div>
               </div>
             )}
@@ -1502,40 +1562,40 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
             ) : (
               <div className="rounded-lg border border-border overflow-hidden flex-1 flex flex-col min-h-0">
                 {/* Curriculum recommendation — pinned above the scrollable list */}
-                {curriculumRec && (
+                {curriculumRecs[0] && (
                   <div className="flex items-center gap-3 px-3 py-2.5 border-b-2 border-accent/40 bg-accent/5 shrink-0">
-                    <span className="text-xs text-muted-foreground w-8 shrink-0 tabular-nums">{curriculumRec.problem.leetcodeNumber}</span>
+                    <span className="text-xs text-muted-foreground w-8 shrink-0 tabular-nums">{curriculumRecs[0].problem.leetcodeNumber}</span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 mb-0.5">
                         <span className="text-[10px] font-semibold text-accent uppercase tracking-wide">Recommended next</span>
-                        <span className="text-[10px] text-muted-foreground truncate">· {curriculumRec.reason}</span>
+                        <span className="text-[10px] text-muted-foreground truncate">· {curriculumRecs[0].reason}</span>
                       </div>
-                      {curriculumRec.problem.neetcodeUrl ? (
-                        <a href={curriculumRec.problem.neetcodeUrl} target="_blank" rel="noopener noreferrer" className="text-base font-medium text-foreground hover:text-accent truncate block">
-                          {curriculumRec.problem.title}
+                      {curriculumRecs[0].problem.neetcodeUrl ? (
+                        <a href={curriculumRecs[0].problem.neetcodeUrl} target="_blank" rel="noopener noreferrer" className="text-base font-medium text-foreground hover:text-accent truncate block">
+                          {curriculumRecs[0].problem.title}
                         </a>
                       ) : (
-                        <Link href={`/problems/${curriculumRec.problem.id}`} className="text-base font-medium text-foreground hover:text-accent truncate block">
-                          {curriculumRec.problem.title}
+                        <Link href={`/problems/${curriculumRecs[0].problem.id}`} className="text-base font-medium text-foreground hover:text-accent truncate block">
+                          {curriculumRecs[0].problem.title}
                         </Link>
                       )}
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xs text-muted-foreground">{curriculumRec.category}</span>
-                        <DifficultyBadge difficulty={curriculumRec.problem.difficulty} />
+                        <span className="text-xs text-muted-foreground">{curriculumRecs[0].category}</span>
+                        <DifficultyBadge difficulty={curriculumRecs[0].problem.difficulty} />
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {curriculumRec.problem.neetcodeUrl && (
-                        <a href={curriculumRec.problem.neetcodeUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-muted-foreground hover:text-foreground underline">NC</a>
+                      {curriculumRecs[0].problem.neetcodeUrl && (
+                        <a href={curriculumRecs[0].problem.neetcodeUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-muted-foreground hover:text-foreground underline">NC</a>
                       )}
-                      <a href={curriculumRec.problem.leetcodeUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-muted-foreground hover:text-foreground underline">LC</a>
+                      <a href={curriculumRecs[0].problem.leetcodeUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-muted-foreground hover:text-foreground underline">LC</a>
                       <button
                         onClick={() => openLog({
-                          problemId: curriculumRec.problem.id,
-                          title: curriculumRec.problem.title,
-                          leetcodeNumber: curriculumRec.problem.leetcodeNumber,
-                          difficulty: curriculumRec.problem.difficulty,
-                          category: curriculumRec.problem.category,
+                          problemId: curriculumRecs[0].problem.id,
+                          title: curriculumRecs[0].problem.title,
+                          leetcodeNumber: curriculumRecs[0].problem.leetcodeNumber,
+                          difficulty: curriculumRecs[0].problem.difficulty,
+                          category: curriculumRecs[0].problem.category,
                           isReview: false,
                         })}
                         className="inline-flex h-7 items-center rounded-md bg-accent px-3 text-xs text-accent-foreground transition-colors hover:opacity-90"
@@ -1864,6 +1924,12 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                   sessionSizeOverride={sessionSizeOverride}
                   onSessionSizeOverrideChange={setSessionSizeOverride}
                   recommendedSessionSize={sessionSize}
+                  newPerSession={newPerSession}
+                  onNewPerSessionChange={(v) => {
+                    setNewPerSession(v);
+                    localStorage.setItem("aurora_new_per_session", String(v));
+                  }}
+                  reviewQueueLength={reviewItems.length}
                   goalType={goalType}
                   onGoalTypeChange={(v) => {
                     setGoalType(v);
@@ -2532,6 +2598,9 @@ function SettingsPanel({
   sessionSizeOverride,
   onSessionSizeOverrideChange,
   recommendedSessionSize,
+  newPerSession,
+  onNewPerSessionChange,
+  reviewQueueLength,
   goalType,
   onGoalTypeChange,
 }: {
@@ -2551,6 +2620,9 @@ function SettingsPanel({
   sessionSizeOverride: number | null;
   onSessionSizeOverrideChange: (v: number | null) => void;
   recommendedSessionSize: number;
+  newPerSession: number;
+  onNewPerSessionChange: (v: number) => void;
+  reviewQueueLength: number;
   goalType: "neetcode150" | "blind75" | "none";
   onGoalTypeChange: (v: "neetcode150" | "blind75") => void;
 }) {
@@ -2694,6 +2766,47 @@ function SettingsPanel({
         <p className="text-[10px] text-muted-foreground/60 mt-1">
           Recommended: {recommendedSessionSize} (based on {dailyTimeBudgetMinutes}m daily budget)
         </p>
+      </div>
+      <div className="pt-1 border-t border-border">
+        {(() => {
+          const totalSize = sessionSizeOverride ?? recommendedSessionSize;
+          const reviewCount = Math.max(0, totalSize - newPerSession);
+          const newCount = Math.min(newPerSession, totalSize);
+          const clearDays = reviewQueueLength > 0 ? Math.ceil(reviewQueueLength / Math.max(1, reviewCount)) : 0;
+          let advisory: { text: string; color: string } | null = null;
+          if (newPerSession > 0 && reviewQueueLength > 0) {
+            if (clearDays <= 3) advisory = { text: `Queue clears in ~${clearDays}d at this pace`, color: "text-emerald-400" };
+            else if (clearDays <= 7) advisory = { text: `Queue clears in ~${clearDays}d — moderate backlog`, color: "text-yellow-400" };
+            else advisory = { text: `Queue grows at this pace — consider reducing new to ${Math.max(0, newPerSession - 1)}/session`, color: "text-orange-400" };
+          } else if (newPerSession > 0 && reviewQueueLength === 0) {
+            advisory = { text: "Queue is clear — good time for new problems", color: "text-emerald-400" };
+          }
+          return (
+            <>
+              <p className="text-xs text-muted-foreground mb-1.5">New problems per session</p>
+              <div className="flex gap-1 mb-1">
+                {[0, 1, 2, 3].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => onNewPerSessionChange(n)}
+                    disabled={n >= totalSize}
+                    className={`w-8 h-8 rounded text-[11px] font-medium border transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${newPerSession === n ? "bg-accent text-accent-foreground border-accent" : "border-border text-muted-foreground hover:text-foreground"}`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              {newPerSession > 0 && (
+                <p className="text-[10px] text-muted-foreground/60">
+                  Session: {reviewCount} review{reviewCount !== 1 ? "s" : ""} + {newCount} new
+                </p>
+              )}
+              {advisory && (
+                <p className={`text-[10px] mt-0.5 ${advisory.color}`}>{advisory.text}</p>
+              )}
+            </>
+          );
+        })()}
       </div>
       <div className="flex justify-end gap-2 pt-1">
         <button

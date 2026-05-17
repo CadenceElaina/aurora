@@ -28,6 +28,8 @@ export type LogModalProblem = {
   pendingId?: string | null;
   /** Source tag for the attempt (github, manual, import) */
   source?: string;
+  /** True when opened from a curriculum slot in Today's Session */
+  isSessionNew?: boolean;
 };
 
 export type LogModalResult = {

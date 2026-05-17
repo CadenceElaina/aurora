@@ -3,7 +3,7 @@
 Agents and sessions pull from this file. Claim a task by adding your session ID to the Agent column.
 **Canonical task file** — root `TASKS.md` is a mirror. Edit only this one.
 
-Last updated: 2026-05-16 — T-025/T-026 complete
+Last updated: 2026-05-17 — T-027 complete
 
 ---
 
@@ -36,6 +36,7 @@ Last updated: 2026-05-16 — T-025/T-026 complete
 
 | ID    | Completed  | Description                                                                                                                             |
 | ----- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| T-027 | 2026-05-17 | `feat(dashboard)`: Composable Today's Session — `newPerSession` setting (0–3), separate review/new slots, N curriculum cards in session view always gated on user preference not queue length, `sessionNewActedOn` tracking, advisory text in SettingsPanel, fix session complete threshold. ADR: `docs/decisions/2026-05-17-session-composition.md` |
 | T-026 | 2026-05-16 | `feat(srs)`: Curriculum recommendation engine — `src/lib/curriculum.ts`, `computeNextRecommendation()`, NeetCode 150 DAG (layers 0–5), subtree-aware L4 tracking, localStorage fork persistence, "Recommended next" card (New tab) + "Capacity available" card (Session view) |
 | T-025 | 2026-05-16 | `feat(dashboard)`: 3-col flex layout (spacer · queue 560px · right panel 260px), CompletionWidget (goal toggle, SolvedDonut, E/M/H bars, needed/day, projection), session size stepper in SettingsPanel, compact Readiness, below-fold pace controls + activity chart + forecast/mastery toggle |
 | T-024 | 2026-05-10 | `feat(srs)`: Calibration tooling — SVG chart on Insights; Multipliers + Backtest tabs on Admin; `srs-simulator.ts` backtest engine; `computeMultiplierOutcomes`; `GET /api/admin/backtest`; 26 new tests (233 total) |
