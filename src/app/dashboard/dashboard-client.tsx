@@ -1708,7 +1708,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
       </div>
 
       {/* ── Right Column ── */}
-      <div className="flex-none w-full md:w-[440px] flex flex-col gap-3 md:min-h-0 md:h-full overflow-y-auto overflow-x-hidden" data-onboarding="stats">
+      <div className="flex-none w-full md:w-[500px] flex flex-col gap-3 md:min-h-0 md:h-full overflow-y-auto overflow-x-hidden" data-onboarding="stats">
         {sheetDrawerOpen && todaySheets.length > 0 ? (
           <InlinePatternPanel sheets={todaySheets} onClose={() => setSheetDrawerOpen(false)} reviewCount={reviewItems.length} />
         ) : (
@@ -1884,8 +1884,22 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
 
             {/* Activity */}
             <section className="rounded-lg border border-border bg-muted p-3">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-base font-semibold text-foreground">Activity</p>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <p className="text-sm font-semibold text-foreground">Activity</p>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block w-2 h-2 rounded-sm bg-green-500 shrink-0" />
+                      <span className="font-semibold tabular-nums text-foreground">{data.avgNewPerDay.toFixed(1)}</span>
+                      <span>new/d</span>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block w-2 h-2 rounded-sm bg-accent shrink-0" />
+                      <span className="font-semibold tabular-nums text-foreground">{data.avgReviewPerDay.toFixed(1)}</span>
+                      <span>rev/d</span>
+                    </span>
+                  </div>
+                </div>
                 <div className="flex rounded-md border border-border p-0.5 gap-0.5">
                   {(["14d", "monthly", "heatmap"] as const).map((m) => (
                     <button
@@ -1905,12 +1919,9 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                     onNext={activityViewMode === "14d" ? () => setActivityPage((p) => Math.max(0, p - 1)) : undefined}
                     canGoBack={activityViewMode === "14d" ? canGoBack : undefined}
                     canGoForward={activityViewMode === "14d" ? canGoForward : undefined}
+                    hideLegend
                   />
               }
-              <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                <span>New/d <span className="font-semibold tabular-nums text-foreground">{data.avgNewPerDay.toFixed(1)}</span></span>
-                <span>Rev/d <span className="font-semibold tabular-nums text-foreground">{data.avgReviewPerDay.toFixed(1)}</span></span>
-              </div>
             </section>
 
             {/* Queue Forecast / Mastery Progress */}
@@ -1920,23 +1931,12 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                   <button onClick={() => setForecastOrMastery("forecast")} className={`text-xs px-2.5 py-1 rounded transition-colors ${forecastOrMastery === "forecast" ? "bg-accent/20 text-accent font-semibold" : "text-muted-foreground hover:text-foreground"}`}>Queue Forecast</button>
                   <button onClick={() => setForecastOrMastery("mastery")} className={`text-xs px-2.5 py-1 rounded transition-colors ${forecastOrMastery === "mastery" ? "bg-accent/20 text-accent font-semibold" : "text-muted-foreground hover:text-foreground"}`}>Mastery Progress</button>
                 </div>
-                {forecastOrMastery === "forecast" && (
-                  <div className="flex items-center gap-2">
-                    {(() => {
-                      const hProj = forecastMode === "actual" ? queueProjection : queueProjectionGoals;
-                      if (!hProj) return null;
-                      const status = queueForecastStatus(hProj);
-                      return <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${status.className} ${status.bgClassName}`}>{status.label}</span>;
-                    })()}
-                    <div className="flex rounded-md border border-border p-0.5 gap-0.5">
-                      {(["actual", "goals"] as const).map((m) => (
-                        <button key={m} onClick={() => { setForecastMode(m); localStorage.setItem("aurora_forecast_mode", m); }} className={`text-xs px-2 py-0.5 rounded transition-colors ${forecastMode === m ? "bg-accent/20 text-accent font-semibold" : "text-muted-foreground hover:text-foreground"}`}>
-                          {m === "actual" ? "Actual" : "Goals"}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {forecastOrMastery === "forecast" && (() => {
+                  const hProj = forecastMode === "actual" ? queueProjection : queueProjectionGoals;
+                  if (!hProj) return null;
+                  const status = queueForecastStatus(hProj);
+                  return <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${status.className} ${status.bgClassName}`}>{status.label}</span>;
+                })()}
               </div>
 
               {forecastOrMastery === "mastery" ? (
@@ -1965,8 +1965,8 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                 const projReviewCapacity = computeCapacity(timeBudget, 0).reviewCapacity;
                 const ZONE_BAR_COLORS = { green: "bg-green-500/60", yellow: "bg-amber-400/60", amber: "bg-orange-400/60", orange: "bg-orange-500/70", red: "bg-red-500/70" } as const;
                 return (
-                  <div className="space-y-1">
-                    <div className="relative flex items-end gap-px h-36">
+                  <div className="space-y-1.5">
+                    <div className="relative flex items-end gap-px h-44">
                       {projReviewCapacity > 0 && forecastMaxSize > 0 && (
                         <div className="absolute left-0 right-0 flex items-center pointer-events-none z-20" style={{ bottom: `${Math.min(96, (projReviewCapacity / forecastMaxSize) * 100)}%` }} title={`Review capacity: ~${projReviewCapacity}/day`}>
                           <div className="flex-1 border-t border-solid border-foreground/20" />
@@ -1992,44 +1992,51 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                             </div>
                             {isCrossing && (
                               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 pointer-events-none z-20 flex flex-col items-center gap-px group-hover/bar:opacity-0 transition-opacity">
-                                <span className="text-[8px] font-semibold text-green-500 bg-green-500/10 border border-green-500/30 px-1 rounded-sm leading-tight whitespace-nowrap">↓ Day {crossingIdx}</span>
+                                <span className="text-[9px] font-semibold text-green-500 bg-green-500/10 border border-green-500/30 px-1 rounded-sm leading-tight whitespace-nowrap">↓ Day {crossingIdx}</span>
                               </div>
                             )}
                           </div>
                         );
                       })}
                     </div>
-                    <div className="flex gap-px -mt-1">
+                    <div className="flex gap-px">
                       {proj.dailyQueueSize.map((_, i) => {
                         const isToday = i === 0;
                         const isCrossing = i === crossingIdx && showCrossingLabel;
                         const isLast = i === totalDays - 1;
                         if (!isToday && !isCrossing && !isLast) return <div key={i} className="flex-1" />;
-                        return <div key={i} className={`flex-1 text-center text-[8px] leading-tight font-medium truncate ${isCrossing ? "text-green-500" : "text-muted-foreground/50"}`}>{isToday ? "Today" : isCrossing ? `Day ${crossingIdx}` : `+${totalDays}d`}</div>;
+                        return <div key={i} className={`flex-1 text-center text-[9px] leading-tight font-medium truncate ${isCrossing ? "text-green-500" : "text-muted-foreground/60"}`}>{isToday ? "Today" : isCrossing ? `Day ${crossingIdx}` : `+${totalDays}d`}</div>;
                       })}
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <div className="flex justify-between items-center text-xs text-muted-foreground">
-                        <span><span className="font-medium text-foreground">{proj.currentSize}</span> due now</span>
-                        <span>{proj.reviewsPerDay} rev/d · {proj.newPerDay} new/d · <span className="text-muted-foreground/60">+{totalDays}d</span></span>
-                      </div>
-                      {forecastMode === "goals" && (
-                        <div className="flex items-center justify-end gap-3 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <span className="text-xs">Rev/d</span>
-                            <button onClick={() => { const v = Math.max(1, forecastReviewPerDay - 1); setForecastReviewPerDay(v); localStorage.setItem("aurora_forecast_review_per_day", String(v)); }} className="w-5 h-5 rounded border border-border flex items-center justify-center hover:text-foreground text-xs">−</button>
-                            <span className="font-medium tabular-nums w-6 text-center text-xs">{forecastReviewPerDay}</span>
-                            <button onClick={() => { const v = forecastReviewPerDay + 1; setForecastReviewPerDay(v); localStorage.setItem("aurora_forecast_review_per_day", String(v)); }} className="w-5 h-5 rounded border border-border flex items-center justify-center hover:text-foreground text-xs">+</button>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-xs">New/d</span>
-                            <button onClick={() => { const v = Math.max(0, forecastNewPerDay - 1); setForecastNewPerDay(v); localStorage.setItem("aurora_forecast_new_per_day", String(v)); }} className="w-5 h-5 rounded border border-border flex items-center justify-center hover:text-foreground text-xs">−</button>
-                            <span className="font-medium tabular-nums w-6 text-center text-xs">{forecastNewPerDay}</span>
-                            <button onClick={() => { const v = forecastNewPerDay + 1; setForecastNewPerDay(v); localStorage.setItem("aurora_forecast_new_per_day", String(v)); }} className="w-5 h-5 rounded border border-border flex items-center justify-center hover:text-foreground text-xs">+</button>
-                          </div>
+                    <div className="flex items-center justify-between pt-0.5 text-xs text-muted-foreground">
+                      <span><span className="font-semibold tabular-nums text-foreground">{proj.currentSize}</span> due now</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground/70 tabular-nums">{proj.reviewsPerDay} rev/d · {proj.newPerDay} new/d</span>
+                        <div className="flex rounded-md border border-border p-0.5 gap-0.5">
+                          {(["actual", "goals"] as const).map((m) => (
+                            <button key={m} onClick={() => { setForecastMode(m); localStorage.setItem("aurora_forecast_mode", m); }} className={`text-xs px-2 py-0.5 rounded transition-colors ${forecastMode === m ? "bg-accent/20 text-accent font-semibold" : "text-muted-foreground hover:text-foreground"}`}>
+                              {m === "actual" ? "Actual" : "Goals"}
+                            </button>
+                          ))}
                         </div>
-                      )}
+                      </div>
                     </div>
+                    {forecastMode === "goals" && (
+                      <div className="flex items-center justify-end gap-4 pt-2 border-t border-border/40">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-muted-foreground w-10">Rev/d</span>
+                          <button onClick={() => { const v = Math.max(1, forecastReviewPerDay - 1); setForecastReviewPerDay(v); localStorage.setItem("aurora_forecast_review_per_day", String(v)); }} className="w-6 h-6 rounded border border-border flex items-center justify-center hover:text-foreground hover:bg-background/60 transition-colors text-sm">−</button>
+                          <span className="font-semibold tabular-nums w-7 text-center text-sm text-foreground">{forecastReviewPerDay}</span>
+                          <button onClick={() => { const v = forecastReviewPerDay + 1; setForecastReviewPerDay(v); localStorage.setItem("aurora_forecast_review_per_day", String(v)); }} className="w-6 h-6 rounded border border-border flex items-center justify-center hover:text-foreground hover:bg-background/60 transition-colors text-sm">+</button>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-muted-foreground w-10">New/d</span>
+                          <button onClick={() => { const v = Math.max(0, forecastNewPerDay - 1); setForecastNewPerDay(v); localStorage.setItem("aurora_forecast_new_per_day", String(v)); }} className="w-6 h-6 rounded border border-border flex items-center justify-center hover:text-foreground hover:bg-background/60 transition-colors text-sm">−</button>
+                          <span className="font-semibold tabular-nums w-7 text-center text-sm text-foreground">{forecastNewPerDay}</span>
+                          <button onClick={() => { const v = forecastNewPerDay + 1; setForecastNewPerDay(v); localStorage.setItem("aurora_forecast_new_per_day", String(v)); }} className="w-6 h-6 rounded border border-border flex items-center justify-center hover:text-foreground hover:bg-background/60 transition-colors text-sm">+</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -2166,7 +2173,7 @@ function ActivityHeatmap({ history }: { history: AttemptDay[] }) {
 
 /* ── Activity Chart ── */
 
-const ActivityChart = memo(function ActivityChart({ history, mode = "auto", onPrev, onNext, canGoBack, canGoForward }: { history: AttemptDay[]; mode?: "auto" | "monthly"; onPrev?: () => void; onNext?: () => void; canGoBack?: boolean; canGoForward?: boolean }) {
+const ActivityChart = memo(function ActivityChart({ history, mode = "auto", onPrev, onNext, canGoBack, canGoForward, hideLegend = false }: { history: AttemptDay[]; mode?: "auto" | "monthly"; onPrev?: () => void; onNext?: () => void; canGoBack?: boolean; canGoForward?: boolean; hideLegend?: boolean }) {
   const todayStr = new Date().toISOString().slice(0, 10);
 
   // Aggregate: monthly if mode=monthly, weekly if auto+>30 days, else daily
@@ -2255,7 +2262,7 @@ const ActivityChart = memo(function ActivityChart({ history, mode = "auto", onPr
   }, [history, shouldAggregate, shouldMonthly]);
 
   const max = Math.max(...buckets.map((d) => d.count), 1);
-  const MAX_BAR_PX = 72;
+  const MAX_BAR_PX = 96;
   const showCounts = buckets.length <= 21;
 
   return (
@@ -2322,17 +2329,25 @@ const ActivityChart = memo(function ActivityChart({ history, mode = "auto", onPr
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
           </button>
         )}
-        <div className="flex items-center gap-3 flex-1 justify-center">
-          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            <span className="inline-block w-2 h-2 rounded-sm bg-green-500" /> New
-          </span>
-          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            <span className="inline-block w-2 h-2 rounded-sm bg-accent" /> Review
-          </span>
-          {shouldAggregate && (
+        {!hideLegend && (
+          <div className="flex items-center gap-3 flex-1 justify-center">
+            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <span className="inline-block w-2 h-2 rounded-sm bg-green-500" /> New
+            </span>
+            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <span className="inline-block w-2 h-2 rounded-sm bg-accent" /> Review
+            </span>
+            {shouldAggregate && (
+              <span className="text-[10px] text-muted-foreground">(weekly)</span>
+            )}
+          </div>
+        )}
+        {hideLegend && shouldAggregate && (
+          <div className="flex-1 flex justify-center">
             <span className="text-[10px] text-muted-foreground">(weekly)</span>
-          )}
-        </div>
+          </div>
+        )}
+        {hideLegend && !shouldAggregate && <div className="flex-1" />}
         {onNext !== undefined && (
           <button
             onClick={onNext}
