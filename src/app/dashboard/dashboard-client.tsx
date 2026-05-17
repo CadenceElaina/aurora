@@ -1362,22 +1362,22 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                     <div key={rec.problem.id} className="flex items-center gap-3 px-3 py-2.5 border-b-2 border-accent/30 bg-accent/5">
                       <span className="text-xs text-muted-foreground w-8 shrink-0 tabular-nums">{rec.problem.leetcodeNumber}</span>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <span className="text-[10px] font-semibold text-accent uppercase tracking-wide">New problem</span>
-                          <span className="text-[10px] text-muted-foreground truncate">· {rec.reason}</span>
+                        <div className="flex items-baseline gap-1.5 min-w-0">
+                          <span className="text-[10px] font-semibold text-accent uppercase tracking-wide shrink-0">New</span>
+                          {rec.problem.neetcodeUrl ? (
+                            <a href={rec.problem.neetcodeUrl} target="_blank" rel="noopener noreferrer" className="text-base font-medium text-foreground hover:text-accent truncate min-w-0">
+                              {rec.problem.title}
+                            </a>
+                          ) : (
+                            <Link href={`/problems/${rec.problem.id}`} className="text-base font-medium text-foreground hover:text-accent truncate min-w-0">
+                              {rec.problem.title}
+                            </Link>
+                          )}
                         </div>
-                        {rec.problem.neetcodeUrl ? (
-                          <a href={rec.problem.neetcodeUrl} target="_blank" rel="noopener noreferrer" className="text-base font-medium text-foreground hover:text-accent truncate block">
-                            {rec.problem.title}
-                          </a>
-                        ) : (
-                          <Link href={`/problems/${rec.problem.id}`} className="text-base font-medium text-foreground hover:text-accent truncate block">
-                            {rec.problem.title}
-                          </Link>
-                        )}
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-xs text-muted-foreground">{rec.category}</span>
                           <DifficultyBadge difficulty={rec.problem.difficulty} />
+                          <span className="text-xs text-muted-foreground">· {rec.reason}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
@@ -1778,14 +1778,14 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
       </div>
 
       {/* ── Right Column ── */}
-      <div className="flex-none w-full md:w-[500px] flex flex-col gap-3 md:min-h-0 md:h-full overflow-y-auto overflow-x-hidden" data-onboarding="stats">
+      <div className="flex-none w-full md:w-[500px] flex flex-col gap-3 md:min-h-0 md:h-full overflow-x-hidden overflow-y-auto md:overflow-y-hidden" data-onboarding="stats">
         {sheetDrawerOpen && todaySheets.length > 0 ? (
           <InlinePatternPanel sheets={todaySheets} onClose={() => setSheetDrawerOpen(false)} reviewCount={reviewItems.length} />
         ) : (
           <>
             {/* First-login getting-started card */}
             {isFirstLogin && (
-              <section className="rounded-lg border border-accent/30 bg-accent/5 p-4 space-y-3">
+              <section className="rounded-lg border border-accent/30 bg-accent/5 p-4 space-y-3 shrink-0">
                 <div>
                   <p className="text-sm font-semibold text-foreground">Start building your queue</p>
               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
@@ -1831,7 +1831,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
               const hard   = bd.find(b => b.difficulty === "Hard");
               const bar = (a: number, t: number) => Math.min(100, t > 0 ? Math.round((a / t) * 100) : 0);
               return (
-            <section className="rounded-lg border border-border bg-muted p-3">
+            <section className="rounded-lg border border-border bg-muted p-3 shrink-0">
               {/* Title row: name · gear (date removed — shown in stats row) */}
               <div className="flex items-center gap-2 mb-2">
                 <p className="text-sm font-semibold text-foreground flex-1 min-w-0 truncate">{countdownTitle}</p>
@@ -1963,7 +1963,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
             })()}
 
             {/* Activity */}
-            <section className="rounded-lg border border-border bg-muted p-3">
+            <section className="rounded-lg border border-border bg-muted p-3 shrink-0">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <p className="text-sm font-semibold text-foreground">Activity</p>
@@ -2005,8 +2005,8 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
             </section>
 
             {/* Queue Forecast / Mastery Progress */}
-            <section className="rounded-lg border border-border bg-muted p-3">
-              <div className="flex items-center justify-between mb-3">
+            <section className="rounded-lg border border-border bg-muted p-3 flex flex-col flex-1 min-h-0">
+              <div className="flex items-center justify-between mb-3 shrink-0">
                 <div className="flex gap-0.5 rounded-md border border-border p-0.5">
                   <button onClick={() => setForecastOrMastery("forecast")} className={`text-xs px-2.5 py-1 rounded transition-colors ${forecastOrMastery === "forecast" ? "bg-accent/20 text-accent font-semibold" : "text-muted-foreground hover:text-foreground"}`}>Queue Forecast</button>
                   <button onClick={() => setForecastOrMastery("mastery")} className={`text-xs px-2.5 py-1 rounded transition-colors ${forecastOrMastery === "mastery" ? "bg-accent/20 text-accent font-semibold" : "text-muted-foreground hover:text-foreground"}`}>Mastery Progress</button>
@@ -2020,13 +2020,15 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
               </div>
 
               {forecastOrMastery === "mastery" ? (
-                <MasteryProgress
-                  mastered={data.masteredCount}
-                  learning={data.learningCount}
-                  total={data.totalProblems}
-                  masteryList={data.masteryList}
-                  learningList={data.learningList}
-                />
+                <div className="flex-1 min-h-0 overflow-y-auto">
+                  <MasteryProgress
+                    mastered={data.masteredCount}
+                    learning={data.learningCount}
+                    total={data.totalProblems}
+                    masteryList={data.masteryList}
+                    learningList={data.learningList}
+                  />
+                </div>
               ) : (() => {
                 const proj = forecastMode === "actual" ? queueProjection : queueProjectionGoals;
                 if (!proj) return <p className="text-xs text-muted-foreground">No items in queue.</p>;
@@ -2045,8 +2047,8 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                 const projReviewCapacity = computeCapacity(timeBudget, 0).reviewCapacity;
                 const ZONE_BAR_COLORS = { green: "bg-green-500/60", yellow: "bg-amber-400/60", amber: "bg-orange-400/60", orange: "bg-orange-500/70", red: "bg-red-500/70" } as const;
                 return (
-                  <div className="space-y-1.5">
-                    <div className="relative flex items-end gap-px h-44">
+                  <div className="flex flex-col flex-1 min-h-0 gap-1.5">
+                    <div className="relative flex items-end gap-px flex-1 min-h-[80px]">
                       {projReviewCapacity > 0 && forecastMaxSize > 0 && (
                         <div className="absolute left-0 right-0 flex items-center pointer-events-none z-20" style={{ bottom: `${Math.min(96, (projReviewCapacity / forecastMaxSize) * 100)}%` }} title={`Review capacity: ~${projReviewCapacity}/day`}>
                           <div className="flex-1 border-t border-solid border-foreground/20" />
@@ -2079,7 +2081,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                         );
                       })}
                     </div>
-                    <div className="flex gap-px">
+                    <div className="flex gap-px shrink-0">
                       {proj.dailyQueueSize.map((_, i) => {
                         const isToday = i === 0;
                         const isCrossing = i === crossingIdx && showCrossingLabel;
@@ -2088,7 +2090,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                         return <div key={i} className={`flex-1 text-center text-[9px] leading-tight font-medium truncate ${isCrossing ? "text-green-500" : "text-muted-foreground/60"}`}>{isToday ? "Today" : isCrossing ? `Day ${crossingIdx}` : `+${totalDays}d`}</div>;
                       })}
                     </div>
-                    <div className="flex items-center justify-between pt-0.5 text-xs text-muted-foreground">
+                    <div className="flex items-center justify-between pt-0.5 text-xs text-muted-foreground shrink-0">
                       <span><span className="font-semibold tabular-nums text-foreground">{proj.currentSize}</span> due now</span>
                       <div className="flex items-center gap-2">
                         <span className="text-muted-foreground/70 tabular-nums">{proj.reviewsPerDay} rev/d · {proj.newPerDay} new/d</span>
@@ -2102,7 +2104,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                       </div>
                     </div>
                     {forecastMode === "goals" && (
-                      <div className="pt-2 border-t border-border/40 space-y-2">
+                      <div className="pt-2 border-t border-border/40 space-y-2 shrink-0">
                         <p className="text-[11px] text-center text-muted-foreground/70">
                           {(() => {
                             const d = sustainedClearDay(proj.dailyQueueSize, proj.dailyQueueSize.length);
