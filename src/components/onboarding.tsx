@@ -6,25 +6,21 @@ import { saveSoundSettings, DEFAULT_SOUND_SETTINGS } from "@/lib/sounds";
 
 
 
-/* ── Simulated review queue data ── */
-const MOCK_REVIEW_ITEMS = [
-  { num: 1, title: "Two Sum", difficulty: "Easy" as const, category: "Arrays & Hashing", attempts: 3, lastSeen: "5d ago", daysOverdue: 3, retention: 52, prio: "high" as const },
-  { num: 206, title: "Reverse Linked List", difficulty: "Easy" as const, category: "Linked List", attempts: 2, lastSeen: "8d ago", daysOverdue: 6, retention: 44, prio: "critical" as const },
-  { num: 20, title: "Valid Parentheses", difficulty: "Easy" as const, category: "Stack", attempts: 4, lastSeen: "3d ago", daysOverdue: 1, retention: 61, prio: "medium" as const },
-  { num: 15, title: "3Sum", difficulty: "Medium" as const, category: "Two Pointers", attempts: 1, lastSeen: "12d ago", daysOverdue: 9, retention: 38, prio: "critical" as const },
-  { num: 102, title: "Binary Tree Level Order", difficulty: "Medium" as const, category: "Trees", attempts: 3, lastSeen: "4d ago", daysOverdue: 2, retention: 67, prio: "medium" as const },
-  { num: 141, title: "Linked List Cycle", difficulty: "Easy" as const, category: "Linked List", attempts: 1, lastSeen: "7d ago", daysOverdue: 4, retention: 49, prio: "high" as const },
-  { num: 121, title: "Best Time to Buy Stock", difficulty: "Easy" as const, category: "Sliding Window", attempts: 2, lastSeen: "11d ago", daysOverdue: 7, retention: 41, prio: "critical" as const },
-  { num: 70, title: "Climbing Stairs", difficulty: "Easy" as const, category: "1D DP", attempts: 2, lastSeen: "6d ago", daysOverdue: 2, retention: 58, prio: "medium" as const },
-  { num: 53, title: "Maximum Subarray", difficulty: "Medium" as const, category: "Greedy", attempts: 1, lastSeen: "9d ago", daysOverdue: 5, retention: 46, prio: "high" as const },
-  { num: 235, title: "Lowest Common Ancestor BST", difficulty: "Medium" as const, category: "Trees", attempts: 2, lastSeen: "10d ago", daysOverdue: 8, retention: 39, prio: "critical" as const },
-];
+/* ── Mock session items: 1 new problem + review items ── */
+type MockSessionItem =
+  | { type: "new"; num: number; title: string; difficulty: "Easy" | "Medium" | "Hard"; category: string }
+  | { type: "review"; num: number; title: string; difficulty: "Easy" | "Medium" | "Hard"; category: string; attempts: number; warn: boolean; prio: "critical" | "high" | "medium" };
 
-const OVERDUE_BG: Record<string, string> = {
-  critical: "bg-red-500 text-white",
-  high: "bg-orange-500 text-white",
-  medium: "bg-amber-400 text-black",
-};
+const MOCK_SESSION_ITEMS: MockSessionItem[] = [
+  { type: "new", num: 1, title: "Two Sum", difficulty: "Easy", category: "Arrays & Hashing" },
+  { type: "review", num: 206, title: "Reverse Linked List", difficulty: "Easy", category: "Linked List", attempts: 2, warn: true, prio: "critical" },
+  { type: "review", num: 20, title: "Valid Parentheses", difficulty: "Easy", category: "Stack", attempts: 4, warn: false, prio: "medium" },
+  { type: "review", num: 15, title: "3Sum", difficulty: "Medium", category: "Two Pointers", attempts: 1, warn: true, prio: "critical" },
+  { type: "review", num: 102, title: "Binary Tree Level Order", difficulty: "Medium", category: "Trees", attempts: 3, warn: false, prio: "medium" },
+  { type: "review", num: 141, title: "Linked List Cycle", difficulty: "Easy", category: "Linked List", attempts: 1, warn: true, prio: "high" },
+  { type: "review", num: 121, title: "Best Time to Buy Stock", difficulty: "Easy", category: "Sliding Window", attempts: 2, warn: true, prio: "critical" },
+  { type: "review", num: 70, title: "Climbing Stairs", difficulty: "Easy", category: "1D DP", attempts: 2, warn: false, prio: "medium" },
+];
 
 const DOT_COLOR: Record<string, string> = {
   critical: "bg-red-500",
@@ -310,67 +306,82 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
           <div className="flex items-center gap-2 mb-2">
             <div className="flex gap-0.5 rounded-md border border-border p-0.5 bg-background">
               <span className="text-sm px-2.5 py-1 rounded bg-accent text-accent-foreground font-medium">
-                Today&apos;s Session <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-accent-foreground/20">{MOCK_REVIEW_ITEMS.length}</span>
+                Today&apos;s Session <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-accent-foreground/20">{MOCK_SESSION_ITEMS.length}</span>
               </span>
               <span className="text-sm px-2.5 py-1 rounded text-muted-foreground">New <span className="ml-1 text-xs">43</span></span>
               <span className="text-sm px-2.5 py-1 rounded text-muted-foreground">Completed <span className="ml-1 text-xs">7</span></span>
             </div>
           </div>
-          {/* Sort pills */}
-          <div className="flex gap-1 mb-2">
-            <span className="text-xs px-2 py-0.5 rounded bg-muted text-foreground font-medium">Urgency</span>
-            <span className="text-xs px-2 py-0.5 rounded text-muted-foreground">Oldest</span>
-            <span className="text-xs px-2 py-0.5 rounded text-muted-foreground">Hardest</span>
-            <span className="text-xs px-2 py-0.5 rounded text-muted-foreground">Category</span>
+          {/* Sort / filter bar matching real dashboard */}
+          <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              Urgency
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+            <div className="flex gap-0.5 rounded border border-border p-0.5 bg-background">
+              <span className="text-[11px] px-2 py-0.5 rounded bg-muted text-foreground font-medium">Session</span>
+              <span className="text-[11px] px-2 py-0.5 rounded text-muted-foreground">All</span>
+            </div>
+            <span className="flex-1 text-[11px] text-muted-foreground/50 px-2 py-0.5 rounded-md border border-border">Filter...</span>
           </div>
-          {/* Review items — full opacity so symbols are legible */}
+          {/* Session items matching real dashboard layout */}
           <div className="rounded-lg border border-border overflow-hidden bg-background">
-            {MOCK_REVIEW_ITEMS.map((item, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 px-3 py-2.5 border-b border-border last:border-b-0"
-              >
-                <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${DOT_COLOR[item.prio]}`} />
-                <span className="text-xs text-muted-foreground w-8 shrink-0 tabular-nums">{item.num}</span>
-                <div className="min-w-0 flex-1">
-                  <span className="text-sm font-medium text-foreground truncate block">{item.title}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {item.category} · {item.attempts} attempt{item.attempts !== 1 ? "s" : ""} · Last: {item.lastSeen}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none ${OVERDUE_BG[item.prio]}`}>
-                    {item.daysOverdue}d overdue
-                  </span>
-                  <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none ${DIFF_BG[item.difficulty]}`}>
-                    {item.difficulty}
-                  </span>
-                  <span className="inline-flex h-7 items-center rounded-md bg-accent px-3 text-xs text-accent-foreground">
-                    Log
-                  </span>
+            {MOCK_SESSION_ITEMS.map((item, i) => (
+              <div key={i} className="border-b border-border last:border-b-0">
+                {item.type === "new" && (
+                  <div className="px-3 pt-2 pb-0.5">
+                    <span className="text-[10px] font-semibold text-accent tracking-wide uppercase">New Problem</span>
+                    <span className="text-[10px] text-muted-foreground ml-1.5">· Start Arrays &amp; Hashing</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2.5 px-3 py-2">
+                  {item.type === "review" ? (
+                    <div className={`h-2 w-2 rounded-full shrink-0 ${DOT_COLOR[item.prio]}`} />
+                  ) : (
+                    <span className="text-xs text-muted-foreground tabular-nums shrink-0">{item.num}</span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-sm font-medium text-foreground truncate">{item.title}</span>
+                      {item.type === "review" && <span className="text-[10px] text-muted-foreground shrink-0">#{item.num}</span>}
+                    </div>
+                    <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                      <span className="text-xs text-muted-foreground">{item.category}</span>
+                      {item.type === "review" && (
+                        <>
+                          <span className="text-xs text-muted-foreground">· {item.attempts} attempt{item.attempts !== 1 ? "s" : ""}</span>
+                          {item.warn && <span className="text-[10px] text-orange-400">· Retention dropping fast</span>}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none ${DIFF_BG[item.difficulty]}`}>
+                      {item.difficulty}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground/50 border border-border/50 rounded px-1 py-0.5 leading-none">NC↗</span>
+                    <span className="inline-flex h-6 items-center rounded-md bg-accent px-2.5 text-[11px] text-accent-foreground">Log</span>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Simulated log modal centered on queue */}
-          <div className="absolute inset-0 flex items-start justify-center pt-10">
+          {/* Simulated log modal */}
+          <div className="absolute inset-0 flex items-start justify-center pt-8">
             <div className="w-[90%] max-w-md rounded-lg border border-border bg-background shadow-2xl overflow-hidden">
               {/* Modal header */}
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border">
                 <span className="text-xs text-muted-foreground shrink-0">1.</span>
                 <span className="text-sm font-medium">Two Sum</span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 shrink-0">Easy</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-500 shrink-0">Review</span>
                 <span className="ml-auto text-[10px] text-accent shrink-0">Refresh pattern →</span>
               </div>
               {/* Modal body */}
-              <div className="px-4 py-3 space-y-3">
+              <div className="px-4 py-2.5 space-y-2.5">
                 {/* How did it go? */}
                 <div>
-                  <p className={`text-[11px] mb-1.5 transition-colors duration-300 ${logFrame === 0 ? "text-foreground font-medium" : logFrame > 0 ? "text-muted-foreground" : "text-muted-foreground/40"}`}>
-                    How did it go?
-                  </p>
+                  <p className={`text-[11px] mb-1 transition-colors duration-300 ${logFrame === 0 ? "text-foreground font-medium" : logFrame > 0 ? "text-muted-foreground" : "text-muted-foreground/40"}`}>How did it go?</p>
                   <div className="flex gap-1.5">
                     {(["Couldn’t solve", "Partial / Hint", "Solved"] as const).map((opt, oi) => (
                       <span key={oi} className={`flex-1 text-center text-[11px] py-1.5 rounded-md border transition-all duration-300 ${
@@ -383,9 +394,7 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
                 </div>
                 {/* Solution quality */}
                 <div>
-                  <p className={`text-[11px] mb-1.5 transition-colors duration-300 ${logFrame === 1 ? "text-foreground font-medium" : logFrame > 1 ? "text-muted-foreground" : "text-muted-foreground/40"}`}>
-                    Solution quality
-                  </p>
+                  <p className={`text-[11px] mb-1 transition-colors duration-300 ${logFrame === 1 ? "text-foreground font-medium" : logFrame > 1 ? "text-muted-foreground" : "text-muted-foreground/40"}`}>Solution quality</p>
                   <div className="flex gap-1.5">
                     {(["Optimal", "Not Optimal"] as const).map((opt, oi) => (
                       <span key={oi} className={`flex-1 text-center text-[11px] py-1.5 rounded-md border transition-all duration-300 ${
@@ -396,12 +405,10 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
                     ))}
                   </div>
                 </div>
-                {/* Confidence + Time (min) side by side */}
+                {/* Confidence + Time side by side */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <p className={`text-[11px] mb-1.5 transition-colors duration-300 ${logFrame === 2 ? "text-foreground font-medium" : logFrame > 2 ? "text-muted-foreground" : "text-muted-foreground/40"}`}>
-                      Confidence
-                    </p>
+                    <p className={`text-[11px] mb-1 transition-colors duration-300 ${logFrame === 2 ? "text-foreground font-medium" : logFrame > 2 ? "text-muted-foreground" : "text-muted-foreground/40"}`}>Confidence</p>
                     <div className="flex gap-1">
                       {(["1","2","3","4","5"] as const).map((n, ni) => (
                         <span key={n} className={`flex h-6 w-full items-center justify-center rounded text-[11px] transition-all duration-300 ${
@@ -413,26 +420,34 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
                     </div>
                   </div>
                   <div>
-                    <p className={`text-[11px] mb-1.5 transition-colors duration-300 ${logFrame === 3 ? "text-foreground font-medium" : logFrame > 3 ? "text-muted-foreground" : "text-muted-foreground/40"}`}>
-                      Time (min)
-                    </p>
-                    <span className={`block h-7 w-full rounded-md border px-2 text-[11px] leading-7 transition-all duration-300 ${
+                    <p className={`text-[11px] mb-1 transition-colors duration-300 ${logFrame === 3 ? "text-foreground font-medium" : logFrame > 3 ? "text-muted-foreground" : "text-muted-foreground/40"}`}>Time (min)</p>
+                    <span className={`block h-6 w-full rounded-md border px-2 text-[11px] leading-6 transition-all duration-300 ${
                       logFrame >= 3 ? "border-accent/60 text-foreground" : "border-border text-muted-foreground/30"
                     }`}>20</span>
                   </div>
                 </div>
+                {/* Date — static */}
+                <div>
+                  <p className="text-[11px] mb-1 text-muted-foreground/40">Date</p>
+                  <span className="block h-6 w-full rounded-md border border-border px-2 text-[11px] leading-6 text-muted-foreground/30">05/17/2026</span>
+                </div>
+                {/* Notes — static */}
+                <div>
+                  <p className="text-[11px] mb-1 text-muted-foreground/40">Notes</p>
+                  <span className="block h-10 w-full rounded-md border border-border px-2 py-1.5 text-[11px] text-muted-foreground/30 leading-relaxed">Key insight, approach, patterns...</span>
+                </div>
                 {logFrame >= 4 && (
-                  <div className="pt-2 border-t border-border/50 text-center">
+                  <div className="pt-1.5 border-t border-border/50 text-center">
                     {logFrame === 4 ? (
-                      <p className="text-xs text-muted-foreground animate-pulse">Saving…</p>
+                      <p className="text-[11px] text-muted-foreground animate-pulse">Saving…</p>
                     ) : (
-                      <p className="text-xs text-green-400 font-medium">✓ Logged — next review in 4 days</p>
+                      <p className="text-[11px] text-green-400 font-medium">✓ Logged — next review in 4 days</p>
                     )}
                   </div>
                 )}
               </div>
               {/* Modal footer */}
-              <div className="flex items-center justify-end gap-2 px-4 py-2.5 border-t border-border">
+              <div className="flex items-center justify-end gap-2 px-4 py-2 border-t border-border">
                 <span className="inline-flex h-7 items-center rounded-md border border-border px-3 text-[11px] text-muted-foreground">Cancel</span>
                 <span className={`inline-flex h-7 items-center rounded-md px-3 text-[11px] font-medium transition-all duration-300 ${
                   logFrame >= 4 ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"
