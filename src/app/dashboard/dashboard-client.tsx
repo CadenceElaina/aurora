@@ -209,8 +209,6 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
   const [reviewItems, setReviewItems] = useState(data.reviewQueue);
   const [deferSearch, setDeferSearch] = useState("");
   const [showDeferredInline, setShowDeferredInline] = useState(false);
-  const [plannedNewPerDay, setPlannedNewPerDay] = useState(1.5);
-  const [plannedReviewPerDay, setPlannedReviewPerDay] = useState(5);
   const [timeBudget, setTimeBudget] = useState(data.dailyTimeBudgetMinutes);
 
   // Mock interview state
@@ -317,10 +315,6 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     } else if (reviewItems.length === 0) {
       setListMode("new");
     }
-    const savedNewPace = localStorage.getItem("aurora_planned_new_per_day");
-    if (savedNewPace) setPlannedNewPerDay(parseFloat(savedNewPace));
-    const savedReviewPace = localStorage.getItem("aurora_planned_review_per_day");
-    if (savedReviewPace) setPlannedReviewPerDay(parseFloat(savedReviewPace));
     const savedTitle = localStorage.getItem("aurora_countdown_title");
     if (savedTitle) setCountdownTitle(savedTitle);
     // Sync targetCount with saved goalType
@@ -1714,7 +1708,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
       </div>
 
       {/* ── Right Column ── */}
-      <div className="flex-none w-full md:w-[320px] flex flex-col gap-3 md:min-h-0 md:h-full overflow-y-auto overflow-x-hidden" data-onboarding="stats">
+      <div className="flex-none w-full md:w-[360px] flex flex-col gap-3 md:min-h-0 md:h-full overflow-y-auto overflow-x-hidden" data-onboarding="stats">
         {sheetDrawerOpen && todaySheets.length > 0 ? (
           <InlinePatternPanel sheets={todaySheets} onClose={() => setSheetDrawerOpen(false)} reviewCount={reviewItems.length} />
         ) : (
@@ -1760,34 +1754,33 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
 
             {/* CompletionWidget */}
             <section className="rounded-lg border border-border bg-muted p-3">
-              {/* Goal toggle + settings gear */}
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex gap-0.5 rounded-md border border-border p-0.5">
-                  <button
-                    onClick={() => { setGoalType("neetcode150"); setTargetCount(150); localStorage.setItem("srs_goal_type", "neetcode150"); localStorage.setItem("srs_target", JSON.stringify({ date: targetDate, count: 150 })); }}
-                    className={`text-xs px-2.5 py-1 rounded transition-colors ${goalType !== "blind75" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
-                  >NeetCode 150</button>
-                  <button
-                    onClick={() => { setGoalType("blind75"); setTargetCount(75); localStorage.setItem("srs_goal_type", "blind75"); localStorage.setItem("srs_target", JSON.stringify({ date: targetDate, count: 75 })); }}
-                    className={`text-xs px-2.5 py-1 rounded transition-colors ${goalType === "blind75" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
-                  >Blind 75</button>
-                </div>
+              {/* Settings gear */}
+              <div className="flex items-center justify-end mb-2">
                 <button
                   onClick={() => setShowSettings(!showSettings)}
                   className="text-muted-foreground hover:text-foreground transition-colors"
                   aria-label="Settings"
                   title="Settings"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 </button>
               </div>
 
-              {/* Donut ring + E/M/H bars */}
-              <SolvedDonut
-                breakdown={goalType === "blind75" ? blind75DifficultyBreakdown : data.difficultyBreakdown}
-                totalSolved={goalType === "blind75" ? blind75AttemptedCount : data.attemptedCount}
-                totalTarget={targetCount}
-              />
+              {/* Readiness score (left) + Donut (right) */}
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col items-center text-center shrink-0">
+                  <span className={`inline-flex h-11 w-11 items-center justify-center rounded-lg text-2xl font-black ${TIER_COLORS[data.readiness.tier]}`}>{data.readiness.tier}</span>
+                  <span className="text-base font-bold tabular-nums mt-1 leading-none">{data.readiness.score}<span className="text-xs font-normal text-muted-foreground">/100</span></span>
+                  <p className="text-xs text-muted-foreground mt-0.5">Readiness</p>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <SolvedDonut
+                    breakdown={goalType === "blind75" ? blind75DifficultyBreakdown : data.difficultyBreakdown}
+                    totalSolved={goalType === "blind75" ? blind75AttemptedCount : data.attemptedCount}
+                    totalTarget={targetCount}
+                  />
+                </div>
+              </div>
 
               {/* Days left + streak */}
               <div className="flex items-center gap-3 mt-3 text-sm">
@@ -1855,29 +1848,31 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                   sessionSizeOverride={sessionSizeOverride}
                   onSessionSizeOverrideChange={setSessionSizeOverride}
                   recommendedSessionSize={sessionSize}
+                  goalType={goalType}
+                  onGoalTypeChange={(v) => {
+                    setGoalType(v);
+                    const newCount = v === "blind75" ? 75 : 150;
+                    setTargetCount(newCount);
+                    localStorage.setItem("srs_goal_type", v);
+                    localStorage.setItem("srs_target", JSON.stringify({ date: targetDate, count: newCount }));
+                  }}
                 />
               )}
             </section>
 
-            {/* Compact Readiness — no collapse */}
+            {/* Readiness breakdown */}
             <section className="rounded-lg border border-border bg-muted p-3">
-              <div className="flex items-center gap-2 mb-2.5">
-                <span className={`inline-flex h-10 w-10 items-center justify-center rounded-lg text-xl font-black shrink-0 ${TIER_COLORS[data.readiness.tier]}`}>{data.readiness.tier}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1">
-                    <span className="text-base font-bold tabular-nums">{data.readiness.score}<span className="text-xs font-normal text-muted-foreground">/100</span></span>
-                    <InfoTooltip content={
-                      <div className="space-y-1 max-w-[220px]">
-                        <p className="font-medium">Readiness Score</p>
-                        <p>Coverage 30% · Retention 40% · Category Balance 20% · Consistency 10%</p>
-                      </div>
-                    } />
+              <div className="flex items-center gap-1 mb-2.5">
+                <p className="text-sm font-semibold text-foreground">Breakdown</p>
+                <InfoTooltip content={
+                  <div className="space-y-1 max-w-[220px]">
+                    <p className="font-medium">Readiness Score</p>
+                    <p>Coverage 30% · Retention 40% · Category Balance 20% · Consistency 10%</p>
                   </div>
-                  <p className="text-sm text-muted-foreground">Readiness</p>
-                </div>
+                } />
               </div>
               {data.attemptedCount < 5 && (
-                <p className="text-[10px] text-muted-foreground mb-2">Score improves as you log more attempts.</p>
+                <p className="text-xs text-muted-foreground mb-2">Score improves as you log more attempts.</p>
               )}
               <div className="space-y-1.5">
                 {[
@@ -1916,30 +1911,6 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                   ))}
                 </div>
               </div>
-              <div className="flex items-center gap-4 mb-2 text-xs">
-                <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground">New/d</span>
-                  <span className={`font-semibold tabular-nums ${data.avgNewPerDay >= plannedNewPerDay ? "text-green-500" : "text-orange-500"}`}>{data.avgNewPerDay.toFixed(1)}</span>
-                  <span className="text-muted-foreground">/</span>
-                  <input
-                    type="number" min="0" step="0.5" value={plannedNewPerDay}
-                    onChange={(e) => { const v = parseFloat(e.target.value) || 0; setPlannedNewPerDay(v); localStorage.setItem("aurora_planned_new_per_day", String(v)); }}
-                    aria-label="New problems per day goal"
-                    className="w-9 rounded border border-border bg-background px-1 py-0.5 text-xs tabular-nums text-center focus:outline-none focus:ring-1 focus:ring-accent"
-                  />
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground">Rev/d</span>
-                  <span className={`font-semibold tabular-nums ${data.avgReviewPerDay >= plannedReviewPerDay ? "text-green-500" : "text-orange-500"}`}>{data.avgReviewPerDay.toFixed(1)}</span>
-                  <span className="text-muted-foreground">/</span>
-                  <input
-                    type="number" min="0" step="0.5" value={plannedReviewPerDay}
-                    onChange={(e) => { const v = parseFloat(e.target.value) || 0; setPlannedReviewPerDay(v); localStorage.setItem("aurora_planned_review_per_day", String(v)); }}
-                    aria-label="Reviews per day goal"
-                    className="w-9 rounded border border-border bg-background px-1 py-0.5 text-xs tabular-nums text-center focus:outline-none focus:ring-1 focus:ring-accent"
-                  />
-                </div>
-              </div>
               {activityViewMode === "heatmap"
                 ? <ActivityHeatmap history={data.fullAttemptHistory} />
                 : <ActivityChart
@@ -1951,6 +1922,10 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                     canGoForward={activityViewMode === "14d" ? canGoForward : undefined}
                   />
               }
+              <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                <span>New/d <span className="font-semibold tabular-nums text-foreground">{data.avgNewPerDay.toFixed(1)}</span></span>
+                <span>Rev/d <span className="font-semibold tabular-nums text-foreground">{data.avgReviewPerDay.toFixed(1)}</span></span>
+              </div>
             </section>
 
             {/* Queue Forecast / Mastery Progress */}
@@ -2561,6 +2536,8 @@ function SettingsPanel({
   sessionSizeOverride,
   onSessionSizeOverrideChange,
   recommendedSessionSize,
+  goalType,
+  onGoalTypeChange,
 }: {
   date: string;
   count: number;
@@ -2578,6 +2555,8 @@ function SettingsPanel({
   sessionSizeOverride: number | null;
   onSessionSizeOverrideChange: (v: number | null) => void;
   recommendedSessionSize: number;
+  goalType: "neetcode150" | "blind75" | "none";
+  onGoalTypeChange: (v: "neetcode150" | "blind75") => void;
 }) {
   const [d, setD] = useState(date);
   const [c, setC] = useState(count);
@@ -2611,15 +2590,15 @@ function SettingsPanel({
         <label htmlFor="countdown-count" className="block text-xs text-muted-foreground mb-1">Target Problems</label>
         <div className="flex gap-1.5 mb-1.5">
           <button
-            onClick={() => setC(75)}
+            onClick={() => { setC(75); onGoalTypeChange("blind75"); }}
             className={`text-xs px-2.5 py-1 rounded border transition-colors ${
-              c === 75 ? "bg-accent text-accent-foreground border-accent" : "border-border text-muted-foreground hover:text-foreground"
+              goalType === "blind75" ? "bg-accent text-accent-foreground border-accent" : "border-border text-muted-foreground hover:text-foreground"
             }`}
           >Blind 75</button>
           <button
-            onClick={() => setC(150)}
+            onClick={() => { setC(150); onGoalTypeChange("neetcode150"); }}
             className={`text-xs px-2.5 py-1 rounded border transition-colors ${
-              c === 150 ? "bg-accent text-accent-foreground border-accent" : "border-border text-muted-foreground hover:text-foreground"
+              goalType === "neetcode150" || goalType === "none" ? "bg-accent text-accent-foreground border-accent" : "border-border text-muted-foreground hover:text-foreground"
             }`}
           >NeetCode 150</button>
         </div>
