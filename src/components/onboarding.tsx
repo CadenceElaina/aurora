@@ -103,10 +103,15 @@ const ONBOARDING_BUDGET_PRESETS = [
   { minutes: 120, label: "Intensive", sub: "120+ min" },
 ] as const;
 
+function defaultCountdownName(date: string): string {
+  const d = new Date(date + "T00:00:00");
+  return d.toLocaleDateString("en-US", { month: "long" }) + " Countdown";
+}
+
 export function Onboarding({ isDemo = false, onboardingComplete = false, onPreferences }: {
   isDemo?: boolean;
   onboardingComplete?: boolean;
-  onPreferences?: (prefs: { targetCount: number; targetDate: string; autoDeferHards: boolean; goalType: "blind75" | "neetcode150" | "none"; timeBudget: number; newPerSession: number; advisoryThreshold: "relaxed" | "moderate" | "strict" }) => void;
+  onPreferences?: (prefs: { targetCount: number; targetDate: string; autoDeferHards: boolean; goalType: "blind75" | "neetcode150" | "none"; timeBudget: number; newPerSession: number; advisoryThreshold: "relaxed" | "moderate" | "strict"; countdownTitle: string }) => void;
 }) {
   const [show, setShow] = useState(false);
   const [step, setStep] = useState(0);
@@ -119,12 +124,18 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
 
   // Preference state for goal step
   const [selectedTimeBudget, setSelectedTimeBudget] = useState(60);
-  const [selectedGoal, setSelectedGoal] = useState<"blind75" | "neetcode150" | "none">("neetcode150");
+  const [selectedGoal, setSelectedGoal] = useState<"blind75" | "neetcode150">("neetcode150");
   const [selectedDate, setSelectedDate] = useState(() => {
     const now = new Date();
     const year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
     return `${year}-09-01`;
   });
+  const [countdownName, setCountdownName] = useState(() => {
+    const now = new Date();
+    const year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
+    return defaultCountdownName(`${year}-09-01`);
+  });
+  const countdownNameEdited = useRef(false);
   const [deferHards, setDeferHards] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [selectedStrategy, setSelectedStrategy] = useState<Strategy>("steady");
@@ -183,7 +194,7 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
   }, [step, rects]);
 
   function finish() {
-    const targetCount = selectedGoal === "blind75" ? 75 : selectedGoal === "neetcode150" ? 150 : 0;
+    const targetCount = selectedGoal === "blind75" ? 75 : 150;
     const cap = Math.max(1, Math.floor(selectedTimeBudget / 25));
     const sessionSize = Math.min(Math.max(2, cap + 1), 8);
     const { newPerSession, advisoryThreshold } = strategyToSettings(selectedStrategy, sessionSize);
@@ -212,7 +223,7 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
     if (soundEnabled) {
       saveSoundSettings({ ...DEFAULT_SOUND_SETTINGS, sessionComplete: "wow", volume: 0.35 });
     }
-    onPreferences?.({ targetCount, targetDate: selectedDate, autoDeferHards: deferHards, goalType: selectedGoal, timeBudget: selectedTimeBudget, newPerSession, advisoryThreshold });
+    onPreferences?.({ targetCount, targetDate: selectedDate, autoDeferHards: deferHards, goalType: selectedGoal, timeBudget: selectedTimeBudget, newPerSession, advisoryThreshold, countdownTitle: countdownName });
     setShow(false);
   }
 
@@ -224,7 +235,7 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
 
   // Modal position
   const modalPositionStyle: React.CSSProperties = {};
-  const MODAL_WIDTH = 360;
+  const MODAL_WIDTH = 480;
   const GAP = 16;
 
   if (current.side === "center" || !targetRect) {
@@ -450,8 +461,8 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
           <div className="px-5 pb-2 space-y-2">
             <p className="text-sm text-muted-foreground leading-relaxed">
               {isDemo
-                ? "Click \"Log\" on any problem to see the schedule update instantly in preview mode. A real account keeps that history across sessions."
-                : "Click \"Log\" on any problem to record your attempt. 4 quick taps and the algorithm recalculates your schedule."}
+                ? "Your dashboard has a Review tab (due problems) and a New tab (unstarted problems). Click Log on any problem to see the algorithm update in preview mode."
+                : "Your dashboard splits into a Review tab (due problems) and a New tab (unstarted problems). Each session pulls from both based on your plan — log a problem in 4 taps and the schedule recalculates."}
             </p>
             {logFrame >= 5 && (
               <div className="rounded-md bg-green-500/10 border border-green-500/20 p-2 text-center">
@@ -463,17 +474,53 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
 
         {/* ── Step 2: Set Your Goal ── */}
         {step === 2 && (
-          <div className="px-5 pb-2 space-y-3">
+          <div className="px-5 pb-2 space-y-3 overflow-y-auto flex-1">
             <p className="text-sm text-muted-foreground leading-relaxed">
               {isDemo
-                ? "Pick a problem set and target date for this preview. Sign in when you want Aurora to remember the plan."
-                : "Pick a problem set and target date. You can change these anytime."}
+                ? "Set a target date and pick a problem set for this preview. Sign in when you want Aurora to remember the plan."
+                : "Set a target date and pick a problem set. You can change these anytime in settings."}
             </p>
+
+            {/* Target date + countdown name — side by side */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label htmlFor="onboarding-date" className="block text-xs text-muted-foreground mb-1">Target date</label>
+                <input
+                  id="onboarding-date"
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => {
+                    setSelectedDate(e.target.value);
+                    if (!countdownNameEdited.current) {
+                      setCountdownName(defaultCountdownName(e.target.value));
+                    }
+                  }}
+                  style={{ colorScheme: "dark" }}
+                  className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">Default: Sep 1</p>
+              </div>
+              <div>
+                <label htmlFor="onboarding-countdown-name" className="block text-xs text-muted-foreground mb-1">Countdown name</label>
+                <input
+                  id="onboarding-countdown-name"
+                  type="text"
+                  value={countdownName}
+                  onChange={(e) => {
+                    countdownNameEdited.current = true;
+                    setCountdownName(e.target.value);
+                  }}
+                  placeholder="September Countdown"
+                  className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50 placeholder:text-muted-foreground/40"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">Shown on your dashboard</p>
+              </div>
+            </div>
 
             {/* Time budget selector */}
             <div>
               <p className="text-xs text-muted-foreground mb-1.5">How much time can you practice daily?</p>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-4 gap-1.5">
                 {ONBOARDING_BUDGET_PRESETS.map((p) => (
                   <button
                     key={p.minutes}
@@ -491,43 +538,33 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
               </div>
             </div>
 
-            <div className="space-y-2">
-              {([
-                { id: "blind75" as const, label: "Blind 75", desc: "The essential 75 problems", count: 75 },
-                { id: "neetcode150" as const, label: "NeetCode 150", desc: "Comprehensive coverage across all patterns", count: 150 },
-                { id: "none" as const, label: "No specific goal", desc: "Just track whatever I practice", count: 0 },
-              ]).map((goal) => (
-                <button
-                  key={goal.id}
-                  onClick={() => setSelectedGoal(goal.id)}
-                  className={`w-full text-left rounded-lg border p-3 transition-all ${
-                    selectedGoal === goal.id
-                      ? "border-accent bg-accent/10 ring-1 ring-accent/50"
-                      : "border-border hover:border-border/80 hover:bg-muted/50"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{goal.label}</span>
-                    {goal.count > 0 && <span className="text-xs text-muted-foreground tabular-nums">{goal.count} problems</span>}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{goal.desc}</p>
-                </button>
-              ))}
-            </div>
-            {selectedGoal !== "none" && (
-              <div>
-                <label htmlFor="onboarding-date" className="block text-xs text-muted-foreground mb-1">Target date</label>
-                <input
-                  id="onboarding-date"
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  style={{ colorScheme: "dark" }}
-                  className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
-                />
-                <p className="text-[11px] text-muted-foreground mt-1">Default: Sep 1 (Fall recruiting season)</p>
+            {/* Problem set */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-1.5">Problem set</p>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { id: "blind75" as const, label: "Blind 75", desc: "The essential 75 problems", count: 75 },
+                  { id: "neetcode150" as const, label: "NeetCode 150", desc: "Comprehensive coverage across all patterns", count: 150 },
+                ]).map((goal) => (
+                  <button
+                    key={goal.id}
+                    onClick={() => setSelectedGoal(goal.id)}
+                    className={`w-full text-left rounded-lg border p-3 transition-all ${
+                      selectedGoal === goal.id
+                        ? "border-accent bg-accent/10 ring-1 ring-accent/50"
+                        : "border-border hover:border-border/80 hover:bg-muted/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{goal.label}</span>
+                      <span className="text-xs text-muted-foreground tabular-nums">{goal.count}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{goal.desc}</p>
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
+
             {/* Defer hards toggle */}
             <label className="flex items-center gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
               <input
