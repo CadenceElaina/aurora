@@ -367,94 +367,6 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
             ))}
           </div>
 
-          {/* Simulated log modal */}
-          <div className="absolute inset-0 flex items-start justify-center pt-8">
-            <div className="w-[90%] max-w-md rounded-lg border border-border bg-background shadow-2xl overflow-hidden">
-              {/* Modal header */}
-              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border">
-                <span className="text-xs text-muted-foreground shrink-0">1.</span>
-                <span className="text-sm font-medium">Two Sum</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 shrink-0">Easy</span>
-                <span className="ml-auto text-[10px] text-accent shrink-0">Refresh pattern →</span>
-              </div>
-              {/* Modal body */}
-              <div className="px-4 py-2.5 space-y-2.5">
-                {/* How did it go? */}
-                <div>
-                  <p className={`text-[11px] mb-1 transition-colors duration-300 ${logFrame === 0 ? "text-foreground font-medium" : logFrame > 0 ? "text-muted-foreground" : "text-muted-foreground/40"}`}>How did it go?</p>
-                  <div className="flex gap-1.5">
-                    {(["Couldn’t solve", "Partial / Hint", "Solved"] as const).map((opt, oi) => (
-                      <span key={oi} className={`flex-1 text-center text-[11px] py-1.5 rounded-md border transition-all duration-300 ${
-                        (logFrame === 0 && oi === 2) ? "border-accent bg-accent text-accent-foreground font-medium" :
-                        (logFrame > 0 && oi === 2) ? "border-accent/50 bg-accent/10 text-accent" :
-                        "border-border text-muted-foreground/50"
-                      }`}>{opt}</span>
-                    ))}
-                  </div>
-                </div>
-                {/* Solution quality */}
-                <div>
-                  <p className={`text-[11px] mb-1 transition-colors duration-300 ${logFrame === 1 ? "text-foreground font-medium" : logFrame > 1 ? "text-muted-foreground" : "text-muted-foreground/40"}`}>Solution quality</p>
-                  <div className="flex gap-1.5">
-                    {(["Optimal", "Not Optimal"] as const).map((opt, oi) => (
-                      <span key={oi} className={`flex-1 text-center text-[11px] py-1.5 rounded-md border transition-all duration-300 ${
-                        (logFrame === 1 && oi === 0) ? "border-accent bg-accent text-accent-foreground font-medium" :
-                        (logFrame > 1 && oi === 0) ? "border-accent/50 bg-accent/10 text-accent" :
-                        "border-border text-muted-foreground/50"
-                      }`}>{opt}</span>
-                    ))}
-                  </div>
-                </div>
-                {/* Confidence + Time side by side */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className={`text-[11px] mb-1 transition-colors duration-300 ${logFrame === 2 ? "text-foreground font-medium" : logFrame > 2 ? "text-muted-foreground" : "text-muted-foreground/40"}`}>Confidence</p>
-                    <div className="flex gap-1">
-                      {(["1","2","3","4","5"] as const).map((n, ni) => (
-                        <span key={n} className={`flex h-6 w-full items-center justify-center rounded text-[11px] transition-all duration-300 ${
-                          (logFrame === 2 && ni === 3) ? "bg-accent text-accent-foreground font-medium" :
-                          (logFrame > 2 && ni === 3) ? "bg-accent/20 text-accent" :
-                          "border border-border text-muted-foreground/50"
-                        }`}>{n}</span>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <p className={`text-[11px] mb-1 transition-colors duration-300 ${logFrame === 3 ? "text-foreground font-medium" : logFrame > 3 ? "text-muted-foreground" : "text-muted-foreground/40"}`}>Time (min)</p>
-                    <span className={`block h-6 w-full rounded-md border px-2 text-[11px] leading-6 transition-all duration-300 ${
-                      logFrame >= 3 ? "border-accent/60 text-foreground" : "border-border text-muted-foreground/30"
-                    }`}>20</span>
-                  </div>
-                </div>
-                {/* Date — static */}
-                <div>
-                  <p className="text-[11px] mb-1 text-muted-foreground/40">Date</p>
-                  <span className="block h-6 w-full rounded-md border border-border px-2 text-[11px] leading-6 text-muted-foreground/30">05/17/2026</span>
-                </div>
-                {/* Notes — static */}
-                <div>
-                  <p className="text-[11px] mb-1 text-muted-foreground/40">Notes</p>
-                  <span className="block h-10 w-full rounded-md border border-border px-2 py-1.5 text-[11px] text-muted-foreground/30 leading-relaxed">Key insight, approach, patterns...</span>
-                </div>
-                {logFrame >= 4 && (
-                  <div className="pt-1.5 border-t border-border/50 text-center">
-                    {logFrame === 4 ? (
-                      <p className="text-[11px] text-muted-foreground animate-pulse">Saving…</p>
-                    ) : (
-                      <p className="text-[11px] text-green-400 font-medium">✓ Logged — next review in 4 days</p>
-                    )}
-                  </div>
-                )}
-              </div>
-              {/* Modal footer */}
-              <div className="flex items-center justify-end gap-2 px-4 py-2 border-t border-border">
-                <span className="inline-flex h-7 items-center rounded-md border border-border px-3 text-[11px] text-muted-foreground">Cancel</span>
-                <span className={`inline-flex h-7 items-center rounded-md px-3 text-[11px] font-medium transition-all duration-300 ${
-                  logFrame >= 4 ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"
-                }`}>Save</span>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
@@ -497,19 +409,98 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
           </div>
         )}
 
-        {/* ── Step 1: Queue + Quick Log ── */}
+        {/* ── Step 1: Today's Session + Log animation ── */}
         {step === 1 && (
-          <div className="px-5 pb-2 space-y-2">
+          <div className="px-5 pb-3 space-y-3 overflow-y-auto flex-1">
             <p className="text-sm text-muted-foreground leading-relaxed">
               {isDemo
-                ? "Your dashboard has a Review tab (due problems) and a New tab (unstarted problems). Click Log on any problem to see the algorithm update in preview mode."
-                : "Your dashboard splits into a Review tab (due problems) and a New tab (unstarted problems). Each session pulls from both based on your plan — log a problem in 4 taps and the schedule recalculates."}
+                ? "Your dashboard has a Today's Session tab (due reviews + new problems) and a New tab to browse all problems. Log anything in a few taps."
+                : "Today's Session shows your curated mix of reviews and new problems. Tap Log on any item to record how it went — the algorithm recalculates your next review instantly."}
             </p>
-            {logFrame >= 5 && (
-              <div className="rounded-md bg-green-500/10 border border-green-500/20 p-2 text-center">
-                <p className="text-xs text-green-400 font-medium">✓ Logged — next review in 4 days</p>
+            {/* Log form animation */}
+            <div className="rounded-lg border border-border overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/20">
+                <span className="text-xs text-muted-foreground shrink-0">1.</span>
+                <span className="text-sm font-medium">Two Sum</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 shrink-0">Easy</span>
+                <span className="ml-auto text-[10px] text-accent shrink-0">Refresh pattern →</span>
               </div>
-            )}
+              <div className="px-3 py-2.5 space-y-2.5 bg-background">
+                {/* How did it go? */}
+                <div>
+                  <p className={`text-[11px] mb-1 transition-colors duration-300 ${logFrame === 0 ? "text-foreground font-medium" : "text-muted-foreground"}`}>How did it go?</p>
+                  <div className="flex gap-1.5">
+                    {(["Couldn't solve", "Partial / Hint", "Solved"] as const).map((opt, oi) => (
+                      <span key={oi} className={`flex-1 text-center text-[11px] py-1 rounded border transition-all duration-300 ${
+                        (logFrame === 0 && oi === 2) ? "border-accent bg-accent text-accent-foreground font-medium" :
+                        (logFrame > 0 && oi === 2) ? "border-accent/50 bg-accent/10 text-accent" :
+                        "border-border text-muted-foreground/50"
+                      }`}>{opt}</span>
+                    ))}
+                  </div>
+                </div>
+                {/* Solution quality */}
+                <div>
+                  <p className={`text-[11px] mb-1 transition-colors duration-300 ${logFrame === 1 ? "text-foreground font-medium" : "text-muted-foreground"}`}>Solution quality</p>
+                  <div className="flex gap-1.5">
+                    {(["Optimal", "Not Optimal"] as const).map((opt, oi) => (
+                      <span key={oi} className={`flex-1 text-center text-[11px] py-1 rounded border transition-all duration-300 ${
+                        (logFrame === 1 && oi === 0) ? "border-accent bg-accent text-accent-foreground font-medium" :
+                        (logFrame > 1 && oi === 0) ? "border-accent/50 bg-accent/10 text-accent" :
+                        "border-border text-muted-foreground/50"
+                      }`}>{opt}</span>
+                    ))}
+                  </div>
+                </div>
+                {/* Confidence + Time */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className={`text-[11px] mb-1 transition-colors duration-300 ${logFrame === 2 ? "text-foreground font-medium" : "text-muted-foreground"}`}>Confidence</p>
+                    <div className="flex gap-1">
+                      {(["1","2","3","4","5"] as const).map((n, ni) => (
+                        <span key={n} className={`flex h-6 w-full items-center justify-center rounded text-[11px] transition-all duration-300 ${
+                          (logFrame === 2 && ni === 3) ? "bg-accent text-accent-foreground font-medium" :
+                          (logFrame > 2 && ni === 3) ? "bg-accent/20 text-accent" :
+                          "border border-border text-muted-foreground/50"
+                        }`}>{n}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className={`text-[11px] mb-1 transition-colors duration-300 ${logFrame === 3 ? "text-foreground font-medium" : "text-muted-foreground"}`}>Time (min)</p>
+                    <span className={`block h-6 w-full rounded border px-2 text-[11px] leading-6 transition-all duration-300 ${
+                      logFrame >= 3 ? "border-accent/60 text-foreground" : "border-border text-muted-foreground/30"
+                    }`}>20</span>
+                  </div>
+                </div>
+                {/* Date + Notes static */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-[11px] mb-1 text-muted-foreground/40">Date</p>
+                    <span className="block h-6 w-full rounded border border-border px-2 text-[11px] leading-6 text-muted-foreground/30">05/17/2026</span>
+                  </div>
+                  <div>
+                    <p className="text-[11px] mb-1 text-muted-foreground/40">Notes</p>
+                    <span className="block h-6 w-full rounded border border-border px-2 text-[11px] leading-6 text-muted-foreground/30 truncate">Key insight...</span>
+                  </div>
+                </div>
+                {logFrame >= 4 && (
+                  <div className="text-center">
+                    {logFrame === 4 ? (
+                      <p className="text-[11px] text-muted-foreground animate-pulse">Saving…</p>
+                    ) : (
+                      <p className="text-[11px] text-green-400 font-medium">✓ Logged — next review in 4 days</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end gap-2 px-3 py-2 border-t border-border">
+                <span className="inline-flex h-6 items-center rounded border border-border px-3 text-[11px] text-muted-foreground">Cancel</span>
+                <span className={`inline-flex h-6 items-center rounded px-3 text-[11px] font-medium transition-all duration-300 ${
+                  logFrame >= 4 ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"
+                }`}>Save</span>
+              </div>
+            </div>
           </div>
         )}
 
