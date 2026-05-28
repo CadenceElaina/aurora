@@ -2,8 +2,8 @@
 
 > How Aurora should handle the reality that users retain at different rates, and the roadmap for moving from fixed parameters to personalized scheduling.
 
-**Status:** Research direction — v1 uses fixed parameters; this doc defines the path to v2
-**Last updated:** 2026-05-10
+**Status:** Research direction — v1 uses fixed parameters; this doc defines the path to v2 (Phases 0–1 done: predictedR is logged; Phases 2–3 apply/display PDF — not started)
+**Last updated:** 2026-05-28
 
 ---
 
@@ -194,25 +194,22 @@ The admin dashboard would show:
 
 ## Implementation Phases
 
-### Phase 0: Observation (Current)
+### Phase 0: Observation — ✅ Done
 
-- `computeModelCalibration` exists in `analytics.ts` but is not surfaced anywhere
-- No calibration data is stored or tracked
-- Action: wire `computeModelCalibration` into the Insights page as a read-only metric
+- `computeModelCalibration` (`analytics.ts`) is surfaced on the Insights page (`src/app/insights/page.tsx`) as a read-only metric
 
-### Phase 1: Track Predicted R at Review Time
+### Phase 1: Track Predicted R at Review Time — ✅ Done
 
-- When a user reviews a problem, record `predictedR` alongside the attempt
-- This requires adding a column to `attempts` or computing it at insert time
-- No algorithmic changes — just data collection
+- `predictedR` is recorded alongside each attempt: column `predicted_r` on `attempts` (`schema.ts`), computed at insert time in `/api/attempts` from the pre-update SRS state
+- No algorithmic changes — data collection only
 
-### Phase 2: Compute and Display PDF
+### Phase 2: Compute and Display PDF — ⏳ Not started
 
 - After 50+ reviews, compute `userPDF` and display in Insights
 - Show per-category calibration if category has 20+ reviews
 - Still no algorithmic changes — the user sees "the model is {well/poorly} calibrated for you"
 
-### Phase 3: Apply PDF to Multipliers
+### Phase 3: Apply PDF to Multipliers — ⏳ Not started
 
 - Multiply base multipliers by `userPDF` in `computeNewStability` and `computeInitialStability`
 - Store `userPDF` in the `users` table

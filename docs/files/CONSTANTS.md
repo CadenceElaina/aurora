@@ -94,13 +94,13 @@ The primary signal for queue management recommendations. Ratio = `projectedDaily
 | `QUEUE_YELLOW_RATIO` | 0.85 | Yellow | Add carefully — 1–2 new/day max |
 | `QUEUE_AMBER_RATIO` | 1.1 | Amber | Review first — new only if reviews done |
 | `QUEUE_ORANGE_RATIO` | 1.5 | Orange | Queue heavy — stop new problems, focus on clearing |
-| `QUEUE_RED_RATIO` | 2.0 | Red | Overloaded — defer or accept lapse |
+| `QUEUE_RED_RATIO` | 2.0 | Red (overloaded) | Stricter "overloaded — defer or accept lapse" threshold. Reserved for the recommendation engine (currently unused; see task T4-B). **Not** the Red-*zone* boundary — `classifyLoadZone` returns `red` at ratio > 1.5. |
 
-**Five zones, not four.** The Orange zone (1.1–1.5) captures the critical "queue is heavy but not yet hopeless" state where the user should stop adding new problems entirely and focus on clearing. Red (> 1.5) means the queue has grown beyond what the user can clear at their current pace without deferring items.
+**Five zones, not four.** The Orange zone (1.1–1.5) captures the critical "queue is heavy but not yet hopeless" state where the user should stop adding new problems entirely and focus on clearing. The Red zone is any ratio above Orange — `classifyLoadZone` (`src/lib/pacing.ts`) returns `red` for ratio **> 1.5**, meaning the queue has grown beyond what the user can clear at their current pace without deferring items. (`QUEUE_RED_RATIO = 2.0` is a separate, stricter "overloaded" threshold reserved for the recommendation engine — it is *not* the zone boundary.)
 
 `projectedDailyDue` is the **back-half average** from the 60-day forecast — i.e., the average daily due count in days 31–60 of the simulation. This represents where the queue is *heading*, not where it is today.
 
-**Phase 2 implementation note:** The current `queueStability()` in `src/lib/capacity.ts` computes `backAvg` as `avg(days.slice(15))` — the back half of a 30-day window (days 16–30). When Phase 2 extends `MAX_DAYS` from 30 to 60, this slice index must change from `15` to `30` to match the spec (days 31–60). Failing to update the slice will silently compute the wrong window.
+**Back-half computation:** `queueStability()` in `src/lib/capacity.ts` computes `backAvg` using a dynamic split — `splitIdx = Math.floor(days.length / 2)`, then `days.slice(splitIdx)`. This tracks the forecast horizon automatically (now `MAX_DAYS = 60`, so days 31–60) with no hardcoded slice index, so extending the horizon does not require a manual update.
 
 ---
 
@@ -186,7 +186,7 @@ Used in the coverage projection and queue forecast simulations.
 | Constant | Value | Purpose |
 |---|---|---|
 | `MIN_ATTEMPTS_FOR_RECOMMENDATION` | 5 | Below this, show "Getting started" instead of data-driven guidance |
-| `BREAK_DETECTION_DAYS` | 7 | Days since last attempt to trigger "Welcome back" messaging |
+| Break detection *(inline literal, not a named constant)* | 3 / 7 | Days since last attempt. **≥3** triggers warm-up "review first" guidance when reviews are due (`onBreak` in `capacity.ts`); **≥7** switches the copy to "Welcome back — you've been away N days". No named constant exists yet — both are inline literals. |
 | `WARMUP_TARGET_REVIEWS` | `min(reviewQueue.length, 10)` | Suggested review count for first session after a break |
 
 ---
