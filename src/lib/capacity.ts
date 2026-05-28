@@ -270,6 +270,56 @@ export function computeCapacity(
   return { reviewCapacity, remainingMinutes, newCapacity, canFitEasy };
 }
 
+/* ── computeSessionComposition ── */
+
+export type SessionComposition = {
+  coldStart: boolean;
+  newSlots: number;
+  reviewSlots: number;
+  availableReviewCount: number;
+  unusedReviewSlots: number;
+  overflowSlots: number;
+  effectiveNewSlots: number;
+  effectiveSessionTarget: number;
+};
+
+/**
+ * Compose today's session into review slots and new-problem slots.
+ *
+ * Overflow rule: unused review slots become new-problem slots only on cold
+ * start (day 1, so even Lock In Retention users see something to do) or when
+ * the review queue is completely empty. A user who wants new problems but
+ * still has reviews due gets exactly their requested new count — not the whole
+ * unused remainder. Lock In Retention (`newPerSession === 0`) never overflows
+ * after cold start, so short sessions are expected and correct.
+ */
+export function computeSessionComposition(params: {
+  newPerSession: number;
+  sessionSizeEffective: number;
+  reviewQueueLength: number;
+  attemptedCount: number;
+}): SessionComposition {
+  const { newPerSession, sessionSizeEffective, reviewQueueLength, attemptedCount } = params;
+  const newSlots = Math.min(newPerSession, sessionSizeEffective);
+  const reviewSlots = Math.max(0, sessionSizeEffective - newSlots);
+  const coldStart = attemptedCount === 0;
+  const availableReviewCount = Math.min(reviewQueueLength, reviewSlots);
+  const unusedReviewSlots = Math.max(0, reviewSlots - availableReviewCount);
+  const overflowSlots = (coldStart || (newPerSession > 0 && availableReviewCount === 0)) ? unusedReviewSlots : 0;
+  const effectiveNewSlots = Math.min(newSlots + overflowSlots, sessionSizeEffective);
+  const effectiveSessionTarget = availableReviewCount + effectiveNewSlots;
+  return {
+    coldStart,
+    newSlots,
+    reviewSlots,
+    availableReviewCount,
+    unusedReviewSlots,
+    overflowSlots,
+    effectiveNewSlots,
+    effectiveSessionTarget,
+  };
+}
+
 /* ── computePracticeRecommendation ── */
 
 export function computePracticeRecommendation({

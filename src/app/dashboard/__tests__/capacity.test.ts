@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeCapacity, computePracticeRecommendation, type DashboardData, type QueueProjection } from "@/lib/capacity";
+import { computeCapacity, computeSessionComposition, computePracticeRecommendation, type DashboardData, type QueueProjection } from "@/lib/capacity";
 
 /* ── computeCapacity ── */
 
@@ -194,5 +194,74 @@ describe("computePracticeRecommendation — danger tone", () => {
 
     expect(rec.tone).toBe("danger");
     expect(rec.reason).not.toContain("Easy");
+  });
+});
+
+/* ── computeSessionComposition ── */
+
+describe("computeSessionComposition", () => {
+  it("Balanced user with 1 review due gets 1 review + 1 new — no overflow flood", () => {
+    // session size 5, wants 1 new/day, only 1 review actually due.
+    const c = computeSessionComposition({
+      newPerSession: 1,
+      sessionSizeEffective: 5,
+      reviewQueueLength: 1,
+      attemptedCount: 20,
+    });
+    expect(c.availableReviewCount).toBe(1);
+    expect(c.overflowSlots).toBe(0); // the 3 unused review slots do NOT become new
+    expect(c.effectiveNewSlots).toBe(1);
+    expect(c.effectiveSessionTarget).toBe(2); // 1 review + 1 new
+  });
+
+  it("empty review queue overflows unused review slots into new (when user wants new)", () => {
+    const c = computeSessionComposition({
+      newPerSession: 1,
+      sessionSizeEffective: 5,
+      reviewQueueLength: 0,
+      attemptedCount: 20,
+    });
+    expect(c.availableReviewCount).toBe(0);
+    expect(c.overflowSlots).toBe(4); // all unused review slots overflow
+    expect(c.effectiveNewSlots).toBe(5);
+    expect(c.effectiveSessionTarget).toBe(5);
+  });
+
+  it("Lock In Retention (newPerSession=0) never overflows after cold start", () => {
+    const c = computeSessionComposition({
+      newPerSession: 0,
+      sessionSizeEffective: 5,
+      reviewQueueLength: 2,
+      attemptedCount: 20,
+    });
+    expect(c.reviewSlots).toBe(5);
+    expect(c.availableReviewCount).toBe(2);
+    expect(c.overflowSlots).toBe(0); // short session is expected, not filled with new
+    expect(c.effectiveNewSlots).toBe(0);
+    expect(c.effectiveSessionTarget).toBe(2);
+  });
+
+  it("Lock In Retention empty queue stays empty (no auto-fill, opt-in only)", () => {
+    const c = computeSessionComposition({
+      newPerSession: 0,
+      sessionSizeEffective: 5,
+      reviewQueueLength: 0,
+      attemptedCount: 20,
+    });
+    expect(c.overflowSlots).toBe(0);
+    expect(c.effectiveSessionTarget).toBe(0);
+  });
+
+  it("cold start fills all slots with new regardless of strategy", () => {
+    const c = computeSessionComposition({
+      newPerSession: 0, // even Lock In Retention
+      sessionSizeEffective: 5,
+      reviewQueueLength: 0,
+      attemptedCount: 0,
+    });
+    expect(c.coldStart).toBe(true);
+    expect(c.overflowSlots).toBe(5);
+    expect(c.effectiveNewSlots).toBe(5);
+    expect(c.effectiveSessionTarget).toBe(5);
   });
 });

@@ -21,6 +21,7 @@ import {
   avg,
   queueStability,
   computeCapacity,
+  computeSessionComposition,
   AVG_PROBLEM_SESSION_MINUTES,
   type ListMode,
   type ReviewItem,
@@ -669,22 +670,25 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
 
   const sessionSizeEffective = sessionSizeOverride ?? sessionSize;
   // Split session budget between review slots and new-problem slots.
-  const newSlots = Math.min(newPerSession, sessionSizeEffective);
-  const reviewSlots = Math.max(0, sessionSizeEffective - newSlots);
-
-  // Cold-start: user has no attempted problems → fill all slots with new problems regardless of strategy.
-  // This fires on day 1 so even Lock In Retention users see something to do.
-  // Overflow: when the initial review queue is shorter than the reserved review slots and the user
-  // expects new problems (newPerSession > 0), the unused review slots become curriculum slots.
-  // Lock In Retention (newPerSession=0) stays reviews-only after cold start; short sessions are expected.
-  const coldStart = data.attemptedCount === 0;
-  const availableReviewCount = Math.min(data.reviewQueue.length, reviewSlots);
-  const unusedReviewSlots = Math.max(0, reviewSlots - availableReviewCount);
-  const overflowSlots = (coldStart || newPerSession > 0) ? unusedReviewSlots : 0;
-  const effectiveNewSlots = Math.min(newSlots + overflowSlots, sessionSizeEffective);
-  // effectiveSessionTarget: number of items that will actually appear in today's session.
-  // May be less than sessionSizeEffective for Lock In Retention users with a short queue.
-  const effectiveSessionTarget = availableReviewCount + effectiveNewSlots;
+  // Session composition (review vs. new slots, cold-start fill, empty-queue overflow)
+  // lives in computeSessionComposition (src/lib/capacity.ts) so its slot math is unit-tested.
+  // effectiveSessionTarget is the number of items that actually appear today; it may be less
+  // than sessionSizeEffective for Lock In Retention users with a short queue.
+  const {
+    coldStart,
+    newSlots,
+    reviewSlots,
+    availableReviewCount,
+    unusedReviewSlots,
+    overflowSlots,
+    effectiveNewSlots,
+    effectiveSessionTarget,
+  } = computeSessionComposition({
+    newPerSession,
+    sessionSizeEffective,
+    reviewQueueLength: data.reviewQueue.length,
+    attemptedCount: data.attemptedCount,
+  });
 
   const blind75DifficultyBreakdown = useMemo((): DifficultyBreakdown[] => {
     const b75 = data.importProblems.filter(p => p.blind75);
