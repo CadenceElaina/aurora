@@ -289,9 +289,21 @@ describe("computeNextReviewDate", () => {
     expect(next.getTime()).toBe(FROM.getTime() + 7 * 86400000);
   });
 
-  it("stability of 0.5 days → fromDate + 12 hours", () => {
+  it("stability below 1 day is floored to a 1-day interval", () => {
+    // Scheduling never surfaces a problem twice in one day, even if computed
+    // stability drops below 1.0 (e.g. a weak item re-attempted as PARTIAL).
     const next = computeNextReviewDate(0.5, FROM);
-    expect(next.getTime()).toBe(FROM.getTime() + 0.5 * 86400000);
+    expect(next.getTime()).toBe(FROM.getTime() + 86400000);
+  });
+
+  it("stability of exactly 1 day is unaffected by the floor", () => {
+    const next = computeNextReviewDate(1, FROM);
+    expect(next.getTime()).toBe(FROM.getTime() + 86400000);
+  });
+
+  it("stability above 1 day passes through unchanged", () => {
+    const next = computeNextReviewDate(2.5, FROM);
+    expect(next.getTime()).toBe(FROM.getTime() + 2.5 * 86400000);
   });
 
   it("defaults fromDate to now", () => {

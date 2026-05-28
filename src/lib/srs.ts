@@ -23,6 +23,14 @@ export interface AttemptSignals {
 export const MIN_STABILITY = 0.5; // days
 export const MAX_STABILITY = 365; // days
 const RETRIEVABILITY_FLOOR = 0.3;
+
+// Minimum scheduling interval. Distinct from MIN_STABILITY: stability is a memory-model
+// quantity that feeds R(t) = e^(-t/S), so it must stay free to drop to 0.5 for genuinely
+// weak items. The 1-day floor is a *scheduling* constraint — we never surface the same
+// problem twice in one day, even when computed stability is below 1.0. Applied in
+// computeNextReviewDate so retrievability math is unaffected. (Failed/struggled attempts
+// already hardcode a 24h interval in the attempts route; this covers the remaining path.)
+export const MIN_REVIEW_INTERVAL_DAYS = 1;
 export const MASTERY_THRESHOLD = 45; // stability (days) treated as 100% mastery
 
 // Base for first-attempt stability. Using 2.0 rather than MIN_STABILITY (0.5)
@@ -125,12 +133,13 @@ export function computeInitialStability(signals: AttemptSignals): number {
   return clampStability(s);
 }
 
-/** Compute next review date from stability. */
+/** Compute next review date from stability, floored at MIN_REVIEW_INTERVAL_DAYS. */
 export function computeNextReviewDate(
   stability: number,
   fromDate: Date = new Date(),
 ): Date {
-  const ms = stability * 24 * 60 * 60 * 1000;
+  const intervalDays = Math.max(MIN_REVIEW_INTERVAL_DAYS, stability);
+  const ms = intervalDays * 24 * 60 * 60 * 1000;
   return new Date(fromDate.getTime() + ms);
 }
 

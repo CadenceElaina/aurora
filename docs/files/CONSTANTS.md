@@ -164,6 +164,7 @@ These are already defined in `src/lib/srs.ts`. Listed here for cross-reference.
 | `INITIAL_STABILITY_BASE` | 2.0 days | `srs.ts` | Base stability for first attempt |
 | `MASTERY_THRESHOLD` | 45 days | `srs.ts` | Stability at which a problem is "mastered" |
 | `RETRIEVABILITY_FLOOR` | 0.3 | `srs.ts` | R never decays below this from time alone |
+| `MIN_REVIEW_INTERVAL_DAYS` | 1 day | `srs.ts` | Scheduling floor — a problem is never surfaced twice in one day, even when stability < 1.0. Applied in `computeNextReviewDate`, not to stability itself. |
 
 ---
 
