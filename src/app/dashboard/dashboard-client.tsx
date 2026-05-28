@@ -1302,51 +1302,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
             ) : (
               <div className="rounded-lg border border-border overflow-hidden flex-1 flex flex-col min-h-0">
                 <div className="overflow-y-auto flex-1 min-h-0">
-                  {/* Curriculum slots — shown when user has reserved new-problem slots in settings */}
-                  {sessionViewMode === "session" && sessionCurriculumRecs.map((rec) => (
-                    <div key={rec.problem.id} className="flex items-center gap-3 px-4 py-3 border-b-2 border-accent/30 bg-accent/5">
-                      <span className="text-xs text-muted-foreground w-8 shrink-0 tabular-nums">{rec.problem.leetcodeNumber}</span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline gap-1.5 min-w-0">
-                          <span className="text-[10px] font-semibold text-accent uppercase tracking-wide shrink-0">New</span>
-                          {rec.problem.neetcodeUrl ? (
-                            <a href={rec.problem.neetcodeUrl} target="_blank" rel="noopener noreferrer" className="text-base font-medium text-foreground hover:text-accent truncate min-w-0">
-                              {rec.problem.title}
-                            </a>
-                          ) : (
-                            <Link href={`/problems/${rec.problem.id}`} className="text-base font-medium text-foreground hover:text-accent truncate min-w-0">
-                              {rec.problem.title}
-                            </Link>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs text-muted-foreground">{rec.category}</span>
-                          <DifficultyBadge difficulty={rec.problem.difficulty} />
-                          <span className="text-xs text-muted-foreground">· {rec.reason}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {rec.problem.neetcodeUrl && (
-                          <a href={rec.problem.neetcodeUrl} target="_blank" rel="noopener noreferrer" title="NeetCode walkthrough" className="inline-flex h-6 items-center gap-0.5 rounded border border-border px-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">NC <ExternalLink size={10} /></a>
-                        )}
-                        <a href={rec.problem.leetcodeUrl} target="_blank" rel="noopener noreferrer" title="LeetCode problem" className="inline-flex h-6 items-center gap-0.5 rounded border border-border px-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">LC <ExternalLink size={10} /></a>
-                        <button
-                          onClick={() => openLog({
-                            problemId: rec.problem.id,
-                            title: rec.problem.title,
-                            leetcodeNumber: rec.problem.leetcodeNumber,
-                            difficulty: rec.problem.difficulty,
-                            category: rec.problem.category,
-                            isReview: false,
-                            isSessionNew: true,
-                          })}
-                          className="inline-flex h-7 items-center rounded-md bg-accent px-3 text-xs text-accent-foreground transition-colors hover:opacity-90"
-                        >
-                          Log
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                  {/* Reviews render first, then new-problem (curriculum) slots below — T3-A */}
                   {sessionQueue.map((item) => {
                     const prio = priorityLevel(item);
                     const catStat = categoryStatsMap.get(item.category);
@@ -1422,6 +1378,51 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                       </div>
                     );
                   })}
+                  {/* Curriculum slots — shown when user has reserved new-problem slots in settings; rendered after reviews (T3-A) */}
+                  {sessionViewMode === "session" && sessionCurriculumRecs.map((rec) => (
+                    <div key={rec.problem.id} className="flex items-center gap-3 px-4 py-3 border-b-2 border-accent/30 bg-accent/5">
+                      <span className="text-xs text-muted-foreground w-8 shrink-0 tabular-nums">{rec.problem.leetcodeNumber}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline gap-1.5 min-w-0">
+                          <span className="text-[10px] font-semibold text-accent uppercase tracking-wide shrink-0">New</span>
+                          {rec.problem.neetcodeUrl ? (
+                            <a href={rec.problem.neetcodeUrl} target="_blank" rel="noopener noreferrer" className="text-base font-medium text-foreground hover:text-accent truncate min-w-0">
+                              {rec.problem.title}
+                            </a>
+                          ) : (
+                            <Link href={`/problems/${rec.problem.id}`} className="text-base font-medium text-foreground hover:text-accent truncate min-w-0">
+                              {rec.problem.title}
+                            </Link>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs text-muted-foreground">{rec.category}</span>
+                          <DifficultyBadge difficulty={rec.problem.difficulty} />
+                          <span className="text-xs text-muted-foreground">· {rec.reason}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {rec.problem.neetcodeUrl && (
+                          <a href={rec.problem.neetcodeUrl} target="_blank" rel="noopener noreferrer" title="NeetCode walkthrough" className="inline-flex h-6 items-center gap-0.5 rounded border border-border px-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">NC <ExternalLink size={10} /></a>
+                        )}
+                        <a href={rec.problem.leetcodeUrl} target="_blank" rel="noopener noreferrer" title="LeetCode problem" className="inline-flex h-6 items-center gap-0.5 rounded border border-border px-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">LC <ExternalLink size={10} /></a>
+                        <button
+                          onClick={() => openLog({
+                            problemId: rec.problem.id,
+                            title: rec.problem.title,
+                            leetcodeNumber: rec.problem.leetcodeNumber,
+                            difficulty: rec.problem.difficulty,
+                            category: rec.problem.category,
+                            isReview: false,
+                            isSessionNew: true,
+                          })}
+                          className="inline-flex h-7 items-center rounded-md bg-accent px-3 text-xs text-accent-foreground transition-colors hover:opacity-90"
+                        >
+                          Log
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
