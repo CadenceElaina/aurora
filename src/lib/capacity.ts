@@ -121,6 +121,7 @@ export type DashboardData = {
   dailyTimeBudgetMinutes: number;
   newPerSession: number;
   advisoryThreshold: AdvisoryThreshold;
+  targetDate: string | null;
   newProblems: NewProblem[];
   totalProblems: number;
   attemptedCount: number;

@@ -286,12 +286,19 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     // DB value always wins — overwrite any stale localStorage entry on every mount
     localStorage.setItem("aurora_time_budget", String(data.dailyTimeBudgetMinutes));
     const saved = localStorage.getItem("srs_target");
+    let restoredCount: number | null = null;
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (parsed.date) setTargetDate(parsed.date);
-        if (parsed.count) setTargetCount(parsed.count);
+        if (parsed.count) { setTargetCount(parsed.count); restoredCount = parsed.count; }
       } catch { /* ignore */ }
+    }
+    // DB value wins over localStorage for the persisted target date. Count is not yet
+    // a DB column (derived from goalType), so it still comes from localStorage above.
+    if (data.targetDate) {
+      setTargetDate(data.targetDate);
+      localStorage.setItem("srs_target", JSON.stringify({ date: data.targetDate, count: restoredCount ?? targetCount }));
     }
     const savedGoal = localStorage.getItem("srs_goal_type");
     if (savedGoal && ["blind75", "neetcode150", "none"].includes(savedGoal)) {
@@ -389,6 +396,14 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     setCountdownTitle(title);
     localStorage.setItem("srs_target", JSON.stringify({ date, count }));
     localStorage.setItem("aurora_countdown_title", title);
+    // Persist the target date to the DB so it survives across devices / cache clears.
+    if (!isDemo) {
+      fetch("/api/user/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetDate: date || null }),
+      }).catch(() => {});
+    }
     setShowSettings(false);
   }
 

@@ -14,9 +14,20 @@ export async function PATCH(req: Request) {
   }
 
   const body = await req.json();
-  const { dailyTimeBudgetMinutes, newPerSession, advisoryThreshold } = body;
+  const { dailyTimeBudgetMinutes, newPerSession, advisoryThreshold, targetDate } = body;
 
   const update: Partial<typeof users.$inferInsert> = {};
+
+  if (targetDate !== undefined) {
+    // Accept an ISO calendar date (YYYY-MM-DD) or null to clear the target.
+    if (targetDate !== null && !/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+      return NextResponse.json(
+        { error: "targetDate must be a YYYY-MM-DD date string or null" },
+        { status: 400 },
+      );
+    }
+    update.targetDate = targetDate;
+  }
 
   if (dailyTimeBudgetMinutes !== undefined) {
     if (

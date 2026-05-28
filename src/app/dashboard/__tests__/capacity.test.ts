@@ -84,6 +84,7 @@ function makeData(overrides: Partial<DashboardData> = {}): DashboardData {
     dailyTimeBudgetMinutes: 60,
     newPerSession: 1,
     advisoryThreshold: "moderate" as const,
+    targetDate: null,
     newProblems: [],
     totalProblems: 150,
     retainedCount: 8,

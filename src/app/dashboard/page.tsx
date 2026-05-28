@@ -88,7 +88,7 @@ export default async function DashboardPage() {
           lt(attempts.createdAt, tomorrowStart),
         ),
       ),
-    db.select({ autoDeferHards: users.autoDeferHards, onboardingComplete: users.onboardingComplete, dailyTimeBudgetMinutes: users.dailyTimeBudgetMinutes, newPerSession: users.newPerSession, advisoryThreshold: users.advisoryThreshold }).from(users).where(eq(users.id, userId)).limit(1),
+    db.select({ autoDeferHards: users.autoDeferHards, onboardingComplete: users.onboardingComplete, dailyTimeBudgetMinutes: users.dailyTimeBudgetMinutes, newPerSession: users.newPerSession, advisoryThreshold: users.advisoryThreshold, targetDate: users.targetDate }).from(users).where(eq(users.id, userId)).limit(1),
     db
       .select({
         problemId: attempts.problemId,
@@ -106,6 +106,7 @@ export default async function DashboardPage() {
   const dailyTimeBudgetMinutes = userRow[0]?.dailyTimeBudgetMinutes ?? 60;
   const newPerSession = userRow[0]?.newPerSession ?? 1;
   const advisoryThreshold = (userRow[0]?.advisoryThreshold ?? "moderate") as "relaxed" | "moderate" | "strict";
+  const targetDate = userRow[0]?.targetDate ?? null;
 
   // Retrievability pre-computed once per state — avoids redundant exponential-decay calls
   // across reviewQueue, completedProblems, and retentions below.
@@ -455,6 +456,7 @@ export default async function DashboardPage() {
         dailyTimeBudgetMinutes,
         newPerSession,
         advisoryThreshold,
+        targetDate,
         newProblems,
         completedProblems,
         totalProblems: allProblems.length,
