@@ -165,6 +165,7 @@ These are already defined in `src/lib/srs.ts`. Listed here for cross-reference.
 | `MASTERY_THRESHOLD` | 45 days | `srs.ts` | Stability at which a problem is "mastered" |
 | `RETRIEVABILITY_FLOOR` | 0.3 | `srs.ts` | R never decays below this from time alone |
 | `MIN_REVIEW_INTERVAL_DAYS` | 1 day | `srs.ts` | Scheduling floor — a problem is never surfaced twice in one day, even when stability < 1.0. Applied in `computeNextReviewDate`, not to stability itself. |
+| `PARTIAL_MAX_MULTIPLIER` | 1.25 | `srs.ts` | Effective-multiplier ceiling for PARTIAL outcomes. Keeps "needed help" below the minimum clean YES (BRUTE_FORCE = 1.5) even when confidence/fast-solve modifiers stack. Enforces NO < PARTIAL < YES. |
 
 ---
 

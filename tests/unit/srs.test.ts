@@ -128,6 +128,36 @@ describe("computeNewStability", () => {
     for (const r of results) expect(r).toBeCloseTo(results[0], 5);
   });
 
+  it("PARTIAL multiplier is capped at 1.25 even when modifiers stack", () => {
+    // base 1.1 + conf-5 (+0.3) + fast-solve (+0.2) = 1.6 uncapped → would exceed
+    // YES:BRUTE_FORCE (1.5). Cap holds it at PARTIAL_MAX_MULTIPLIER = 1.25.
+    const s = computeNewStability(
+      OLD,
+      signals({ solvedIndependently: "PARTIAL", confidence: 5, solveTimeMinutes: 3, difficulty: "Easy" }),
+    );
+    expect(s).toBeCloseTo(OLD * 1.25, 5);
+  });
+
+  it("capped PARTIAL stays below the minimum clean YES (BRUTE_FORCE = 1.5)", () => {
+    const bestPartial = computeNewStability(
+      OLD,
+      signals({ solvedIndependently: "PARTIAL", confidence: 5, solveTimeMinutes: 3, difficulty: "Easy" }),
+    );
+    const minCleanYes = computeNewStability(
+      OLD,
+      signals({ solvedIndependently: "YES", solutionQuality: "BRUTE_FORCE" }),
+    );
+    expect(bestPartial).toBeLessThan(minCleanYes);
+  });
+
+  it("PARTIAL below the cap is unaffected (conf 4, no fast-solve → 1.1 + 0.1 = 1.2)", () => {
+    const s = computeNewStability(
+      OLD,
+      signals({ solvedIndependently: "PARTIAL", confidence: 4 }),
+    );
+    expect(s).toBeCloseTo(OLD * 1.2, 5);
+  });
+
   it("NO+NONE, conf 3 → old × 0.5", () => {
     const s = computeNewStability(
       OLD,
