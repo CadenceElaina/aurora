@@ -109,5 +109,6 @@ Scopes: `srs` · `dashboard` · `nav` · `api` · `db` · `ui` · `test` · `doc
 | `src/lib/analytics.ts` | Insights, model calibration, stuck-problem detection |
 | `src/lib/curriculum.ts` | NeetCode 150 DAG, next-problem recommendation |
 | `src/db/schema.ts` | Full data model |
-| `docs/CONSTANTS.md` | All numeric thresholds — check here before adding any |
+| `docs/files/SYSTEM_OVERVIEW.md` | Single-page system overview — SRS, strategy modes, queue/advisory, settings, constants |
+| `docs/files/CONSTANTS.md` | All numeric thresholds — check here before adding any |
 | `docs/TASKS.md` | Task queue |
