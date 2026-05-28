@@ -142,7 +142,9 @@ reviewSlots = sessionSize - newSlots
 
 Cold start (0 attempts ever):        fill all slots with new problems
 Lock In Retention + empty queue:     no auto-fill — show opt-in prompt
-All other modes + short queue:       unused review slots → extra new slots
+All other modes + empty queue:       unused review slots → extra new slots
+                                     (overflow fires only when the queue is
+                                      empty, not merely short)
 ```
 
 **User-facing:** session shows N problems. Do all N, session complete. Simple.
@@ -155,7 +157,7 @@ All other modes + short queue:       unused review slots → extra new slots
 - "Load more" surfaces next-priority items respecting 1-day cooldown
 - Same problem cannot appear twice in one day
 
-**Render order in session view:** reviews displayed first, then new problems. 🔧 Currently inverted in code — to be fixed (T3-A).
+**Render order in session view:** ✅ reviews displayed first, then new problems.
 
 ---
 
@@ -342,7 +344,8 @@ User opens settings
 | RED zone branch | Add to `computePracticeRecommendation` (T4-B) | 🔧 |
 | FIFO review order for Push Coverage | Currently SRS priority for all modes (T4-A) | 🔧 |
 | PARTIAL cap at 1.25× | Enforces NO ≤ PARTIAL ≤ YES invariant | ✅ |
-| Session render order | Reviews before new (currently inverted; T3-A) | 🔧 |
+| Session render order | Reviews before new | ✅ |
+| Empty-queue overflow | Unused review slots → new only when queue empty | ✅ |
 | Persist targetDate to DB | Was localStorage only | ✅ |
 | Target name field + smart default | "Fall Recruiting [year]" (T2-B) | 🔧 |
 | Fading alert in top banner | Queue health + this-week count + Insights link (T6-A) | 🔧 |
