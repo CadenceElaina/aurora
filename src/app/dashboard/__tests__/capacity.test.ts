@@ -196,6 +196,47 @@ describe("computePracticeRecommendation — danger tone", () => {
     expect(rec.tone).toBe("danger");
     expect(rec.reason).not.toContain("Easy");
   });
+
+  it("RED zone (queueLoadRatio > 2.0) returns the overloaded triage recommendation (T4-B)", () => {
+    // backAvg=9, reviewCapacity(budget 90)=3 → ratio 3.0 (> QUEUE_RED_RATIO 2.0)
+    const overloadedProjection: QueueProjection = {
+      currentSize: 9,
+      dailyQueueSize: Array(30).fill(9),
+      clearDay: null,
+      reviewsPerDay: 3,
+      newPerDay: 1,
+    };
+    const rec = computePracticeRecommendation({
+      data: makeData(),
+      countdown: stableCountdown,
+      goalType: "neetcode150",
+      actualProjection: overloadedProjection,
+      dailyTimeBudgetMinutes: 90,
+    });
+    expect(rec.tone).toBe("danger");
+    expect(rec.title.toLowerCase()).toContain("overloaded");
+    expect(rec.actionMode).toBe("review");
+  });
+
+  it("ORANGE zone (1.5 < ratio <= 2.0) is danger but NOT the overloaded copy", () => {
+    // backAvg=5, reviewCapacity(budget 90)=3 → ratio ≈1.67 (ORANGE, below RED)
+    const heavyProjection: QueueProjection = {
+      currentSize: 5,
+      dailyQueueSize: Array(30).fill(5),
+      clearDay: null,
+      reviewsPerDay: 3,
+      newPerDay: 1,
+    };
+    const rec = computePracticeRecommendation({
+      data: makeData(),
+      countdown: stableCountdown,
+      goalType: "neetcode150",
+      actualProjection: heavyProjection,
+      dailyTimeBudgetMinutes: 90,
+    });
+    expect(rec.tone).toBe("danger");
+    expect(rec.title.toLowerCase()).not.toContain("overloaded");
+  });
 });
 
 /* ── computeSessionComposition ── */

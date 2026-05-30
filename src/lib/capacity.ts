@@ -424,6 +424,20 @@ export function computePracticeRecommendation({
     };
   }
 
+  // Overloaded (RED) — queue is well beyond capacity (T4-B). Checked before the ORANGE
+  // ceiling because RED (>2.0) implies ORANGE (>1.5); this is the most urgent danger state.
+  if (queueLoadRatio > QUEUE_RED_RATIO) {
+    return {
+      tone: "danger",
+      title: "Queue overloaded — triage now",
+      body: `Your queue is projecting ~${Math.round(metrics.backAvg)} due/day, well beyond your ~${capacity.reviewCapacity}/day capacity. Stop all new problems, clear the most-overdue reviews first, and defer low-priority items to recover.`,
+      reason: `At your current pace the next 14 days average ${avgQueueLabel} due reviews and peak near ${peakQueueLabel} — more than you can clear without deferring.`,
+      actionLabel: "Review first",
+      actionMode: "review",
+      metrics,
+    };
+  }
+
   // Absolute ceiling — always danger regardless of advisory threshold
   if (queueLoadRatio > QUEUE_ORANGE_RATIO) {
     return {
