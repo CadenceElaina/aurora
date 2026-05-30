@@ -85,11 +85,11 @@ User solves Two Sum independently:
 
 Users choose a mode at onboarding alongside their problems/day and new/day targets. The onboarding UI subtly highlights the mode that fits their stated pace, but the user makes the final choice. Switching any time applies immediately — no data migration, SRS state preserved.
 
-### Push Coverage ✅ (core) / 🔧 (FIFO review order)
+### Push Coverage ✅
 *"Get through all problems once. Familiarity over mastery."*
 
 - **New problems:** follow NeetCode curriculum sequence — finish current category, user picks next at fork points
-- **Review order:** 🔧 FIFO (oldest-reviewed-first, not SRS-priority)
+- **Review order:** ✅ FIFO (oldest-reviewed-first, not SRS-priority) — driven by the persisted `users.strategy`
 - **New per day:** user-set (no fixed default; higher values push this mode)
 - **Concept gates:** none — curriculum recommendation is sequential but user can navigate anywhere
 - **Advisory:** queue health indicator + this-week fading count + link to lowest-retained list. No session interference.
@@ -342,7 +342,7 @@ User opens settings
 | **T-030** | Cross-day session state integrity — server-backed daily session | ✅ |
 | 1-day minimum interval | Enforced in `computeNextReviewDate` | ✅ |
 | RED zone branch | Add to `computePracticeRecommendation` (T4-B) | 🔧 |
-| FIFO review order for Push Coverage | Currently SRS priority for all modes (T4-A) | 🔧 |
+| FIFO review order for Push Coverage | Persisted `users.strategy` drives it | ✅ |
 | PARTIAL cap at 1.25× | Enforces NO ≤ PARTIAL ≤ YES invariant | ✅ |
 | Session render order | Reviews before new | ✅ |
 | Empty-queue overflow | Unused review slots → new only when queue empty | ✅ |

@@ -44,8 +44,10 @@ npx drizzle-kit generate   # Generate migration SQL
    (PDF, predictedR logs, additive residual) — that's the iterative goal. Don't tweak SRS
    multipliers as a workaround for recommendation bugs; fix those in the recommendation layer.
 4. **The system never blocks.** Forecast + advisory show consequences; users override. By design.
-5. **Strategy is a preset, not a mode.** `newPerSession` + `advisoryThreshold` take effect
-   immediately with no state migration.
+5. **Strategy is an explicit, persisted mode.** The user picks `users.strategy`
+   (`push_coverage` / `balanced` / `lock_in_retention`); it drives review ordering and
+   new-problem selection. Picking a mode also sets the `newPerSession` + `advisoryThreshold`
+   preset. (Supersedes the earlier "strategy is a preset, no migration" rule.)
 6. **One source of truth per constant.** Thresholds live in `docs/CONSTANTS.md` first, then code.
 7. **Docs match code.** Update doc Status in the same PR as the code change — never after.
 8. **No scope creep.** Don't extend or generalize beyond the task.
