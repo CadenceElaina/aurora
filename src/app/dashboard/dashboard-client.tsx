@@ -39,6 +39,15 @@ import {
   type QueueStability,
   type AdvisoryThreshold,
 } from "@/lib/capacity";
+import {
+  reconcileSessionSnapshot,
+  addActedReview,
+  addActedNew,
+  removeFromPlan,
+  sessionTarget,
+  isSessionComplete,
+  type DailySessionSnapshot,
+} from "@/lib/session";
 
 /* ── Types ── */
 type MockPhase = "setup" | "active" | "finished";
@@ -228,8 +237,10 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
   const [demoCtaReason, setDemoCtaReason] = useState<DemoCtaReason>("generic");
   const [demoSessionChanged, setDemoSessionChanged] = useState(false);
   const [sessionViewMode, setSessionViewMode] = useState<"session" | "queue">("session");
-  const [sessionActedOn, setSessionActedOn] = useState(0);
-  const [sessionNewActedOn, setSessionNewActedOn] = useState(0);
+  // Server-backed daily session plan (T-030). Source of truth for the day's target and
+  // acted-on problems; hydrated from the server, persists across devices and reloads.
+  const [sessionSnapshot, setSessionSnapshot] = useState<DailySessionSnapshot | null>(data.todaySession);
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [newPerSession, setNewPerSession] = useState(data.newPerSession);
   const [advisoryThreshold, setAdvisoryThreshold] = useState<AdvisoryThreshold>(data.advisoryThreshold);
   const [forkChoices, setForkChoices] = useState<ForkChoices>(() => {
@@ -248,7 +259,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
   });
   const [sessionSizeOverride, setSessionSizeOverride] = useState<number | null>(null);
 
-  const { confettiBurst, playSessionComplete, resetSessionFired, playProblemLog, checkInactivity, recordSubmit } = useCelebration();
+  const { confettiBurst, playSessionComplete, playProblemLog, checkInactivity, recordSubmit } = useCelebration();
 
   const activityData = useMemo(() => {
     if (activityViewMode === "monthly") return data.fullAttemptHistory;
@@ -326,22 +337,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     }
     const savedQueueView = localStorage.getItem("aurora_queue_view_mode");
     if (savedQueueView === "session" || savedQueueView === "queue") setSessionViewMode(savedQueueView);
-    const savedSessionProgress = localStorage.getItem("aurora_session_progress");
-    if (savedSessionProgress) {
-      try {
-        const prog = JSON.parse(savedSessionProgress);
-        const today = new Date().toISOString().slice(0, 10);
-        if (prog.date === today) setSessionActedOn(prog.actedOn ?? 0);
-      } catch { /* ignore */ }
-    }
-    const savedSessionNewProgress = localStorage.getItem("aurora_session_new_progress");
-    if (savedSessionNewProgress) {
-      try {
-        const prog = JSON.parse(savedSessionNewProgress);
-        const today = new Date().toISOString().slice(0, 10);
-        if (prog.date === today) setSessionNewActedOn(prog.newActedOn ?? 0);
-      } catch { /* ignore */ }
-    }
+    // Session progress is now server-backed (see sessionSnapshot / T-030); no localStorage hydration.
     // DB values win for newPerSession and advisoryThreshold — sync localStorage to match
     localStorage.setItem("aurora_new_per_session", String(data.newPerSession));
     localStorage.setItem("aurora_advisory_threshold", data.advisoryThreshold);
@@ -682,7 +678,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     unusedReviewSlots,
     overflowSlots,
     effectiveNewSlots,
-    effectiveSessionTarget,
+    effectiveSessionTarget: compositionTarget,
   } = computeSessionComposition({
     newPerSession,
     sessionSizeEffective,
@@ -728,6 +724,59 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     return recs;
   }, [data.categoryStats, newItems, autoDeferHards, goalType, forkChoices, effectiveNewSlots]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Daily session plan (T-030) ────────────────────────────────────────────
+  // Build today's plan from the live due queue + curriculum picks. The plan (and thus
+  // the completion target) is snapshotted once per day so it can't drift as the queue shrinks.
+  const freshPlan = useMemo(() => ({
+    plannedReviewIds: data.reviewQueue.slice(0, reviewSlots).map((r) => r.problemId),
+    plannedNewIds: curriculumRecs.slice(0, effectiveNewSlots).map((r) => r.problem.id),
+  }), [data.reviewQueue, reviewSlots, curriculumRecs, effectiveNewSlots]);
+
+  // Create today's plan server-side once if it doesn't exist yet (idempotent via the API).
+  const planEnsuredRef = useRef(false);
+  useEffect(() => {
+    if (isDemo || planEnsuredRef.current) return;
+    if (data.todaySession && data.todaySession.date === today) {
+      planEnsuredRef.current = true; // server already has today's plan (used to init state)
+      return;
+    }
+    // Wait until there's something to plan, so we don't persist an empty plan on first paint.
+    if (freshPlan.plannedReviewIds.length === 0 && freshPlan.plannedNewIds.length === 0) return;
+    planEnsuredRef.current = true;
+    const planned = reconcileSessionSnapshot({ stored: data.todaySession, today, freshPlan });
+    setSessionSnapshot(planned);
+    fetch("/api/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: today, plannedReviewIds: planned.plannedReviewIds, plannedNewIds: planned.plannedNewIds }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (j?.session) {
+          const s = j.session;
+          setSessionSnapshot({
+            date: s.date, plannedReviewIds: s.plannedReviewIds, plannedNewIds: s.plannedNewIds,
+            actedReviewIds: s.actedReviewIds, actedNewIds: s.actedNewIds, completed: s.completed,
+          });
+        }
+      })
+      .catch(() => { /* offline — the optimistic snapshot stands */ });
+  }, [isDemo, data.todaySession, today, freshPlan]);
+
+  // Progress derived from the snapshot's acted-on sets (a problem counts at most once).
+  // Falls back to the live composition target only before a plan exists (and in demo mode).
+  const sessionActedOn = useMemo(() => {
+    if (!sessionSnapshot) return 0;
+    const acted = new Set(sessionSnapshot.actedReviewIds);
+    return sessionSnapshot.plannedReviewIds.filter((id) => acted.has(id)).length;
+  }, [sessionSnapshot]);
+  const sessionNewActedOn = useMemo(() => {
+    if (!sessionSnapshot) return 0;
+    const acted = new Set(sessionSnapshot.actedNewIds);
+    return sessionSnapshot.plannedNewIds.filter((id) => acted.has(id)).length;
+  }, [sessionSnapshot]);
+  const effectiveSessionTarget = sessionSnapshot ? sessionTarget(sessionSnapshot) : compositionTarget;
+
   // Session-specific slice: effective new slots (may be > newPerSession when overflow kicks in).
   const sessionCurriculumRecs = curriculumRecs.slice(0, effectiveNewSlots).slice(sessionNewActedOn);
 
@@ -749,19 +798,20 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     }
   }, [curriculumRecs]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Detect session-complete threshold crossing and fire celebration exactly once per crossing.
-  // Uses effectiveSessionTarget so Lock In Retention users with short queues complete at the right count.
-  const prevSessionTotalRef = useRef(0);
+  // Fire the session-complete celebration exactly once per day. Gated on the snapshot's
+  // persisted `completed` flag, so reloading (or opening on another device) never re-celebrates.
   useEffect(() => {
-    const total = sessionActedOn + sessionNewActedOn;
-    const wasBelow = prevSessionTotalRef.current < effectiveSessionTarget;
-    const isNowComplete = total >= effectiveSessionTarget && total > 0;
-    if (wasBelow && isNowComplete && !isDemo && sessionViewMode === "session") {
+    if (isDemo || !sessionSnapshot || sessionViewMode !== "session") return;
+    if (isSessionComplete(sessionSnapshot) && !sessionSnapshot.completed) {
       playSessionComplete();
+      setSessionSnapshot((prev) => (prev ? { ...prev, completed: true } : prev));
+      fetch("/api/session", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: today, action: "complete" }),
+      }).catch(() => { /* offline — flag is set optimistically and re-synced next load */ });
     }
-    if (!isNowComplete) resetSessionFired();
-    prevSessionTotalRef.current = total;
-  }, [sessionActedOn, sessionNewActedOn, effectiveSessionTarget]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionSnapshot, sessionViewMode, isDemo, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sessionQueue = useMemo(() => {
     if (sessionViewMode !== "session") return filteredReviewQueue;
@@ -815,8 +865,8 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     if (problem?.pendingId) {
       setPendingItems((prev) => prev.filter((p) => p.id !== problem.pendingId));
     }
-    if (problem?.isReview) recordSessionAction();
-    else if (problem?.isSessionNew) recordNewSessionAction();
+    if (problem?.isReview && typeof problem.problemId === "number") recordSessionAction(problem.problemId);
+    else if (problem?.isSessionNew && typeof problem.problemId === "number") recordNewSessionAction(problem.problemId);
     recordSubmit();
     playProblemLog();
     router.refresh();
@@ -898,24 +948,26 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     setDemoSessionChanged(true);
   }
 
-  function recordSessionAction() {
+  // Record an acted-on problem in today's server-backed plan. Optimistic + idempotent: the
+  // snapshot uses ID sets, so the same problem never double-counts, and the PATCH is safe to retry.
+  function recordSessionAction(problemId: number) {
     if (isDemo) return;
-    setSessionActedOn((prev) => {
-      const next = prev + 1;
-      const today = new Date().toISOString().slice(0, 10);
-      localStorage.setItem("aurora_session_progress", JSON.stringify({ date: today, actedOn: next }));
-      return next;
-    });
+    setSessionSnapshot((prev) => (prev ? addActedReview(prev, problemId) : prev));
+    fetch("/api/session", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: today, action: "review", problemId }),
+    }).catch(() => { /* offline — optimistic snapshot stands, re-syncs next load */ });
   }
 
-  function recordNewSessionAction() {
+  function recordNewSessionAction(problemId: number) {
     if (isDemo) return;
-    setSessionNewActedOn((prev) => {
-      const next = prev + 1;
-      const today = new Date().toISOString().slice(0, 10);
-      localStorage.setItem("aurora_session_new_progress", JSON.stringify({ date: today, newActedOn: next }));
-      return next;
-    });
+    setSessionSnapshot((prev) => (prev ? addActedNew(prev, problemId) : prev));
+    fetch("/api/session", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: today, action: "new", problemId }),
+    }).catch(() => { /* offline */ });
   }
 
   async function handleDefer(problemId: number, until?: string) {
@@ -942,7 +994,14 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
         deferredUntil: data_resp.deferredUntil,
         isAutoDeferred: false,
       }]);
-      recordSessionAction();
+      // Deferring drops the problem from today's plan so the target shrinks honestly
+      // (it's postponed, not completed), keeping the session reachable.
+      setSessionSnapshot((prev) => (prev ? removeFromPlan(prev, problemId) : prev));
+      fetch("/api/session", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: today, action: "remove", problemId }),
+      }).catch(() => { /* offline */ });
     }
   }
 

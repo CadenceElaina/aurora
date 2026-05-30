@@ -114,6 +114,7 @@ function makeData(overrides: Partial<DashboardData> = {}): DashboardData {
     importTodayAttemptedIds: [],
     pendingSubmissions: [],
     mockCandidates: [],
+    todaySession: null,
     ...overrides,
   };
 }

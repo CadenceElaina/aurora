@@ -333,6 +333,8 @@ export const DEMO_DASHBOARD_DATA = {
     { id: 32, leetcodeNumber: 704, title: "Binary Search",                  difficulty: "Medium" as const, category: "Binary Search",  leetcodeUrl: "https://leetcode.com/problems/binary-search/",                  neetcodeUrl: "https://neetcode.io/problems/binary-search" },
     { id: 3,  leetcodeNumber: 49,  title: "Group Anagrams",                 difficulty: "Medium" as const, category: "Arrays & Hashing", leetcodeUrl: "https://leetcode.com/problems/group-anagrams/",               neetcodeUrl: "https://neetcode.io/problems/anagram-groups" },
   ],
+  // Demo mode keeps session state in memory (no server persistence).
+  todaySession: null,
 };
 
 /* ── Demo data for Activity page ── */

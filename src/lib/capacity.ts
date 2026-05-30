@@ -1,5 +1,7 @@
 /* ── Shared types (also used by dashboard-client.tsx) ── */
 
+import type { DailySessionSnapshot } from "./session";
+
 export type ListMode = "review" | "new" | "completed" | "import" | "mock";
 
 export type ReviewItem = {
@@ -163,6 +165,8 @@ export type DashboardData = {
   importTodayAttemptedIds: number[];
   pendingSubmissions: PendingItem[];
   mockCandidates: MockCandidate[];
+  // Today's server-persisted session plan (T-030); null until the day's plan is created.
+  todaySession: DailySessionSnapshot | null;
 };
 
 export type QueueProjection = {
