@@ -7,6 +7,9 @@ import { eq } from "drizzle-orm";
 const ADVISORY_THRESHOLDS = ["relaxed", "moderate", "strict"] as const;
 type AdvisoryThreshold = typeof ADVISORY_THRESHOLDS[number];
 
+const STRATEGIES = ["push_coverage", "balanced", "lock_in_retention"] as const;
+type Strategy = typeof STRATEGIES[number];
+
 export async function PATCH(req: Request) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -14,7 +17,7 @@ export async function PATCH(req: Request) {
   }
 
   const body = await req.json();
-  const { dailyTimeBudgetMinutes, newPerSession, advisoryThreshold, targetDate } = body;
+  const { dailyTimeBudgetMinutes, newPerSession, advisoryThreshold, strategy, targetDate } = body;
 
   const update: Partial<typeof users.$inferInsert> = {};
 
@@ -61,6 +64,16 @@ export async function PATCH(req: Request) {
       );
     }
     update.advisoryThreshold = advisoryThreshold;
+  }
+
+  if (strategy !== undefined) {
+    if (!STRATEGIES.includes(strategy as Strategy)) {
+      return NextResponse.json(
+        { error: "strategy must be push_coverage, balanced, or lock_in_retention" },
+        { status: 400 },
+      );
+    }
+    update.strategy = strategy;
   }
 
   if (Object.keys(update).length === 0) {

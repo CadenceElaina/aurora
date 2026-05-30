@@ -78,6 +78,9 @@ export const users = pgTable("user", {
   dailyTimeBudgetMinutes: integer("daily_time_budget_minutes").notNull().default(60),
   newPerSession: smallint("new_per_session").notNull().default(1),
   advisoryThreshold: varchar("advisory_threshold", { length: 10 }).notNull().default("moderate"),
+  // Explicit session strategy the user picks; drives review ordering + new-problem selection.
+  // varchar (not a pg enum) to mirror advisory_threshold and avoid destructive enum alters.
+  strategy: varchar("strategy", { length: 20 }).notNull().default("balanced"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

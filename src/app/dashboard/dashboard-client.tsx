@@ -22,6 +22,7 @@ import {
   queueStability,
   computeCapacity,
   computeSessionComposition,
+  orderByLastReviewedAsc,
   AVG_PROBLEM_SESSION_MINUTES,
   type ListMode,
   type ReviewItem,
@@ -38,6 +39,7 @@ import {
   type QueueProjection,
   type QueueStability,
   type AdvisoryThreshold,
+  type SessionStrategy,
 } from "@/lib/capacity";
 import {
   reconcileSessionSnapshot,
@@ -243,6 +245,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [newPerSession, setNewPerSession] = useState(data.newPerSession);
   const [advisoryThreshold, setAdvisoryThreshold] = useState<AdvisoryThreshold>(data.advisoryThreshold);
+  const [strategy] = useState<SessionStrategy>(data.strategy);
   const [forkChoices, setForkChoices] = useState<ForkChoices>(() => {
     if (typeof window === "undefined") return {};
     try {
@@ -623,6 +626,11 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
   }, [forecastMode, queueProjection, queueProjectionGoals]);
 
   const sortedReviewQueue = useMemo(() => {
+    // T4-A: Push Coverage orders reviews FIFO (oldest-reviewed first) by default instead of
+    // SRS priority. An explicit sort choice (overdue/difficulty/category) still takes precedence.
+    if (strategy === "push_coverage" && reviewSort === "urgency") {
+      return orderByLastReviewedAsc(reviewItems);
+    }
     const q = [...reviewItems];
     if (reviewSort === "urgency") {
       q.sort((a, b) => {
@@ -640,7 +648,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
       q.sort((a, b) => a.category.localeCompare(b.category) || b.daysOverdue - a.daysOverdue);
     }
     return q;
-  }, [reviewItems, reviewSort, categoryStatsMap]);
+  }, [reviewItems, reviewSort, categoryStatsMap, strategy]);
 
   const sortedNewProblems = useMemo(() => {
     let q = goalType === "blind75" ? newItems.filter(p => p.blind75) : [...newItems];

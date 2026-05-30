@@ -116,6 +116,10 @@ export type MockCandidate = {
 
 export type AdvisoryThreshold = "relaxed" | "moderate" | "strict";
 
+// Explicit session strategy (persisted on users.strategy). Drives review ordering and
+// new-problem selection. Maps from onboarding's steady/coverage/retention choices.
+export type SessionStrategy = "push_coverage" | "balanced" | "lock_in_retention";
+
 export type DashboardData = {
   reviewQueue: ReviewItem[];
   deferredProblems: DeferredItem[];
@@ -123,6 +127,7 @@ export type DashboardData = {
   dailyTimeBudgetMinutes: number;
   newPerSession: number;
   advisoryThreshold: AdvisoryThreshold;
+  strategy: SessionStrategy;
   targetDate: string | null;
   newProblems: NewProblem[];
   totalProblems: number;
@@ -272,6 +277,20 @@ export function computeCapacity(
   const newCapacity = Math.floor(remainingMinutes / AVG_NEW_SESSION_MINUTES);
   const canFitEasy = remainingMinutes >= AVG_EASY_NEW_SESSION_MINUTES;
   return { reviewCapacity, remainingMinutes, newCapacity, canFitEasy };
+}
+
+/**
+ * FIFO review order (T4-A, Push Coverage): oldest-reviewed first. Problems never reviewed
+ * (lastReviewedAt === null) sort to the front. ISO timestamp strings compare chronologically.
+ * Pure and non-mutating.
+ */
+export function orderByLastReviewedAsc<T extends { lastReviewedAt: string | null }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    if (a.lastReviewedAt === b.lastReviewedAt) return 0;
+    if (a.lastReviewedAt === null) return -1;
+    if (b.lastReviewedAt === null) return 1;
+    return a.lastReviewedAt.localeCompare(b.lastReviewedAt);
+  });
 }
 
 /* ── computeSessionComposition ── */

@@ -291,6 +291,7 @@ export const DEMO_DASHBOARD_DATA = {
   dailyTimeBudgetMinutes: 60,
   newPerSession: 1,
   advisoryThreshold: "moderate" as const,
+  strategy: "balanced" as const,
   targetDate: null,
   newProblems,
   completedProblems,

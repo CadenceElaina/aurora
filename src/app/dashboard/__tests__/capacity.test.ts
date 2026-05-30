@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeCapacity, computeSessionComposition, computePracticeRecommendation, type DashboardData, type QueueProjection } from "@/lib/capacity";
+import { computeCapacity, computeSessionComposition, computePracticeRecommendation, orderByLastReviewedAsc, type DashboardData, type QueueProjection } from "@/lib/capacity";
 
 /* ── computeCapacity ── */
 
@@ -84,6 +84,7 @@ function makeData(overrides: Partial<DashboardData> = {}): DashboardData {
     dailyTimeBudgetMinutes: 60,
     newPerSession: 1,
     advisoryThreshold: "moderate" as const,
+    strategy: "balanced" as const,
     targetDate: null,
     newProblems: [],
     totalProblems: 150,
@@ -236,6 +237,40 @@ describe("computePracticeRecommendation — danger tone", () => {
     });
     expect(rec.tone).toBe("danger");
     expect(rec.title.toLowerCase()).not.toContain("overloaded");
+  });
+});
+
+/* ── orderByLastReviewedAsc (T4-A FIFO for Push Coverage) ── */
+
+describe("orderByLastReviewedAsc", () => {
+  it("orders by lastReviewedAt ascending (oldest reviewed first)", () => {
+    const items = [
+      { id: 1, lastReviewedAt: "2026-05-20T10:00:00.000Z" },
+      { id: 2, lastReviewedAt: "2026-05-10T10:00:00.000Z" },
+      { id: 3, lastReviewedAt: "2026-05-15T10:00:00.000Z" },
+    ];
+    expect(orderByLastReviewedAsc(items).map((i) => i.id)).toEqual([2, 3, 1]);
+  });
+
+  it("sorts never-reviewed (null) items to the front", () => {
+    const items = [
+      { id: 1, lastReviewedAt: "2026-05-20T10:00:00.000Z" },
+      { id: 2, lastReviewedAt: null },
+      { id: 3, lastReviewedAt: "2026-05-10T10:00:00.000Z" },
+    ];
+    const ordered = orderByLastReviewedAsc(items).map((i) => i.id);
+    expect(ordered[0]).toBe(2);
+    expect(ordered.slice(1)).toEqual([3, 1]);
+  });
+
+  it("does not mutate the input array", () => {
+    const items = [
+      { id: 1, lastReviewedAt: "2026-05-20T10:00:00.000Z" },
+      { id: 2, lastReviewedAt: "2026-05-10T10:00:00.000Z" },
+    ];
+    const before = items.map((i) => i.id);
+    orderByLastReviewedAsc(items);
+    expect(items.map((i) => i.id)).toEqual(before);
   });
 });
 

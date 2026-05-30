@@ -203,10 +203,13 @@ export function Onboarding({ isDemo = false, onboardingComplete = false, onPrefe
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "complete-onboarding" }),
       }).catch(() => {/* ignore */});
+      const strategyEnum = selectedStrategy === "coverage" ? "push_coverage"
+        : selectedStrategy === "retention" ? "lock_in_retention"
+        : "balanced";
       fetch("/api/user/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dailyTimeBudgetMinutes: selectedTimeBudget, newPerSession, advisoryThreshold }),
+        body: JSON.stringify({ dailyTimeBudgetMinutes: selectedTimeBudget, newPerSession, advisoryThreshold, strategy: strategyEnum }),
       }).catch(() => {/* ignore */});
     }
     if (soundEnabled) {
