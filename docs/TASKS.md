@@ -3,7 +3,7 @@
 Agents and sessions pull from this file. Claim a task by adding your session ID to the Agent column.
 **Canonical task file** — root `TASKS.md` is a mirror. Edit only this one.
 
-Last updated: 2026-05-17 — T-027, T-028 complete
+Last updated: 2026-05-28 — T1-A/T1-B/T2-A complete; T-030/T-031 added
 
 ---
 
@@ -22,6 +22,7 @@ Last updated: 2026-05-17 — T-027, T-028 complete
 
 | ID    | Tier | Description |
 | ----- | ---- | ----------- |
+| T-031 | P2   | **Audit SRS factor weights**: verify the `NO ≤ PARTIAL ≤ YES` effective-multiplier ordering holds end-to-end; reassess the role of confidence for procedural (non-flashcard) recall, plus the rewrite bonus and fast-solve bonus. Research-priority; defer code changes unless an obvious bug surfaces. |
 | T-029 | P2   | **TBD**: Mock interview tab removed from dashboard tab bar (2026-05-17). UI + state code (`MockPhase`, `pickMockProblems`, mock timer, `MockCandidate`) still present in `dashboard-client.tsx`. Decide: re-surface as a dedicated page/route, keep as hidden feature, or remove entirely. |
 
 ---
@@ -37,6 +38,12 @@ Last updated: 2026-05-17 — T-027, T-028 complete
 
 | ID    | Completed  | Description                                                                                                                             |
 | ----- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| T4-A  | 2026-05-30 | `feat(dashboard)`: **explicit session strategy** (`users.strategy` varchar, default `balanced`) — supersedes the "strategy is a preset" invariant. Onboarding persists it; `/api/user/settings` validates/saves; passed via `data.strategy`. **Push Coverage** now orders reviews FIFO (oldest `lastReviewedAt` first) by default; pure `orderByLastReviewedAsc` + 3 tests. **Follow-up:** add a settings-panel control to change strategy post-onboarding (existing users default to `balanced`). |
+| T4-B  | 2026-05-30 | `feat(capacity)`: RED-zone branch in `computePracticeRecommendation` — `queueLoadRatio > QUEUE_RED_RATIO (2.0)` returns an urgent "triage now" danger recommendation, checked before the ORANGE ceiling. 2 tests. |
+| T-030 | 2026-05-30 | `feat(db/api/dashboard)`: **Cross-day session state integrity** (showcase blocker) — server-backed `daily_session` table (per-user/day plan: planned + acted ID sets + completed flag, `UNIQUE(userId,date)`); pure `src/lib/session.ts` (reconcile/idempotent sets/target); `/api/session` GET/POST/PATCH; dashboard hydrates from server, completion gated on persisted flag (no re-celebrate on reload/2nd device), defer shrinks the plan. Table applied via direct DDL (drizzle-kit push crashes on a pre-existing CHECK constraint in this DB). Verified: tsc, 268 tests (incl. cross-day), build, dev smoke. **Authenticated end-to-end browser walkthrough not yet done.** |
+| T2-A  | 2026-05-28 | `fix(dashboard)` (`6531098`): persist `targetDate` to DB instead of localStorage only — DB value wins over localStorage; saves via PATCH `/api/user/settings`. Reused existing `user.target_date` column, no migration. |
+| T1-B  | 2026-05-28 | `feat(srs)` (`86a1d13`): cap PARTIAL effective multiplier at `PARTIAL_MAX_MULTIPLIER = 1.25` (real uncapped ceiling was 1.6× via conf-5 + fast-solve, exceeding YES:BRUTE_FORCE). Shared `computeEffectiveMultiplier` helper extracted. |
+| T1-A  | 2026-05-28 | `feat(srs)` (`c1647bb`): enforce 1-day minimum review interval — floored in `computeNextReviewDate` (not `clampStability`, so retrievability math is untouched). Constant `MIN_REVIEW_INTERVAL_DAYS = 1`. |
 | T-028 | 2026-05-17 | `feat(dashboard)`: Session strategy presets + `advisoryThreshold` — onboarding slide 4 "Your Daily Plan" with Steady Pace/Push Coverage/Lock In Retention strategy cards + session bar visual; `advisoryThreshold` (relaxed/moderate/strict) shifts `computePracticeRecommendation` zone thresholds; DB columns `new_per_session` + `advisory_threshold`; PATCH /api/user/settings extended; sounds moved to slide 3 |
 | T-027 | 2026-05-17 | `feat(dashboard)`: Composable Today's Session — `newPerSession` setting (0–3), separate review/new slots, N curriculum cards in session view always gated on user preference not queue length, `sessionNewActedOn` tracking, advisory text in SettingsPanel, fix session complete threshold. ADR: `docs/decisions/2026-05-17-session-composition.md` |
 | T-026 | 2026-05-16 | `feat(srs)`: Curriculum recommendation engine — `src/lib/curriculum.ts`, `computeNextRecommendation()`, NeetCode 150 DAG (layers 0–5), subtree-aware L4 tracking, localStorage fork persistence, "Recommended next" card (New tab) + "Capacity available" card (Session view) |

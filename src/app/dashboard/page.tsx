@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { unstable_cache } from "next/cache";
 import { db } from "@/db";
-import { problems, userProblemStates, attempts, pendingSubmissions, users } from "@/db/schema";
+import { problems, userProblemStates, attempts, pendingSubmissions, users, dailySessions } from "@/db/schema";
 import { auth } from "@/auth";
 import { eq, and, asc, count, sql, sum, avg, gte, lt } from "drizzle-orm";
 import Link from "next/link";
@@ -31,13 +31,14 @@ export default async function DashboardPage() {
 
   const userId = session.user.id;
   const now = new Date();
+  const today = now.toISOString().slice(0, 10); // UTC calendar day, matches the client
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
   // Parallel data fetching
-  const [allProblems, userStates, attemptDateRows, timeRows, pendingRows, todayAttemptRows, userRow, firstAttemptByProblem] = await Promise.all([
+  const [allProblems, userStates, attemptDateRows, timeRows, pendingRows, todayAttemptRows, userRow, firstAttemptByProblem, todaySessionRows] = await Promise.all([
     getCachedProblems(),
     db.select().from(userProblemStates).where(eq(userProblemStates.userId, userId)),
     db
@@ -88,7 +89,7 @@ export default async function DashboardPage() {
           lt(attempts.createdAt, tomorrowStart),
         ),
       ),
-    db.select({ autoDeferHards: users.autoDeferHards, onboardingComplete: users.onboardingComplete, dailyTimeBudgetMinutes: users.dailyTimeBudgetMinutes, newPerSession: users.newPerSession, advisoryThreshold: users.advisoryThreshold }).from(users).where(eq(users.id, userId)).limit(1),
+    db.select({ autoDeferHards: users.autoDeferHards, onboardingComplete: users.onboardingComplete, dailyTimeBudgetMinutes: users.dailyTimeBudgetMinutes, newPerSession: users.newPerSession, advisoryThreshold: users.advisoryThreshold, strategy: users.strategy, targetDate: users.targetDate }).from(users).where(eq(users.id, userId)).limit(1),
     db
       .select({
         problemId: attempts.problemId,
@@ -97,7 +98,24 @@ export default async function DashboardPage() {
       .from(attempts)
       .where(eq(attempts.userId, userId))
       .groupBy(attempts.problemId),
+    db
+      .select()
+      .from(dailySessions)
+      .where(and(eq(dailySessions.userId, userId), eq(dailySessions.date, today)))
+      .limit(1),
   ]);
+
+  const todaySessionRow = todaySessionRows[0] ?? null;
+  const todaySession = todaySessionRow
+    ? {
+        date: todaySessionRow.date,
+        plannedReviewIds: todaySessionRow.plannedReviewIds,
+        plannedNewIds: todaySessionRow.plannedNewIds,
+        actedReviewIds: todaySessionRow.actedReviewIds,
+        actedNewIds: todaySessionRow.actedNewIds,
+        completed: todaySessionRow.completed,
+      }
+    : null;
 
   const stateMap = new Map(userStates.map((s) => [s.problemId, s]));
   const attemptedIds = new Set(userStates.map((s) => s.problemId));
@@ -106,6 +124,8 @@ export default async function DashboardPage() {
   const dailyTimeBudgetMinutes = userRow[0]?.dailyTimeBudgetMinutes ?? 60;
   const newPerSession = userRow[0]?.newPerSession ?? 1;
   const advisoryThreshold = (userRow[0]?.advisoryThreshold ?? "moderate") as "relaxed" | "moderate" | "strict";
+  const strategy = (userRow[0]?.strategy ?? "balanced") as "push_coverage" | "balanced" | "lock_in_retention";
+  const targetDate = userRow[0]?.targetDate ?? null;
 
   // Retrievability pre-computed once per state — avoids redundant exponential-decay calls
   // across reviewQueue, completedProblems, and retentions below.
@@ -333,8 +353,7 @@ export default async function DashboardPage() {
     reviewsCompletedPct: consistencyPct * sampleWeight,
   });
 
-  // Streak calculation
-  const today = now.toISOString().slice(0, 10);
+  // Streak calculation (reuses `today` computed above)
   const attemptDates = attemptDateRows.map((a) => a.date);
   const streaks = computeStreak(attemptDates, today);
 
@@ -455,6 +474,8 @@ export default async function DashboardPage() {
         dailyTimeBudgetMinutes,
         newPerSession,
         advisoryThreshold,
+        strategy,
+        targetDate,
         newProblems,
         completedProblems,
         totalProblems: allProblems.length,
@@ -500,6 +521,7 @@ export default async function DashboardPage() {
         importAttemptedIds: [...attemptedIds],
         importTodayAttemptedIds: todayAttemptRows.map((a) => a.problemId),
         mockCandidates,
+        todaySession,
         pendingSubmissions: pendingRows.map((p) => ({
           id: p.id,
           problemId: p.problemId,

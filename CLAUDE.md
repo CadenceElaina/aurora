@@ -1,10 +1,12 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Context and workflow rules for Claude Code sessions in this repository.
 
 ## What This Is
 
-Aurora is a full-stack SaaS app for technical interview prep. It tracks LeetCode problem-solving attempts and uses a modified FSRS (Free Spaced Repetition Scheduler) algorithm to schedule reviews — predicting when users will forget each problem and surfacing it just in time.
+Aurora is a full-stack app for technical interview prep. It uses a modified FSRS
+algorithm to schedule LeetCode problem reviews and a pacing system (`capacity.ts`,
+`pacing.ts`) that models daily time budgets and queue load recommendations.
 
 ## Commands
 
@@ -12,14 +14,11 @@ Aurora is a full-stack SaaS app for technical interview prep. It tracks LeetCode
 npm run dev          # Start dev server (port 3000)
 npm run build        # Production build
 npm run lint         # ESLint
+npm test             # Vitest — must pass before any srs.ts change
 
 # Database
-npx drizzle-kit push       # Push schema changes to DB
+npx drizzle-kit push       # Push schema changes
 npx drizzle-kit generate   # Generate migration SQL
-
-# Seeding
-npx tsx scripts/seed.ts           # Seed 150 NeetCode problems
-python scripts/fetch_problems.py  # Regenerate problem metadata
 ```
 
 **Required env vars** (copy `.env.example` → `.env.local`):
@@ -27,125 +26,67 @@ python scripts/fetch_problems.py  # Regenerate problem metadata
 - `AUTH_SECRET` — generate with `npx auth secret`
 - `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` — GitHub OAuth app credentials
 
-**Optional env vars:**
-- `MAX_USERS` — integer cap on new sign-ups (e.g. `500`). Returning users always pass through. Unset = no limit.
-- `CRON_SECRET` — secures `/api/cron/ping`. Generate with `openssl rand -base64 32`. Required in production if the Vercel cron is active.
-
-## Tech Stack
-
-Next.js 16 (App Router) + React 19 + TypeScript 5 (strict), Tailwind CSS 4, Drizzle ORM on Postgres (Supabase), NextAuth v5 (GitHub OAuth).
-
-## Architecture
-
-### Server vs. Client Component Split
-
-Pages are server components that fetch data directly via Drizzle ORM and pass it to `*-client.tsx` counterparts. The pattern is:
-
-```
-app/dashboard/page.tsx        ← server: fetches DB data, calls auth()
-app/dashboard/dashboard-client.tsx  ← client: "use client", handles interaction
-```
-
-Server components call `await auth()` for session; client components call `fetch()` to API routes for mutations.
-
-### SRS Algorithm — the core of the app
-
-`src/lib/srs.ts` contains everything. Key concepts:
-
-- **Retrievability**: `R(t) = e^(-t/S)` — exponential decay of memory strength
-- **Stability update**: prior stability × multipliers based on (solved × quality) + modifiers (confidence, time, rewrite flag)
-- **Readiness score**: weighted composite (coverage 30%, retention 40%, category balance 20%, consistency 10%) → tiers S/A/B/C/D
-- **Coverage projection**: day-by-day simulation of review load vs. learning capacity
-
-When working on any scheduling/review feature, start here.
-
-### Data Model
-
-`src/db/schema.ts` defines the tables. Key ones:
-
-- `problems` — 150 curated NeetCode problems (seeded, not user-created)
-- `attempts` — every logged practice session (source: manual/github/import)
-- `user_problem_state` — per-user SRS state (stability, retrievability, next review date)
-- `pending_submissions` — raw data from GitHub webhook before processing
-
-### Demo Mode
-
-Unauthenticated users see fully functional demo data from `src/lib/demo-data.ts`. Pages check `session?.user?.id` and fall back to demo mode — no auth required to see the UI. Don't break this path when adding features.
-
-### API Routes
-
-All mutations go through `/api/*` routes:
-
-| Route | Purpose |
-|---|---|
-| `POST /api/attempts` | Log attempt + compute SRS update |
-| `GET/POST /api/notes` | User notes per problem |
-| `GET/POST /api/review` | Review queue + skip |
-| `POST /api/webhook/github` | GitHub push webhook (HMAC-validated, auto-detects solved problems) |
-| `GET /api/cron/ping` | Supabase keep-alive DB ping (Vercel cron, every 3 days) |
-
-### GitHub Sync
-
-`/api/webhook/github` receives push events from NeetCode's GitHub integration, validates the HMAC signature, parses filenames to detect solved problems, and stores them in `pending_submissions`. Users connect their GitHub repo via `/api/github-sync`.
-
-## Key Files
-
-- `src/lib/srs.ts` — SRS algorithm engine
-- `src/db/schema.ts` — full data model (enums, columns, relations)
-- `src/auth.ts` — NextAuth config with DrizzleAdapter
-- `src/app/dashboard/demo-data.ts` — demo mode data
-- `docs/ARCHITECTURE.md` — detailed system design and algorithm math
-- `docs/decisions/` — ADRs explaining major design choices
-
-## Task Queue
-
-See `docs/TASKS.md` for the prioritized task queue (root `TASKS.md` is a redirect).
-- **Session start:** `npx tsc --noEmit && npm test` — must be clean before touching anything
-- **Claim a task** before editing files (add your name to In Progress in docs/TASKS.md)
-- **Commit format:** `feat(scope): description` / `fix(scope): description` — one logical change per commit
-- **Scope tokens:** `srs` · `dashboard` · `nav` · `api` · `db` · `ui` · `test` · `docs`
-
-## Key invariants — never break these
+## Key Invariants — Never Break
 
 - `src/lib/srs.ts` is **pure computation only** — no DB calls, no fetch, no side effects
-- All DB mutations go through `/api/*` routes, not Server Components
+- All DB mutations go through `/api/*` routes, never Server Components
 - Demo mode (`isDemo = !isAuthenticated`) must keep working — every feature has a demo fallback
-- `npm test` (52 SRS unit tests) must pass after every change to `src/lib/srs.ts`
+- `npm test` must pass after every change to `src/lib/srs.ts`
 - Never commit `DATABASE_URL`, `AUTH_SECRET`, or OAuth credentials
-- Run the pre-commit checklist in `docs/agents/security-protocol.md` before every commit
 
-# Project instructions
+## Design Principles
 
-## Interaction modes
+1. **Session time, not problem time.** All capacity math uses `AVG_REVIEW_SESSION_MINUTES=25`,
+   `AVG_NEW_SESSION_MINUTES=45`. Never quote throughput in raw problem-time.
+2. **Load ratio is the primary signal.** Five zones (Green/Yellow/Amber/Orange/Red).
+   `computePracticeRecommendation` returns zone + tone, not a raw number. See `docs/CONSTANTS.md`.
+3. **SRS computes; recommendations advise.** Calibrate the algorithm from observed data
+   (PDF, predictedR logs, additive residual) — that's the iterative goal. Don't tweak SRS
+   multipliers as a workaround for recommendation bugs; fix those in the recommendation layer.
+4. **The system never blocks.** Forecast + advisory show consequences; users override. By design.
+5. **Strategy is an explicit, persisted mode.** The user picks `users.strategy`
+   (`push_coverage` / `balanced` / `lock_in_retention`); it drives review ordering and
+   new-problem selection. Picking a mode also sets the `newPerSession` + `advisoryThreshold`
+   preset. (Supersedes the earlier "strategy is a preset, no migration" rule.)
+6. **One source of truth per constant.** Thresholds live in `docs/CONSTANTS.md` first, then code.
+7. **Docs match code.** Update doc Status in the same PR as the code change — never after.
+8. **No scope creep.** Don't extend or generalize beyond the task.
+   If it's not in `docs/TASKS.md` or the current prompt, don't build it.
+
+## Sensitive Info — Never in This Repo
+
+- `.env` values, API keys, DB connection strings
+- Dr. Wilson's contact info or email content
+- IRB material until post-approval
+- Pre-publication research design specifics
+- PII from consent flow testing
+
+## Interaction Modes
 
 ### Planning mode (default)
-When I describe a problem or feature without an explicit instruction to proceed,
-enter planning mode before writing any code:
-- Identify edge cases and failure modes I may not have considered
-- Surface relevant tradeoffs (performance, complexity, maintainability)
-- Suggest alternative approaches if a better path exists
-- Flag any security or data integrity concerns
+When a problem or feature is described without an explicit instruction to proceed:
+- Identify edge cases and failure modes
+- Surface relevant tradeoffs
+- Flag security or data integrity concerns
 - Ask **one** clarifying question if intent is ambiguous — never multiple at once
 
-Present a concise plan and wait for my approval before proceeding.
+Present a concise plan and wait for approval before writing code.
 
 ### Execute mode
-When I say `go`, `proceed`, `just do it`, or similar — skip planning and implement
-directly. Apply best practices silently.
+When I say `go`, `proceed`, `just do it` — skip planning and implement directly.
 
-## Communication style
-- **Assume I don't know something unless I demonstrate that I do.** If a concept,
-  pattern, or syntax choice is non-obvious, explain it briefly. Do not assume
-  familiarity with advanced patterns, obscure APIs, or language-specific idioms.
-- When introducing a non-trivial approach, explain *why* it's the right choice
-  and what the alternatives are — not just what the code does.
-- Never ask more than one clarifying question per response.
+## Prompts Must Include
 
-## After implementation
+For any non-trivial implementation:
 
-### Commits
-Once a task is complete, stage all relevant changes and commit using
-Conventional Commits format, then push to the current branch:
+- [ ] **Which repo** — `aurora` (public) or `aurora-research`
+- [ ] **Affected files** — primary file(s) and function names
+- [ ] **Relevant constants** — from `docs/CONSTANTS.md` if touching pacing, capacity, SRS, or forecast
+- [ ] **Expected behavior** — what is different after this change
+- [ ] **Scope boundary** — what explicitly should NOT change
+- [ ] **Sensitive-info check** — does this touch auth, user data, research data, or export?
+
+## Commits
 
 ```bash
 git add -A
@@ -153,17 +94,23 @@ git commit -m "<type>(<scope>): <short description>"
 git push
 ```
 
-Commit types: `feat` · `fix` · `refactor` · `test` · `chore` · `docs`
+Types: `feat` · `fix` · `refactor` · `test` · `chore` · `docs`
+Scopes: `srs` · `dashboard` · `nav` · `api` · `db` · `ui` · `test` · `docs` · `pacing` · `capacity`
 
 - Subject line under 72 characters
-- If the change is non-trivial, add a short body explaining the *why*
 - Atomic commits — one logical change per commit
-- Do not bundle unrelated changes into a single commit
+- Run `npx tsc --noEmit && npm test` before committing
 
-## Code quality
-- Do not refactor code outside the scope of the current task
-- If a change introduces a known limitation or TODO, call it out explicitly
-- If test coverage should be added or updated, flag it — do not silently skip
-- If a change affects a public API, type signature, or documented behavior,
-  note that docs may need updating
-- Prefer explicit over clever — readability is the priority in this codebase
+## Key Files
+
+| File | Purpose |
+|---|---|
+| `src/lib/srs.ts` | SRS algorithm engine (pure computation) |
+| `src/lib/capacity.ts` | Queue load, capacity derivation, `computePracticeRecommendation` |
+| `src/lib/pacing.ts` | Load zone classification wrappers |
+| `src/lib/analytics.ts` | Insights, model calibration, stuck-problem detection |
+| `src/lib/curriculum.ts` | NeetCode 150 DAG, next-problem recommendation |
+| `src/db/schema.ts` | Full data model |
+| `docs/files/SYSTEM_OVERVIEW.md` | Single-page system overview — SRS, strategy modes, queue/advisory, settings, constants |
+| `docs/files/CONSTANTS.md` | All numeric thresholds — check here before adding any |
+| `docs/TASKS.md` | Task queue |

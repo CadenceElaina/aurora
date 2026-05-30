@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeCapacity, computePracticeRecommendation, type DashboardData, type QueueProjection } from "@/lib/capacity";
+import { computeCapacity, computeSessionComposition, computePracticeRecommendation, orderByLastReviewedAsc, type DashboardData, type QueueProjection } from "@/lib/capacity";
 
 /* ── computeCapacity ── */
 
@@ -84,6 +84,8 @@ function makeData(overrides: Partial<DashboardData> = {}): DashboardData {
     dailyTimeBudgetMinutes: 60,
     newPerSession: 1,
     advisoryThreshold: "moderate" as const,
+    strategy: "balanced" as const,
+    targetDate: null,
     newProblems: [],
     totalProblems: 150,
     retainedCount: 8,
@@ -113,6 +115,7 @@ function makeData(overrides: Partial<DashboardData> = {}): DashboardData {
     importTodayAttemptedIds: [],
     pendingSubmissions: [],
     mockCandidates: [],
+    todaySession: null,
     ...overrides,
   };
 }
@@ -193,5 +196,149 @@ describe("computePracticeRecommendation — danger tone", () => {
 
     expect(rec.tone).toBe("danger");
     expect(rec.reason).not.toContain("Easy");
+  });
+
+  it("RED zone (queueLoadRatio > 2.0) returns the overloaded triage recommendation (T4-B)", () => {
+    // backAvg=9, reviewCapacity(budget 90)=3 → ratio 3.0 (> QUEUE_RED_RATIO 2.0)
+    const overloadedProjection: QueueProjection = {
+      currentSize: 9,
+      dailyQueueSize: Array(30).fill(9),
+      clearDay: null,
+      reviewsPerDay: 3,
+      newPerDay: 1,
+    };
+    const rec = computePracticeRecommendation({
+      data: makeData(),
+      countdown: stableCountdown,
+      goalType: "neetcode150",
+      actualProjection: overloadedProjection,
+      dailyTimeBudgetMinutes: 90,
+    });
+    expect(rec.tone).toBe("danger");
+    expect(rec.title.toLowerCase()).toContain("overloaded");
+    expect(rec.actionMode).toBe("review");
+  });
+
+  it("ORANGE zone (1.5 < ratio <= 2.0) is danger but NOT the overloaded copy", () => {
+    // backAvg=5, reviewCapacity(budget 90)=3 → ratio ≈1.67 (ORANGE, below RED)
+    const heavyProjection: QueueProjection = {
+      currentSize: 5,
+      dailyQueueSize: Array(30).fill(5),
+      clearDay: null,
+      reviewsPerDay: 3,
+      newPerDay: 1,
+    };
+    const rec = computePracticeRecommendation({
+      data: makeData(),
+      countdown: stableCountdown,
+      goalType: "neetcode150",
+      actualProjection: heavyProjection,
+      dailyTimeBudgetMinutes: 90,
+    });
+    expect(rec.tone).toBe("danger");
+    expect(rec.title.toLowerCase()).not.toContain("overloaded");
+  });
+});
+
+/* ── orderByLastReviewedAsc (T4-A FIFO for Push Coverage) ── */
+
+describe("orderByLastReviewedAsc", () => {
+  it("orders by lastReviewedAt ascending (oldest reviewed first)", () => {
+    const items = [
+      { id: 1, lastReviewedAt: "2026-05-20T10:00:00.000Z" },
+      { id: 2, lastReviewedAt: "2026-05-10T10:00:00.000Z" },
+      { id: 3, lastReviewedAt: "2026-05-15T10:00:00.000Z" },
+    ];
+    expect(orderByLastReviewedAsc(items).map((i) => i.id)).toEqual([2, 3, 1]);
+  });
+
+  it("sorts never-reviewed (null) items to the front", () => {
+    const items = [
+      { id: 1, lastReviewedAt: "2026-05-20T10:00:00.000Z" },
+      { id: 2, lastReviewedAt: null },
+      { id: 3, lastReviewedAt: "2026-05-10T10:00:00.000Z" },
+    ];
+    const ordered = orderByLastReviewedAsc(items).map((i) => i.id);
+    expect(ordered[0]).toBe(2);
+    expect(ordered.slice(1)).toEqual([3, 1]);
+  });
+
+  it("does not mutate the input array", () => {
+    const items = [
+      { id: 1, lastReviewedAt: "2026-05-20T10:00:00.000Z" },
+      { id: 2, lastReviewedAt: "2026-05-10T10:00:00.000Z" },
+    ];
+    const before = items.map((i) => i.id);
+    orderByLastReviewedAsc(items);
+    expect(items.map((i) => i.id)).toEqual(before);
+  });
+});
+
+/* ── computeSessionComposition ── */
+
+describe("computeSessionComposition", () => {
+  it("Balanced user with 1 review due gets 1 review + 1 new — no overflow flood", () => {
+    // session size 5, wants 1 new/day, only 1 review actually due.
+    const c = computeSessionComposition({
+      newPerSession: 1,
+      sessionSizeEffective: 5,
+      reviewQueueLength: 1,
+      attemptedCount: 20,
+    });
+    expect(c.availableReviewCount).toBe(1);
+    expect(c.overflowSlots).toBe(0); // the 3 unused review slots do NOT become new
+    expect(c.effectiveNewSlots).toBe(1);
+    expect(c.effectiveSessionTarget).toBe(2); // 1 review + 1 new
+  });
+
+  it("empty review queue overflows unused review slots into new (when user wants new)", () => {
+    const c = computeSessionComposition({
+      newPerSession: 1,
+      sessionSizeEffective: 5,
+      reviewQueueLength: 0,
+      attemptedCount: 20,
+    });
+    expect(c.availableReviewCount).toBe(0);
+    expect(c.overflowSlots).toBe(4); // all unused review slots overflow
+    expect(c.effectiveNewSlots).toBe(5);
+    expect(c.effectiveSessionTarget).toBe(5);
+  });
+
+  it("Lock In Retention (newPerSession=0) never overflows after cold start", () => {
+    const c = computeSessionComposition({
+      newPerSession: 0,
+      sessionSizeEffective: 5,
+      reviewQueueLength: 2,
+      attemptedCount: 20,
+    });
+    expect(c.reviewSlots).toBe(5);
+    expect(c.availableReviewCount).toBe(2);
+    expect(c.overflowSlots).toBe(0); // short session is expected, not filled with new
+    expect(c.effectiveNewSlots).toBe(0);
+    expect(c.effectiveSessionTarget).toBe(2);
+  });
+
+  it("Lock In Retention empty queue stays empty (no auto-fill, opt-in only)", () => {
+    const c = computeSessionComposition({
+      newPerSession: 0,
+      sessionSizeEffective: 5,
+      reviewQueueLength: 0,
+      attemptedCount: 20,
+    });
+    expect(c.overflowSlots).toBe(0);
+    expect(c.effectiveSessionTarget).toBe(0);
+  });
+
+  it("cold start fills all slots with new regardless of strategy", () => {
+    const c = computeSessionComposition({
+      newPerSession: 0, // even Lock In Retention
+      sessionSizeEffective: 5,
+      reviewQueueLength: 0,
+      attemptedCount: 0,
+    });
+    expect(c.coldStart).toBe(true);
+    expect(c.overflowSlots).toBe(5);
+    expect(c.effectiveNewSlots).toBe(5);
+    expect(c.effectiveSessionTarget).toBe(5);
   });
 });

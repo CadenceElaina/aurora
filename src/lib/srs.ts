@@ -23,6 +23,14 @@ export interface AttemptSignals {
 export const MIN_STABILITY = 0.5; // days
 export const MAX_STABILITY = 365; // days
 const RETRIEVABILITY_FLOOR = 0.3;
+
+// Minimum scheduling interval. Distinct from MIN_STABILITY: stability is a memory-model
+// quantity that feeds R(t) = e^(-t/S), so it must stay free to drop to 0.5 for genuinely
+// weak items. The 1-day floor is a *scheduling* constraint — we never surface the same
+// problem twice in one day, even when computed stability is below 1.0. Applied in
+// computeNextReviewDate so retrievability math is unaffected. (Failed/struggled attempts
+// already hardcode a 24h interval in the attempts route; this covers the remaining path.)
+export const MIN_REVIEW_INTERVAL_DAYS = 1;
 export const MASTERY_THRESHOLD = 45; // stability (days) treated as 100% mastery
 
 // Base for first-attempt stability. Using 2.0 rather than MIN_STABILITY (0.5)
@@ -54,6 +62,13 @@ export const BASE_MULTIPLIERS: Record<string, number> = {
   "NO:BRUTE_FORCE": 0.8,
   "NO:NONE": 0.5,
 };
+
+// Effective-multiplier ceiling for PARTIAL outcomes. Modifiers (confidence +0.3,
+// fast-solve +0.2) can push a PARTIAL above its 1.1 base — up to 1.6 — which would
+// exceed the minimum clean YES (YES:BRUTE_FORCE = 1.5). "Needed help" must always earn
+// less stability growth than "solved it", so PARTIAL is capped here. Enforces the
+// invariant NO < PARTIAL < YES regardless of modifier stacking.
+export const PARTIAL_MAX_MULTIPLIER = 1.25;
 
 /* ── Modifier bonuses (§6.2) ── */
 
@@ -93,44 +108,48 @@ export function computeRetrievability(
   return Math.max(r, RETRIEVABILITY_FLOOR);
 }
 
+/**
+ * Effective stability multiplier = base (from outcome×quality) + modifiers,
+ * with PARTIAL outcomes capped at PARTIAL_MAX_MULTIPLIER so "needed help" never
+ * out-grows a clean solve. Shared by computeNewStability and computeInitialStability.
+ *
+ * Example — YES:OPTIMAL, confidence 5, no rewrite, Medium 20 min:
+ *   base 2.5 + conf 0.3 + 0 + 0 = 2.8  → newS = oldS × 2.8 (clamped to [0.5, 365])
+ *   initial: INITIAL_STABILITY_BASE (2.0) × 2.8 = 5.6 days
+ * Matches README §Algorithm and ARCHITECTURE.md §6.2 — verified 2026-05-03.
+ */
+export function computeEffectiveMultiplier(signals: AttemptSignals): number {
+  const key = `${signals.solvedIndependently}:${signals.solutionQuality}`;
+  const baseMultiplier = BASE_MULTIPLIERS[key] ?? 1.0;
+  const effective = baseMultiplier + computeModifier(signals);
+  if (signals.solvedIndependently === "PARTIAL") {
+    return Math.min(effective, PARTIAL_MAX_MULTIPLIER);
+  }
+  return effective;
+}
+
 /** Calculate new stability after an attempt. */
 export function computeNewStability(
   oldStability: number,
   signals: AttemptSignals,
 ): number {
-  const key = `${signals.solvedIndependently}:${signals.solutionQuality}`;
-  const baseMultiplier = BASE_MULTIPLIERS[key] ?? 1.0;
-  const modifier = computeModifier(signals);
-  const effectiveMultiplier = baseMultiplier + modifier;
-
-  // Example trace — solved+optimal+confidence-5, no rewrite, Medium, 20 min:
-  //   key          = "YES:OPTIMAL"  → baseMultiplier = 2.5  (README table ✓)
-  //   computeModifier: confidence 5 → +0.3; no rewrite → +0; no fast-solve → +0
-  //   effectiveMultiplier = 2.5 + 0.3 = 2.8
-  //   newS = oldS × 2.8  (clamped to [0.5, 365])
-  // For computeInitialStability: INITIAL_STABILITY_BASE (2.0) × 2.8 = 5.6 days
-  // Matches README §Algorithm and ARCHITECTURE.md §6.2 — verified 2026-05-03.
-
-  const newS = oldStability * effectiveMultiplier;
+  const newS = oldStability * computeEffectiveMultiplier(signals);
   return clampStability(newS);
 }
 
 /** Calculate initial stability for a first attempt. */
 export function computeInitialStability(signals: AttemptSignals): number {
-  const key = `${signals.solvedIndependently}:${signals.solutionQuality}`;
-  const baseMultiplier = BASE_MULTIPLIERS[key] ?? 1.0;
-  const modifier = computeModifier(signals);
-
-  const s = INITIAL_STABILITY_BASE * (baseMultiplier + modifier);
+  const s = INITIAL_STABILITY_BASE * computeEffectiveMultiplier(signals);
   return clampStability(s);
 }
 
-/** Compute next review date from stability. */
+/** Compute next review date from stability, floored at MIN_REVIEW_INTERVAL_DAYS. */
 export function computeNextReviewDate(
   stability: number,
   fromDate: Date = new Date(),
 ): Date {
-  const ms = stability * 24 * 60 * 60 * 1000;
+  const intervalDays = Math.max(MIN_REVIEW_INTERVAL_DAYS, stability);
+  const ms = intervalDays * 24 * 60 * 60 * 1000;
   return new Date(fromDate.getTime() + ms);
 }
 

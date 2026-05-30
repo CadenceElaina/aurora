@@ -21,6 +21,8 @@ import {
   avg,
   queueStability,
   computeCapacity,
+  computeSessionComposition,
+  orderByLastReviewedAsc,
   AVG_PROBLEM_SESSION_MINUTES,
   type ListMode,
   type ReviewItem,
@@ -37,7 +39,17 @@ import {
   type QueueProjection,
   type QueueStability,
   type AdvisoryThreshold,
+  type SessionStrategy,
 } from "@/lib/capacity";
+import {
+  reconcileSessionSnapshot,
+  addActedReview,
+  addActedNew,
+  removeFromPlan,
+  sessionTarget,
+  isSessionComplete,
+  type DailySessionSnapshot,
+} from "@/lib/session";
 
 /* ── Types ── */
 type MockPhase = "setup" | "active" | "finished";
@@ -227,10 +239,13 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
   const [demoCtaReason, setDemoCtaReason] = useState<DemoCtaReason>("generic");
   const [demoSessionChanged, setDemoSessionChanged] = useState(false);
   const [sessionViewMode, setSessionViewMode] = useState<"session" | "queue">("session");
-  const [sessionActedOn, setSessionActedOn] = useState(0);
-  const [sessionNewActedOn, setSessionNewActedOn] = useState(0);
+  // Server-backed daily session plan (T-030). Source of truth for the day's target and
+  // acted-on problems; hydrated from the server, persists across devices and reloads.
+  const [sessionSnapshot, setSessionSnapshot] = useState<DailySessionSnapshot | null>(data.todaySession);
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [newPerSession, setNewPerSession] = useState(data.newPerSession);
   const [advisoryThreshold, setAdvisoryThreshold] = useState<AdvisoryThreshold>(data.advisoryThreshold);
+  const [strategy] = useState<SessionStrategy>(data.strategy);
   const [forkChoices, setForkChoices] = useState<ForkChoices>(() => {
     if (typeof window === "undefined") return {};
     try {
@@ -247,7 +262,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
   });
   const [sessionSizeOverride, setSessionSizeOverride] = useState<number | null>(null);
 
-  const { confettiBurst, playSessionComplete, resetSessionFired, playProblemLog, checkInactivity, recordSubmit } = useCelebration();
+  const { confettiBurst, playSessionComplete, playProblemLog, checkInactivity, recordSubmit } = useCelebration();
 
   const activityData = useMemo(() => {
     if (activityViewMode === "monthly") return data.fullAttemptHistory;
@@ -286,12 +301,19 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     // DB value always wins — overwrite any stale localStorage entry on every mount
     localStorage.setItem("aurora_time_budget", String(data.dailyTimeBudgetMinutes));
     const saved = localStorage.getItem("srs_target");
+    let restoredCount: number | null = null;
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (parsed.date) setTargetDate(parsed.date);
-        if (parsed.count) setTargetCount(parsed.count);
+        if (parsed.count) { setTargetCount(parsed.count); restoredCount = parsed.count; }
       } catch { /* ignore */ }
+    }
+    // DB value wins over localStorage for the persisted target date. Count is not yet
+    // a DB column (derived from goalType), so it still comes from localStorage above.
+    if (data.targetDate) {
+      setTargetDate(data.targetDate);
+      localStorage.setItem("srs_target", JSON.stringify({ date: data.targetDate, count: restoredCount ?? targetCount }));
     }
     const savedGoal = localStorage.getItem("srs_goal_type");
     if (savedGoal && ["blind75", "neetcode150", "none"].includes(savedGoal)) {
@@ -318,22 +340,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     }
     const savedQueueView = localStorage.getItem("aurora_queue_view_mode");
     if (savedQueueView === "session" || savedQueueView === "queue") setSessionViewMode(savedQueueView);
-    const savedSessionProgress = localStorage.getItem("aurora_session_progress");
-    if (savedSessionProgress) {
-      try {
-        const prog = JSON.parse(savedSessionProgress);
-        const today = new Date().toISOString().slice(0, 10);
-        if (prog.date === today) setSessionActedOn(prog.actedOn ?? 0);
-      } catch { /* ignore */ }
-    }
-    const savedSessionNewProgress = localStorage.getItem("aurora_session_new_progress");
-    if (savedSessionNewProgress) {
-      try {
-        const prog = JSON.parse(savedSessionNewProgress);
-        const today = new Date().toISOString().slice(0, 10);
-        if (prog.date === today) setSessionNewActedOn(prog.newActedOn ?? 0);
-      } catch { /* ignore */ }
-    }
+    // Session progress is now server-backed (see sessionSnapshot / T-030); no localStorage hydration.
     // DB values win for newPerSession and advisoryThreshold — sync localStorage to match
     localStorage.setItem("aurora_new_per_session", String(data.newPerSession));
     localStorage.setItem("aurora_advisory_threshold", data.advisoryThreshold);
@@ -389,6 +396,14 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     setCountdownTitle(title);
     localStorage.setItem("srs_target", JSON.stringify({ date, count }));
     localStorage.setItem("aurora_countdown_title", title);
+    // Persist the target date to the DB so it survives across devices / cache clears.
+    if (!isDemo) {
+      fetch("/api/user/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetDate: date || null }),
+      }).catch(() => {});
+    }
     setShowSettings(false);
   }
 
@@ -611,6 +626,11 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
   }, [forecastMode, queueProjection, queueProjectionGoals]);
 
   const sortedReviewQueue = useMemo(() => {
+    // T4-A: Push Coverage orders reviews FIFO (oldest-reviewed first) by default instead of
+    // SRS priority. An explicit sort choice (overdue/difficulty/category) still takes precedence.
+    if (strategy === "push_coverage" && reviewSort === "urgency") {
+      return orderByLastReviewedAsc(reviewItems);
+    }
     const q = [...reviewItems];
     if (reviewSort === "urgency") {
       q.sort((a, b) => {
@@ -628,7 +648,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
       q.sort((a, b) => a.category.localeCompare(b.category) || b.daysOverdue - a.daysOverdue);
     }
     return q;
-  }, [reviewItems, reviewSort, categoryStatsMap]);
+  }, [reviewItems, reviewSort, categoryStatsMap, strategy]);
 
   const sortedNewProblems = useMemo(() => {
     let q = goalType === "blind75" ? newItems.filter(p => p.blind75) : [...newItems];
@@ -654,22 +674,25 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
 
   const sessionSizeEffective = sessionSizeOverride ?? sessionSize;
   // Split session budget between review slots and new-problem slots.
-  const newSlots = Math.min(newPerSession, sessionSizeEffective);
-  const reviewSlots = Math.max(0, sessionSizeEffective - newSlots);
-
-  // Cold-start: user has no attempted problems → fill all slots with new problems regardless of strategy.
-  // This fires on day 1 so even Lock In Retention users see something to do.
-  // Overflow: when the initial review queue is shorter than the reserved review slots and the user
-  // expects new problems (newPerSession > 0), the unused review slots become curriculum slots.
-  // Lock In Retention (newPerSession=0) stays reviews-only after cold start; short sessions are expected.
-  const coldStart = data.attemptedCount === 0;
-  const availableReviewCount = Math.min(data.reviewQueue.length, reviewSlots);
-  const unusedReviewSlots = Math.max(0, reviewSlots - availableReviewCount);
-  const overflowSlots = (coldStart || newPerSession > 0) ? unusedReviewSlots : 0;
-  const effectiveNewSlots = Math.min(newSlots + overflowSlots, sessionSizeEffective);
-  // effectiveSessionTarget: number of items that will actually appear in today's session.
-  // May be less than sessionSizeEffective for Lock In Retention users with a short queue.
-  const effectiveSessionTarget = availableReviewCount + effectiveNewSlots;
+  // Session composition (review vs. new slots, cold-start fill, empty-queue overflow)
+  // lives in computeSessionComposition (src/lib/capacity.ts) so its slot math is unit-tested.
+  // effectiveSessionTarget is the number of items that actually appear today; it may be less
+  // than sessionSizeEffective for Lock In Retention users with a short queue.
+  const {
+    coldStart,
+    newSlots,
+    reviewSlots,
+    availableReviewCount,
+    unusedReviewSlots,
+    overflowSlots,
+    effectiveNewSlots,
+    effectiveSessionTarget: compositionTarget,
+  } = computeSessionComposition({
+    newPerSession,
+    sessionSizeEffective,
+    reviewQueueLength: data.reviewQueue.length,
+    attemptedCount: data.attemptedCount,
+  });
 
   const blind75DifficultyBreakdown = useMemo((): DifficultyBreakdown[] => {
     const b75 = data.importProblems.filter(p => p.blind75);
@@ -709,6 +732,59 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     return recs;
   }, [data.categoryStats, newItems, autoDeferHards, goalType, forkChoices, effectiveNewSlots]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Daily session plan (T-030) ────────────────────────────────────────────
+  // Build today's plan from the live due queue + curriculum picks. The plan (and thus
+  // the completion target) is snapshotted once per day so it can't drift as the queue shrinks.
+  const freshPlan = useMemo(() => ({
+    plannedReviewIds: data.reviewQueue.slice(0, reviewSlots).map((r) => r.problemId),
+    plannedNewIds: curriculumRecs.slice(0, effectiveNewSlots).map((r) => r.problem.id),
+  }), [data.reviewQueue, reviewSlots, curriculumRecs, effectiveNewSlots]);
+
+  // Create today's plan server-side once if it doesn't exist yet (idempotent via the API).
+  const planEnsuredRef = useRef(false);
+  useEffect(() => {
+    if (isDemo || planEnsuredRef.current) return;
+    if (data.todaySession && data.todaySession.date === today) {
+      planEnsuredRef.current = true; // server already has today's plan (used to init state)
+      return;
+    }
+    // Wait until there's something to plan, so we don't persist an empty plan on first paint.
+    if (freshPlan.plannedReviewIds.length === 0 && freshPlan.plannedNewIds.length === 0) return;
+    planEnsuredRef.current = true;
+    const planned = reconcileSessionSnapshot({ stored: data.todaySession, today, freshPlan });
+    setSessionSnapshot(planned);
+    fetch("/api/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: today, plannedReviewIds: planned.plannedReviewIds, plannedNewIds: planned.plannedNewIds }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (j?.session) {
+          const s = j.session;
+          setSessionSnapshot({
+            date: s.date, plannedReviewIds: s.plannedReviewIds, plannedNewIds: s.plannedNewIds,
+            actedReviewIds: s.actedReviewIds, actedNewIds: s.actedNewIds, completed: s.completed,
+          });
+        }
+      })
+      .catch(() => { /* offline — the optimistic snapshot stands */ });
+  }, [isDemo, data.todaySession, today, freshPlan]);
+
+  // Progress derived from the snapshot's acted-on sets (a problem counts at most once).
+  // Falls back to the live composition target only before a plan exists (and in demo mode).
+  const sessionActedOn = useMemo(() => {
+    if (!sessionSnapshot) return 0;
+    const acted = new Set(sessionSnapshot.actedReviewIds);
+    return sessionSnapshot.plannedReviewIds.filter((id) => acted.has(id)).length;
+  }, [sessionSnapshot]);
+  const sessionNewActedOn = useMemo(() => {
+    if (!sessionSnapshot) return 0;
+    const acted = new Set(sessionSnapshot.actedNewIds);
+    return sessionSnapshot.plannedNewIds.filter((id) => acted.has(id)).length;
+  }, [sessionSnapshot]);
+  const effectiveSessionTarget = sessionSnapshot ? sessionTarget(sessionSnapshot) : compositionTarget;
+
   // Session-specific slice: effective new slots (may be > newPerSession when overflow kicks in).
   const sessionCurriculumRecs = curriculumRecs.slice(0, effectiveNewSlots).slice(sessionNewActedOn);
 
@@ -730,19 +806,20 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     }
   }, [curriculumRecs]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Detect session-complete threshold crossing and fire celebration exactly once per crossing.
-  // Uses effectiveSessionTarget so Lock In Retention users with short queues complete at the right count.
-  const prevSessionTotalRef = useRef(0);
+  // Fire the session-complete celebration exactly once per day. Gated on the snapshot's
+  // persisted `completed` flag, so reloading (or opening on another device) never re-celebrates.
   useEffect(() => {
-    const total = sessionActedOn + sessionNewActedOn;
-    const wasBelow = prevSessionTotalRef.current < effectiveSessionTarget;
-    const isNowComplete = total >= effectiveSessionTarget && total > 0;
-    if (wasBelow && isNowComplete && !isDemo && sessionViewMode === "session") {
+    if (isDemo || !sessionSnapshot || sessionViewMode !== "session") return;
+    if (isSessionComplete(sessionSnapshot) && !sessionSnapshot.completed) {
       playSessionComplete();
+      setSessionSnapshot((prev) => (prev ? { ...prev, completed: true } : prev));
+      fetch("/api/session", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: today, action: "complete" }),
+      }).catch(() => { /* offline — flag is set optimistically and re-synced next load */ });
     }
-    if (!isNowComplete) resetSessionFired();
-    prevSessionTotalRef.current = total;
-  }, [sessionActedOn, sessionNewActedOn, effectiveSessionTarget]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionSnapshot, sessionViewMode, isDemo, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sessionQueue = useMemo(() => {
     if (sessionViewMode !== "session") return filteredReviewQueue;
@@ -796,8 +873,8 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     if (problem?.pendingId) {
       setPendingItems((prev) => prev.filter((p) => p.id !== problem.pendingId));
     }
-    if (problem?.isReview) recordSessionAction();
-    else if (problem?.isSessionNew) recordNewSessionAction();
+    if (problem?.isReview && typeof problem.problemId === "number") recordSessionAction(problem.problemId);
+    else if (problem?.isSessionNew && typeof problem.problemId === "number") recordNewSessionAction(problem.problemId);
     recordSubmit();
     playProblemLog();
     router.refresh();
@@ -879,24 +956,26 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
     setDemoSessionChanged(true);
   }
 
-  function recordSessionAction() {
+  // Record an acted-on problem in today's server-backed plan. Optimistic + idempotent: the
+  // snapshot uses ID sets, so the same problem never double-counts, and the PATCH is safe to retry.
+  function recordSessionAction(problemId: number) {
     if (isDemo) return;
-    setSessionActedOn((prev) => {
-      const next = prev + 1;
-      const today = new Date().toISOString().slice(0, 10);
-      localStorage.setItem("aurora_session_progress", JSON.stringify({ date: today, actedOn: next }));
-      return next;
-    });
+    setSessionSnapshot((prev) => (prev ? addActedReview(prev, problemId) : prev));
+    fetch("/api/session", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: today, action: "review", problemId }),
+    }).catch(() => { /* offline — optimistic snapshot stands, re-syncs next load */ });
   }
 
-  function recordNewSessionAction() {
+  function recordNewSessionAction(problemId: number) {
     if (isDemo) return;
-    setSessionNewActedOn((prev) => {
-      const next = prev + 1;
-      const today = new Date().toISOString().slice(0, 10);
-      localStorage.setItem("aurora_session_new_progress", JSON.stringify({ date: today, newActedOn: next }));
-      return next;
-    });
+    setSessionSnapshot((prev) => (prev ? addActedNew(prev, problemId) : prev));
+    fetch("/api/session", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: today, action: "new", problemId }),
+    }).catch(() => { /* offline */ });
   }
 
   async function handleDefer(problemId: number, until?: string) {
@@ -923,7 +1002,14 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
         deferredUntil: data_resp.deferredUntil,
         isAutoDeferred: false,
       }]);
-      recordSessionAction();
+      // Deferring drops the problem from today's plan so the target shrinks honestly
+      // (it's postponed, not completed), keeping the session reachable.
+      setSessionSnapshot((prev) => (prev ? removeFromPlan(prev, problemId) : prev));
+      fetch("/api/session", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: today, action: "remove", problemId }),
+      }).catch(() => { /* offline */ });
     }
   }
 
@@ -1283,51 +1369,7 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
             ) : (
               <div className="rounded-lg border border-border overflow-hidden flex-1 flex flex-col min-h-0">
                 <div className="overflow-y-auto flex-1 min-h-0">
-                  {/* Curriculum slots — shown when user has reserved new-problem slots in settings */}
-                  {sessionViewMode === "session" && sessionCurriculumRecs.map((rec) => (
-                    <div key={rec.problem.id} className="flex items-center gap-3 px-4 py-3 border-b-2 border-accent/30 bg-accent/5">
-                      <span className="text-xs text-muted-foreground w-8 shrink-0 tabular-nums">{rec.problem.leetcodeNumber}</span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline gap-1.5 min-w-0">
-                          <span className="text-[10px] font-semibold text-accent uppercase tracking-wide shrink-0">New</span>
-                          {rec.problem.neetcodeUrl ? (
-                            <a href={rec.problem.neetcodeUrl} target="_blank" rel="noopener noreferrer" className="text-base font-medium text-foreground hover:text-accent truncate min-w-0">
-                              {rec.problem.title}
-                            </a>
-                          ) : (
-                            <Link href={`/problems/${rec.problem.id}`} className="text-base font-medium text-foreground hover:text-accent truncate min-w-0">
-                              {rec.problem.title}
-                            </Link>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs text-muted-foreground">{rec.category}</span>
-                          <DifficultyBadge difficulty={rec.problem.difficulty} />
-                          <span className="text-xs text-muted-foreground">· {rec.reason}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {rec.problem.neetcodeUrl && (
-                          <a href={rec.problem.neetcodeUrl} target="_blank" rel="noopener noreferrer" title="NeetCode walkthrough" className="inline-flex h-6 items-center gap-0.5 rounded border border-border px-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">NC <ExternalLink size={10} /></a>
-                        )}
-                        <a href={rec.problem.leetcodeUrl} target="_blank" rel="noopener noreferrer" title="LeetCode problem" className="inline-flex h-6 items-center gap-0.5 rounded border border-border px-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">LC <ExternalLink size={10} /></a>
-                        <button
-                          onClick={() => openLog({
-                            problemId: rec.problem.id,
-                            title: rec.problem.title,
-                            leetcodeNumber: rec.problem.leetcodeNumber,
-                            difficulty: rec.problem.difficulty,
-                            category: rec.problem.category,
-                            isReview: false,
-                            isSessionNew: true,
-                          })}
-                          className="inline-flex h-7 items-center rounded-md bg-accent px-3 text-xs text-accent-foreground transition-colors hover:opacity-90"
-                        >
-                          Log
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                  {/* Reviews render first, then new-problem (curriculum) slots below — T3-A */}
                   {sessionQueue.map((item) => {
                     const prio = priorityLevel(item);
                     const catStat = categoryStatsMap.get(item.category);
@@ -1403,6 +1445,51 @@ export function DashboardClient({ data, isDemo = false, userId, onboardingComple
                       </div>
                     );
                   })}
+                  {/* Curriculum slots — shown when user has reserved new-problem slots in settings; rendered after reviews (T3-A) */}
+                  {sessionViewMode === "session" && sessionCurriculumRecs.map((rec) => (
+                    <div key={rec.problem.id} className="flex items-center gap-3 px-4 py-3 border-b-2 border-accent/30 bg-accent/5">
+                      <span className="text-xs text-muted-foreground w-8 shrink-0 tabular-nums">{rec.problem.leetcodeNumber}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline gap-1.5 min-w-0">
+                          <span className="text-[10px] font-semibold text-accent uppercase tracking-wide shrink-0">New</span>
+                          {rec.problem.neetcodeUrl ? (
+                            <a href={rec.problem.neetcodeUrl} target="_blank" rel="noopener noreferrer" className="text-base font-medium text-foreground hover:text-accent truncate min-w-0">
+                              {rec.problem.title}
+                            </a>
+                          ) : (
+                            <Link href={`/problems/${rec.problem.id}`} className="text-base font-medium text-foreground hover:text-accent truncate min-w-0">
+                              {rec.problem.title}
+                            </Link>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs text-muted-foreground">{rec.category}</span>
+                          <DifficultyBadge difficulty={rec.problem.difficulty} />
+                          <span className="text-xs text-muted-foreground">· {rec.reason}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {rec.problem.neetcodeUrl && (
+                          <a href={rec.problem.neetcodeUrl} target="_blank" rel="noopener noreferrer" title="NeetCode walkthrough" className="inline-flex h-6 items-center gap-0.5 rounded border border-border px-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">NC <ExternalLink size={10} /></a>
+                        )}
+                        <a href={rec.problem.leetcodeUrl} target="_blank" rel="noopener noreferrer" title="LeetCode problem" className="inline-flex h-6 items-center gap-0.5 rounded border border-border px-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">LC <ExternalLink size={10} /></a>
+                        <button
+                          onClick={() => openLog({
+                            problemId: rec.problem.id,
+                            title: rec.problem.title,
+                            leetcodeNumber: rec.problem.leetcodeNumber,
+                            difficulty: rec.problem.difficulty,
+                            category: rec.problem.category,
+                            isReview: false,
+                            isSessionNew: true,
+                          })}
+                          className="inline-flex h-7 items-center rounded-md bg-accent px-3 text-xs text-accent-foreground transition-colors hover:opacity-90"
+                        >
+                          Log
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

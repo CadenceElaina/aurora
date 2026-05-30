@@ -1,5 +1,7 @@
 /* ── Shared types (also used by dashboard-client.tsx) ── */
 
+import type { DailySessionSnapshot } from "./session";
+
 export type ListMode = "review" | "new" | "completed" | "import" | "mock";
 
 export type ReviewItem = {
@@ -114,6 +116,10 @@ export type MockCandidate = {
 
 export type AdvisoryThreshold = "relaxed" | "moderate" | "strict";
 
+// Explicit session strategy (persisted on users.strategy). Drives review ordering and
+// new-problem selection. Maps from onboarding's steady/coverage/retention choices.
+export type SessionStrategy = "push_coverage" | "balanced" | "lock_in_retention";
+
 export type DashboardData = {
   reviewQueue: ReviewItem[];
   deferredProblems: DeferredItem[];
@@ -121,6 +127,8 @@ export type DashboardData = {
   dailyTimeBudgetMinutes: number;
   newPerSession: number;
   advisoryThreshold: AdvisoryThreshold;
+  strategy: SessionStrategy;
+  targetDate: string | null;
   newProblems: NewProblem[];
   totalProblems: number;
   attemptedCount: number;
@@ -162,6 +170,8 @@ export type DashboardData = {
   importTodayAttemptedIds: number[];
   pendingSubmissions: PendingItem[];
   mockCandidates: MockCandidate[];
+  // Today's server-persisted session plan (T-030); null until the day's plan is created.
+  todaySession: DailySessionSnapshot | null;
 };
 
 export type QueueProjection = {
@@ -269,6 +279,70 @@ export function computeCapacity(
   return { reviewCapacity, remainingMinutes, newCapacity, canFitEasy };
 }
 
+/**
+ * FIFO review order (T4-A, Push Coverage): oldest-reviewed first. Problems never reviewed
+ * (lastReviewedAt === null) sort to the front. ISO timestamp strings compare chronologically.
+ * Pure and non-mutating.
+ */
+export function orderByLastReviewedAsc<T extends { lastReviewedAt: string | null }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    if (a.lastReviewedAt === b.lastReviewedAt) return 0;
+    if (a.lastReviewedAt === null) return -1;
+    if (b.lastReviewedAt === null) return 1;
+    return a.lastReviewedAt.localeCompare(b.lastReviewedAt);
+  });
+}
+
+/* ── computeSessionComposition ── */
+
+export type SessionComposition = {
+  coldStart: boolean;
+  newSlots: number;
+  reviewSlots: number;
+  availableReviewCount: number;
+  unusedReviewSlots: number;
+  overflowSlots: number;
+  effectiveNewSlots: number;
+  effectiveSessionTarget: number;
+};
+
+/**
+ * Compose today's session into review slots and new-problem slots.
+ *
+ * Overflow rule: unused review slots become new-problem slots only on cold
+ * start (day 1, so even Lock In Retention users see something to do) or when
+ * the review queue is completely empty. A user who wants new problems but
+ * still has reviews due gets exactly their requested new count — not the whole
+ * unused remainder. Lock In Retention (`newPerSession === 0`) never overflows
+ * after cold start, so short sessions are expected and correct.
+ */
+export function computeSessionComposition(params: {
+  newPerSession: number;
+  sessionSizeEffective: number;
+  reviewQueueLength: number;
+  attemptedCount: number;
+}): SessionComposition {
+  const { newPerSession, sessionSizeEffective, reviewQueueLength, attemptedCount } = params;
+  const newSlots = Math.min(newPerSession, sessionSizeEffective);
+  const reviewSlots = Math.max(0, sessionSizeEffective - newSlots);
+  const coldStart = attemptedCount === 0;
+  const availableReviewCount = Math.min(reviewQueueLength, reviewSlots);
+  const unusedReviewSlots = Math.max(0, reviewSlots - availableReviewCount);
+  const overflowSlots = (coldStart || (newPerSession > 0 && availableReviewCount === 0)) ? unusedReviewSlots : 0;
+  const effectiveNewSlots = Math.min(newSlots + overflowSlots, sessionSizeEffective);
+  const effectiveSessionTarget = availableReviewCount + effectiveNewSlots;
+  return {
+    coldStart,
+    newSlots,
+    reviewSlots,
+    availableReviewCount,
+    unusedReviewSlots,
+    overflowSlots,
+    effectiveNewSlots,
+    effectiveSessionTarget,
+  };
+}
+
 /* ── computePracticeRecommendation ── */
 
 export function computePracticeRecommendation({
@@ -364,6 +438,20 @@ export function computePracticeRecommendation({
       body: "Review what's due before adding anything new.",
       reason: `${daysSinceLastAttempt !== null && daysSinceLastAttempt >= 7 ? "Your review queue has built up while you were away." : "Your queue has grown since your last session."} Start with a lighter session to rebuild momentum — aim for ${warmupTarget} reviews today.`,
       actionLabel: "Review queue",
+      actionMode: "review",
+      metrics,
+    };
+  }
+
+  // Overloaded (RED) — queue is well beyond capacity (T4-B). Checked before the ORANGE
+  // ceiling because RED (>2.0) implies ORANGE (>1.5); this is the most urgent danger state.
+  if (queueLoadRatio > QUEUE_RED_RATIO) {
+    return {
+      tone: "danger",
+      title: "Queue overloaded — triage now",
+      body: `Your queue is projecting ~${Math.round(metrics.backAvg)} due/day, well beyond your ~${capacity.reviewCapacity}/day capacity. Stop all new problems, clear the most-overdue reviews first, and defer low-priority items to recover.`,
+      reason: `At your current pace the next 14 days average ${avgQueueLabel} due reviews and peak near ${peakQueueLabel} — more than you can clear without deferring.`,
+      actionLabel: "Review first",
       actionMode: "review",
       metrics,
     };

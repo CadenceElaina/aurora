@@ -10,6 +10,8 @@
 
 For a new contributor or a returning session, read in this order:
 
+0. **[SYSTEM_OVERVIEW.md](SYSTEM_OVERVIEW.md)** — start here. Single-page tour of the whole system: SRS algorithm, strategy modes, onboarding, session composition, queue/advisory, progress tracking, settings, and the constants glossary.
+
 1. **[PACING_SYSTEM.md](PACING_SYSTEM.md)** — the main design doc. Defines the time budget model, queue load ratio, threshold zones, recommendation decision tree, and implementation phases.
 
 2. **[CONSTANTS.md](CONSTANTS.md)** — single source of truth for every numeric constant. Check here before changing any threshold, and update it when you do.

@@ -128,6 +128,36 @@ describe("computeNewStability", () => {
     for (const r of results) expect(r).toBeCloseTo(results[0], 5);
   });
 
+  it("PARTIAL multiplier is capped at 1.25 even when modifiers stack", () => {
+    // base 1.1 + conf-5 (+0.3) + fast-solve (+0.2) = 1.6 uncapped → would exceed
+    // YES:BRUTE_FORCE (1.5). Cap holds it at PARTIAL_MAX_MULTIPLIER = 1.25.
+    const s = computeNewStability(
+      OLD,
+      signals({ solvedIndependently: "PARTIAL", confidence: 5, solveTimeMinutes: 3, difficulty: "Easy" }),
+    );
+    expect(s).toBeCloseTo(OLD * 1.25, 5);
+  });
+
+  it("capped PARTIAL stays below the minimum clean YES (BRUTE_FORCE = 1.5)", () => {
+    const bestPartial = computeNewStability(
+      OLD,
+      signals({ solvedIndependently: "PARTIAL", confidence: 5, solveTimeMinutes: 3, difficulty: "Easy" }),
+    );
+    const minCleanYes = computeNewStability(
+      OLD,
+      signals({ solvedIndependently: "YES", solutionQuality: "BRUTE_FORCE" }),
+    );
+    expect(bestPartial).toBeLessThan(minCleanYes);
+  });
+
+  it("PARTIAL below the cap is unaffected (conf 4, no fast-solve → 1.1 + 0.1 = 1.2)", () => {
+    const s = computeNewStability(
+      OLD,
+      signals({ solvedIndependently: "PARTIAL", confidence: 4 }),
+    );
+    expect(s).toBeCloseTo(OLD * 1.2, 5);
+  });
+
   it("NO+NONE, conf 3 → old × 0.5", () => {
     const s = computeNewStability(
       OLD,
@@ -289,9 +319,21 @@ describe("computeNextReviewDate", () => {
     expect(next.getTime()).toBe(FROM.getTime() + 7 * 86400000);
   });
 
-  it("stability of 0.5 days → fromDate + 12 hours", () => {
+  it("stability below 1 day is floored to a 1-day interval", () => {
+    // Scheduling never surfaces a problem twice in one day, even if computed
+    // stability drops below 1.0 (e.g. a weak item re-attempted as PARTIAL).
     const next = computeNextReviewDate(0.5, FROM);
-    expect(next.getTime()).toBe(FROM.getTime() + 0.5 * 86400000);
+    expect(next.getTime()).toBe(FROM.getTime() + 86400000);
+  });
+
+  it("stability of exactly 1 day is unaffected by the floor", () => {
+    const next = computeNextReviewDate(1, FROM);
+    expect(next.getTime()).toBe(FROM.getTime() + 86400000);
+  });
+
+  it("stability above 1 day passes through unchanged", () => {
+    const next = computeNextReviewDate(2.5, FROM);
+    expect(next.getTime()).toBe(FROM.getTime() + 2.5 * 86400000);
   });
 
   it("defaults fromDate to now", () => {

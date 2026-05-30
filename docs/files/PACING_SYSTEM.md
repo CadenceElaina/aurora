@@ -2,9 +2,9 @@
 
 > Defines how Aurora manages the balance between new problem coverage and review load, including daily time budgets, queue thresholds, and adaptive recommendations.
 
-**Status:** Design — not yet implemented
-**Depends on:** `src/lib/srs.ts`, `dashboard-client.tsx` (forecast + recommendation engine)
-**Last updated:** 2026-05-10
+**Status:** Implemented (Phases 1–2; later-phase items tracked in [README.md](README.md) Implementation Status)
+**Depends on:** `src/lib/srs.ts`, `src/lib/capacity.ts`, `src/lib/pacing.ts`, `dashboard-client.tsx` (forecast + recommendation engine)
+**Last updated:** 2026-05-28
 
 ---
 

@@ -9,6 +9,7 @@ import {
   real,
   timestamp,
   date,
+  jsonb,
   pgEnum,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -77,6 +78,9 @@ export const users = pgTable("user", {
   dailyTimeBudgetMinutes: integer("daily_time_budget_minutes").notNull().default(60),
   newPerSession: smallint("new_per_session").notNull().default(1),
   advisoryThreshold: varchar("advisory_threshold", { length: 10 }).notNull().default("moderate"),
+  // Explicit session strategy the user picks; drives review ordering + new-problem selection.
+  // varchar (not a pg enum) to mirror advisory_threshold and avoid destructive enum alters.
+  strategy: varchar("strategy", { length: 20 }).notNull().default("balanced"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -207,3 +211,26 @@ export const pendingSubmissions = pgTable("pending_submission", {
   detectedAt: timestamp("detected_at").defaultNow().notNull(),
   resolvedAt: timestamp("resolved_at"),
 });
+
+/* ── Daily Session (cross-day session-state integrity, T-030) ── */
+
+export const dailySessions = pgTable("daily_session", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  // Calendar day this session plan belongs to, "YYYY-MM-DD" (user-local day, set by the client).
+  date: varchar("date", { length: 10 }).notNull(),
+  // Day-start snapshot of which problems make up today's session — the stable target.
+  plannedReviewIds: jsonb("planned_review_ids").$type<number[]>().notNull().default(sql`'[]'::jsonb`),
+  plannedNewIds: jsonb("planned_new_ids").$type<number[]>().notNull().default(sql`'[]'::jsonb`),
+  // Problems actually acted on today, tracked as sets so each counts at most once.
+  actedReviewIds: jsonb("acted_review_ids").$type<number[]>().notNull().default(sql`'[]'::jsonb`),
+  actedNewIds: jsonb("acted_new_ids").$type<number[]>().notNull().default(sql`'[]'::jsonb`),
+  completed: boolean("completed").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  // One session plan per user per calendar day; also guards duplicate-plan races.
+  uniqueIndex("daily_session_user_date_unique").on(table.userId, table.date),
+]);
