@@ -151,11 +151,11 @@ All other modes + empty queue:       unused review slots → extra new slots
 
 **Session complete:** celebration + "Load more reviews" button available. Extra reviews loaded today respect per-problem cooldowns and are subtracted from tomorrow's session to prevent double-counting.
 
-🔧 **T-030 — Cross-day session state integrity (showcase blocker):**
-- Session must track which problems were reviewed today (not just a counter)
-- Tomorrow's session = problems due tomorrow minus reviewed today
-- "Load more" surfaces next-priority items respecting 1-day cooldown
-- Same problem cannot appear twice in one day
+✅ **T-030 — Cross-day session state integrity:** server-backed `daily_session` (per-user/day plan).
+- The day's plan is snapshotted as problem-ID *sets*, so the target is stable and a problem can't appear twice in one day.
+- Progress and the "completed" flag persist server-side → reloading or opening on another device never re-celebrates.
+- Reviewed/skipped problems leave the queue via `nextReviewAt`, so tomorrow's session is correct automatically; deferring drops a problem from today's plan.
+- See `src/lib/session.ts` (pure) + `/api/session`.
 
 **Render order in session view:** ✅ reviews displayed first, then new problems.
 
@@ -339,7 +339,7 @@ User opens settings
 
 | Task | Description | Status |
 |------|-------------|--------|
-| **T-030** | Cross-day session state integrity — "load more" today can't disrupt tomorrow | 🔧 |
+| **T-030** | Cross-day session state integrity — server-backed daily session | ✅ |
 | 1-day minimum interval | Enforced in `computeNextReviewDate` | ✅ |
 | RED zone branch | Add to `computePracticeRecommendation` (T4-B) | 🔧 |
 | FIFO review order for Push Coverage | Currently SRS priority for all modes (T4-A) | 🔧 |

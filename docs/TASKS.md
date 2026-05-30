@@ -22,7 +22,6 @@ Last updated: 2026-05-28 — T1-A/T1-B/T2-A complete; T-030/T-031 added
 
 | ID    | Tier | Description |
 | ----- | ---- | ----------- |
-| T-030 | P0   | **Cross-day session state integrity** (showcase blocker): a session that "loads more" today must not double-count or re-surface problems in tomorrow's session; the same problem must never appear twice in one day. Touches `schema.ts`, `/api/attempts`, `/api/review`, `dashboard-client.tsx`. Requires a cross-day test. **Plan and confirm before implementing.** |
 | T-031 | P2   | **Audit SRS factor weights**: verify the `NO ≤ PARTIAL ≤ YES` effective-multiplier ordering holds end-to-end; reassess the role of confidence for procedural (non-flashcard) recall, plus the rewrite bonus and fast-solve bonus. Research-priority; defer code changes unless an obvious bug surfaces. |
 | T-029 | P2   | **TBD**: Mock interview tab removed from dashboard tab bar (2026-05-17). UI + state code (`MockPhase`, `pickMockProblems`, mock timer, `MockCandidate`) still present in `dashboard-client.tsx`. Decide: re-surface as a dedicated page/route, keep as hidden feature, or remove entirely. |
 
@@ -39,6 +38,7 @@ Last updated: 2026-05-28 — T1-A/T1-B/T2-A complete; T-030/T-031 added
 
 | ID    | Completed  | Description                                                                                                                             |
 | ----- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| T-030 | 2026-05-30 | `feat(db/api/dashboard)`: **Cross-day session state integrity** (showcase blocker) — server-backed `daily_session` table (per-user/day plan: planned + acted ID sets + completed flag, `UNIQUE(userId,date)`); pure `src/lib/session.ts` (reconcile/idempotent sets/target); `/api/session` GET/POST/PATCH; dashboard hydrates from server, completion gated on persisted flag (no re-celebrate on reload/2nd device), defer shrinks the plan. Table applied via direct DDL (drizzle-kit push crashes on a pre-existing CHECK constraint in this DB). Verified: tsc, 268 tests (incl. cross-day), build, dev smoke. **Authenticated end-to-end browser walkthrough not yet done.** |
 | T2-A  | 2026-05-28 | `fix(dashboard)` (`6531098`): persist `targetDate` to DB instead of localStorage only — DB value wins over localStorage; saves via PATCH `/api/user/settings`. Reused existing `user.target_date` column, no migration. |
 | T1-B  | 2026-05-28 | `feat(srs)` (`86a1d13`): cap PARTIAL effective multiplier at `PARTIAL_MAX_MULTIPLIER = 1.25` (real uncapped ceiling was 1.6× via conf-5 + fast-solve, exceeding YES:BRUTE_FORCE). Shared `computeEffectiveMultiplier` helper extracted. |
 | T1-A  | 2026-05-28 | `feat(srs)` (`c1647bb`): enforce 1-day minimum review interval — floored in `computeNextReviewDate` (not `clampStability`, so retrievability math is untouched). Constant `MIN_REVIEW_INTERVAL_DAYS = 1`. |
